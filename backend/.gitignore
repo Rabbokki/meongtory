@@ -1,0 +1,47 @@
+### Java ###
+*.class
+*.jar
+*.war
+*.ear
+
+### Logs ###
+*.log
+logs/
+log/
+logfile/
+*.out
+
+### Spring Boot ###
+target/
+bin/
+build/
+
+### Gradle ###
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+.gradle/
+**/build/
+
+### IntelliJ ###
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+
+### VSCode ###
+.vscode/
+
+### OS ###
+.DS_Store
+Thumbs.db
+
+### Env or Secrets ###
+.env
+.env.*
+*.key
+*.pem
+
+### Others ###
+node_modules/
