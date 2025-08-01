@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Edit } from "lucide-react"
+import { Plus, Edit, Mic } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { fetchDiaries } from "@/lib/api/diary"
 
 interface DiaryEntry {
   id: number
@@ -19,7 +20,8 @@ interface DiaryEntry {
   height?: number
   mood: string
   activities: string[]
-  ownerEmail?: string // Added ownerEmail to the interface
+  userId: number
+  audioUrl?: string 
 }
 
 interface GrowthDiaryPageProps {
@@ -41,51 +43,32 @@ export default function GrowthDiaryPage({
   currentUserId,
   onNavigateToWrite,
 }: GrowthDiaryPageProps) {
-  // const [showAddEntryForm, setShowAddEntryForm] = useState(false) // Removed
-  const [newEntryTitle, setNewEntryTitle] = useState("")
-  const [newEntryContent, setNewEntryContent] = useState("")
-  const [newEntryPetName, setNewEntryPetName] = useState("")
-  const [newEntryImages, setNewEntryImages] = useState<string[]>([])
-  const [newEntryMilestones, setNewEntryMilestones] = useState<string>("")
-  const [newEntryMood, setNewEntryMood] = useState("")
-  const [newEntryActivities, setNewEntryActivities] = useState<string>("")
 
-  // handleAddEntry function will be moved to the new page, but keeping it for reference for now
-  const handleAddEntry = () => {
-    if (!newEntryTitle || !newEntryContent || !newEntryPetName) {
-      alert("모든 필드를 채워주세요.")
-      return
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
+
+  useEffect(() => {
+    if (currentUserId) {
+      fetchDiaries(Number(currentUserId))
+        .then(setDiaryEntries)
+        .catch((err) => {
+          console.error("일기 목록 불러오기 실패:", err)
+        })
+    } else {
+      fetchDiaries()
+        .then(setDiaryEntries)
+        .catch((err) => {
+          console.error("일기 목록 불러오기 실패:", err)
+        })
     }
+  }, [currentUserId])
 
-    onAddEntry({
-      petName: newEntryPetName,
-      title: newEntryTitle,
-      content: newEntryContent,
-      images: newEntryImages,
-      milestones: newEntryMilestones
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-      mood: newEntryMood,
-      activities: newEntryActivities
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    })
 
-    // Reset form
-    setNewEntryTitle("")
-    setNewEntryContent("")
-    setNewEntryPetName("")
-    setNewEntryImages([])
-    setNewEntryMilestones("")
-    setNewEntryMood("")
-    setNewEntryActivities("")
-    // setShowAddEntryForm(false) // This will be removed or changed later
-  }
 
-  // Filter entries by current user if available
-  const userEntries = currentUserId ? entries.filter((entry) => entry.ownerEmail === currentUserId) : entries; // Filter by ownerEmail if currentUserId is provided
+
+  const userEntries = currentUserId
+  ? diaryEntries.filter((entry) => entry.userId === Number(currentUserId))
+  : diaryEntries
+
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -102,112 +85,6 @@ export default function GrowthDiaryPage({
             )}
           </div>
         </div>
-
-        {/* Add New Entry Form - Removed */}
-        {/* {showAddEntryForm && (
-          <Card className="mb-8 p-6">
-            <CardContent className="space-y-4">
-              <h2 className="text-xl font-bold">새 일기 작성</h2>
-              <div>
-                <label htmlFor="petName" className="block text-sm font-medium text-gray-700">
-                  펫 이름
-                </label>
-                <input
-                  type="text"
-                  id="petName"
-                  value={newEntryPetName}
-                  onChange={(e) => setNewEntryPetName(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  placeholder="일기를 작성할 펫의 이름을 입력하세요"
-                />
-              </div>
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700">
-                  제목
-                </label>
-                <input
-                  type="text"
-                  id="title"
-                  value={newEntryTitle}
-                  onChange={(e) => setNewEntryTitle(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  placeholder="일기 제목을 입력하세요"
-                />
-              </div>
-              <div>
-                <label htmlFor="content" className="block text-sm font-medium text-gray-700">
-                  내용
-                </label>
-                <textarea
-                  id="content"
-                  value={newEntryContent}
-                  onChange={(e) => setNewEntryContent(e.target.value)}
-                  rows={5}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  placeholder="오늘의 일기를 작성하세요"
-                ></textarea>
-              </div>
-              <div>
-                <label htmlFor="images" className="block text-sm font-medium text-gray-700">
-                  이미지 URL (쉼표로 구분)
-                </label>
-                <input
-                  type="text"
-                  id="images"
-                  value={newEntryImages.join(",")}
-                  onChange={(e) => setNewEntryImages(e.target.value.split(",").map((url) => url.trim()))}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  placeholder="이미지 URL을 입력하세요 (예: /image1.jpg, /image2.png)"
-                />
-              </div>
-              <div>
-                <label htmlFor="milestones" className="block text-sm font-medium text-gray-700">
-                  기념일/이정표 (쉼표로 구분)
-                </label>
-                <input
-                  type="text"
-                  id="milestones"
-                  value={newEntryMilestones}
-                  onChange={(e) => setNewEntryMilestones(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  placeholder="예: 첫 산책, 예방접종 완료"
-                />
-              </div>
-              <div>
-                <label htmlFor="mood" className="block text-sm font-medium text-gray-700">
-                  오늘의 기분
-                </label>
-                <input
-                  type="text"
-                  id="mood"
-                  value={newEntryMood}
-                  onChange={(e) => setNewEntryMood(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  placeholder="예: 행복함, 피곤함"
-                />
-              </div>
-              <div>
-                <label htmlFor="activities" className="block text-sm font-medium text-gray-700">
-                  오늘의 활동 (쉼표로 구분)
-                </label>
-                <input
-                  type="text"
-                  id="activities"
-                  value={newEntryActivities}
-                  onChange={(e) => setNewEntryActivities(e.target.value)}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
-                  placeholder="예: 산책, 낮잠, 간식 먹기"
-                />
-              </div>
-              <div className="flex justify-end space-x-2">
-                <Button variant="outline" onClick={() => setShowAddEntryForm(false)}>
-                  취소
-                </Button>
-                <Button onClick={handleAddEntry}>일기 추가</Button>
-              </div>
-            </CardContent>
-          </Card>
-        )} */}
 
         {/* Diary Entries List */}
         <div className="grid gap-6">
@@ -237,6 +114,12 @@ export default function GrowthDiaryPage({
                             {activity}
                           </Badge>
                         ))}
+                        {entry.audioUrl && (
+                          <Badge variant="secondary" className="flex items-center gap-1">
+                            <Mic className="h-3 w-3" />
+                            음성일기
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     {entry.images && entry.images.length > 0 && (

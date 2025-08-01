@@ -1,20 +1,21 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label"; // Label 컴포넌트 추가
 import { Card, CardContent } from "@/components/ui/card"; // Card 컴포넌트 추가
 import Image from "next/image";
-import { ChevronLeft, ImageIcon, X } from "lucide-react"; // ImageIcon, X 아이콘 추가
+import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-react"; // 음성 관련 아이콘 추가
+import { createDiary } from "@/lib/api/diary"
 
 interface GrowthDiaryWritePageProps {
   onBack: () => void;
-  onSubmit: (data: { title: string; content: string; images: string[]; milestones: string[]; activities: string[]; tags: string[] }) => void;
+  currentUserId: number;
 }
 
 export default function GrowthDiaryWritePage({
   onBack,
-  onSubmit,
+  currentUserId
 }: GrowthDiaryWritePageProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -24,6 +25,47 @@ export default function GrowthDiaryWritePage({
   const [error, setError] = useState(""); // Error state 추가
   const [activities, setActivities] = useState<string>(""); // 활동 상태 추가
   const [tags, setTags] = useState<string>(""); // 태그 상태 추가
+
+  // 음성 녹음 관련 상태
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string>("");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+  
+    if (!title.trim() || !content.trim()) {
+      setError("제목과 내용을 모두 입력해주세요.");
+      return;
+    }
+  
+    try {
+      await createDiary({
+        title,
+        content,
+        images,
+        milestones: milestones.split(",").map(m => m.trim()).filter(Boolean),
+        activities: activities.split(",").map(a => a.trim()).filter(Boolean),
+        tags: tags.split(",").map(t => t.trim()).filter(Boolean),
+        audioUrl,
+        userId: currentUserId,
+      });
+      alert("작성 완료!");
+      onBack();
+    } catch (err) {
+      console.error("작성 실패:", err);
+      setError("일기 작성 중 오류가 발생했습니다.");
+    }
+  };
+  
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -41,23 +83,82 @@ export default function GrowthDiaryWritePage({
     setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault(); // Form의 기본 제출 동작 방지
-    setError("");
+  // 음성 녹음 시작
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
 
-    if (!title.trim() || !content.trim()) {
-      setError("제목과 내용을 모두 입력해주세요.");
-      return;
+      const chunks: BlobPart[] = [];
+      mediaRecorder.ondataavailable = (event) => {
+        chunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: "audio/wav" });
+        const url = URL.createObjectURL(blob);
+        setAudioUrl(url);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+
+      // 녹음 시간 타이머 시작
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      setError("마이크 접근 권한이 필요합니다.");
     }
-    onSubmit({
-      title,
-      content,
-      images,
-      milestones: milestones.split(',').map(m => m.trim()).filter(m => m.length > 0),
-      activities: activities.split(',').map(a => a.trim()).filter(a => a.length > 0),
-      tags: tags.split(',').map(t => t.trim()).filter(t => t.length > 0), // 태그 추가
-    });
   };
+
+  // 음성 녹음 중지
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+
+      // 타이머 정리
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    }
+  };
+
+  // 음성 재생/일시정지
+  const toggleAudioPlayback = () => {
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+      } else {
+        audioRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  // 음성 삭제
+  const removeAudio = () => {
+    setAudioUrl("");
+    setIsPlaying(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+  };
+
+  // 녹음 시간 포맷팅
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -128,17 +229,83 @@ export default function GrowthDiaryWritePage({
               </div>
             </div>
 
-           
+            {/* 음성 녹음 섹션 */}
+            <div className="space-y-2">
+              <Label>음성 일기 (선택 사항)</Label>
+              <div className="flex items-center space-x-4 p-4 border rounded-lg bg-gray-50">
+                {!audioUrl ? (
+                  <div className="flex items-center space-x-2">
+                    {!isRecording ? (
+                      <Button
+                        type="button"
+                        onClick={startRecording}
+                        className="bg-red-500 hover:bg-red-600 text-white"
+                      >
+                        <Mic className="h-4 w-4 mr-2" />
+                        녹음 시작
+                      </Button>
+                    ) : (
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          type="button"
+                          onClick={stopRecording}
+                          className="bg-gray-500 hover:bg-gray-600 text-white"
+                        >
+                          <MicOff className="h-4 w-4 mr-2" />
+                          녹음 중지
+                        </Button>
+                        <span className="text-sm text-gray-600">
+                          녹음 중... {formatTime(recordingTime)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      type="button"
+                      onClick={toggleAudioPlayback}
+                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                    >
+                      {isPlaying ? (
+                        <Pause className="h-4 w-4 mr-2" />
+                      ) : (
+                        <Play className="h-4 w-4 mr-2" />
+                      )}
+                      {isPlaying ? "일시정지" : "재생"}
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={removeAudio}
+                      variant="outline"
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      삭제
+                    </Button>
+                    <span className="text-sm text-gray-600">음성 녹음 완료</span>
+                  </div>
+                )}
+              </div>
+              {audioUrl && (
+                <audio
+                  ref={audioRef}
+                  src={audioUrl}
+                  onEnded={() => setIsPlaying(false)}
+                  className="w-full"
+                />
+              )}
+            </div>
 
             {error && <div className="text-red-500 text-sm text-center">{error}</div>}
 
             <Button
-              type="submit"
+              type="button"
               onClick={handleSubmit}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black py-3 rounded-md transition-colors duration-200 text-lg"
             >
               작성 완료
             </Button>
+
           </CardContent>
         </Card>
       </div>

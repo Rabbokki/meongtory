@@ -106,6 +106,7 @@ interface DiaryEntry {
   mood: string
   activities: string[]
   ownerEmail?: string // Added for filtering
+  audioUrl?: string // Added for voice diary
 }
 
 interface CommunityPost {
@@ -758,6 +759,7 @@ export default function PetServiceWebsite() {
                 ...entryData,
                 date: new Date().toISOString().split("T")[0],
                 ownerEmail: currentUser?.email, // 작성자 이메일 추가
+                audioUrl: entryData.audioUrl, // 음성 URL 추가
               }
               setDiaryEntries((prev) => [...prev, newEntry])
               setCurrentPage("diary")
