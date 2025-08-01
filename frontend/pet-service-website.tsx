@@ -15,6 +15,7 @@ import AdoptionDetailPage from "./adoption-detail-page"
 import StorePage from "./store-page"
 import StoreProductDetailPage from "./store-product-detail-page"
 import StoreProductRegistrationPage from "./store-product-registration-page"
+import StoreProductEditPage from "./store-product-edit-page"
 import PetInsurancePage from "./pet-insurance-page"
 import InsuranceDetailPage from "./insurance-detail-page"
 import GrowthDiaryPage from "./growth-diary-page"
@@ -298,6 +299,8 @@ export default function PetServiceWebsite() {
   }, [])
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null)
   const [selectedInsurance, setSelectedInsurance] = useState<Insurance | null>(null)
   const [selectedDiaryEntry, setSelectedDiaryEntry] = useState<DiaryEntry | null>(null)
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null)
@@ -580,6 +583,20 @@ export default function PetServiceWebsite() {
     setCurrentPage("store")
   }
 
+  const handleViewProduct = (product: Product) => {
+    setSelectedProductId(product.id)
+    setCurrentPage("product-detail")
+  }
+
+  const handleEditProduct = (product: Product) => {
+    setSelectedProductForEdit(product)
+    setCurrentPage("product-edit")
+  }
+
+  const handleSaveProduct = (updatedProduct: Product) => {
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p))
+  }
+
   const addToInsuranceFavorites = (id: number) => {
     setFavoriteInsurance((prev) => {
       if (prev.includes(id)) return prev
@@ -655,20 +672,6 @@ export default function PetServiceWebsite() {
         )
 
       case "store":
-        if (selectedProduct) {
-          return (
-            <StoreProductDetailPage
-              product={selectedProduct}
-              onBack={() => setSelectedProduct(null)}
-              onAddToWishlist={handleAddToWishlist}
-              isInWishlist={isInWishlist}
-              onPurchase={(product) => {
-                console.log("구매:", product)
-                alert(`${product.name}을(를) 구매합니다.`)
-              }}
-            />
-          )
-        }
         return (
           <StorePage
             onClose={() => setCurrentPage("home")}
@@ -678,7 +681,37 @@ export default function PetServiceWebsite() {
             isLoggedIn={isLoggedIn}
             onNavigateToStoreRegistration={() => setCurrentPage("storeRegistration")}
             products={products}
-            onViewProduct={setSelectedProduct}
+            onViewProduct={handleViewProduct}
+          />
+        )
+
+      case "product-detail":
+        return (
+          <StoreProductDetailPage
+            productId={selectedProductId!}
+            onBack={() => {
+              setSelectedProductId(null)
+              setCurrentPage("store")
+            }}
+            onAddToWishlist={handleAddToWishlist}
+            onAddToCart={(product) => {
+              console.log("장바구니에 추가:", product)
+              alert(`${product.name}을(를) 장바구니에 추가했습니다.`)
+            }}
+            isInWishlist={isInWishlist}
+            isInCart={(id) => false} // 임시로 항상 false 반환
+          />
+        )
+
+      case "product-edit":
+        return (
+          <StoreProductEditPage
+            productId={selectedProductForEdit!.id}
+            onBack={() => {
+              setSelectedProductForEdit(null)
+              setCurrentPage("admin")
+            }}
+            onSave={handleSaveProduct}
           />
         )
 
@@ -864,6 +897,10 @@ export default function PetServiceWebsite() {
             }}
             onDeletePost={(id) => {
               setCommunityPosts((prev) => prev.filter((post) => post.id !== id))
+            }}
+            onEditProduct={handleEditProduct}
+            onDeleteProduct={(productId) => {
+              setProducts((prev) => prev.filter((product) => product.id !== productId));
             }}
             isAdmin={isAdmin}
             onAdminLogout={handleLogout} // Pass the logout handler

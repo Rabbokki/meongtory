@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +22,6 @@ import {
 interface Product {
   id: number
   name: string
-  brand: string
   price: number
   image: string
   category: string
@@ -103,13 +102,15 @@ interface AdminPageProps {
   onUpdateInquiryStatus: (id: number, status: "대기중" | "연락완료" | "승인" | "거절") => void
   onDeleteComment: (id: number) => void
   onDeletePost: (id: number) => void
+  onEditProduct: (product: Product) => void
+  onDeleteProduct: (productId: number) => void
   isAdmin: boolean
   onAdminLogout: () => void // New prop for admin logout
 }
 
 export default function AdminPage({
   onClose,
-  products,
+  products: initialProducts,
   pets,
   communityPosts,
   adoptionInquiries,
@@ -120,10 +121,31 @@ export default function AdminPage({
   onUpdateInquiryStatus,
   onDeleteComment,
   onDeletePost,
+  onEditProduct,
+  onDeleteProduct,
   isAdmin,
   onAdminLogout, // Destructure new prop
 }: AdminPageProps) {
   const [activeTab, setActiveTab] = useState("dashboard")
+  const [products, setProducts] = useState<Product[]>([]);
+
+  // 상품 목록을 백엔드에서 가져오기
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (!response.ok) {
+          throw new Error('상품 데이터를 가져오는 데 실패했습니다.');
+        }
+        const data: Product[] = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   if (!isAdmin) {
     return (
@@ -153,6 +175,33 @@ export default function AdminPage({
         return "bg-gray-100 text-gray-800"
     }
   }
+
+  const handleEditProduct = (product: Product) => {
+    // 상품 수정 페이지로 이동
+    console.log('상품 수정:', product);
+    onEditProduct(product);
+  };
+
+  const handleDeleteProduct = async (productId: number) => {
+    if (window.confirm('정말로 이 상품을 삭제하시겠습니까?')) {
+      try {
+        const response = await fetch(`/api/products/${productId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          throw new Error('상품 삭제에 실패했습니다.');
+        }
+
+        // 상품 목록에서 제거
+        setProducts(prev => prev.filter(p => p.id !== productId));
+        alert('상품이 성공적으로 삭제되었습니다.');
+      } catch (error) {
+        console.error('상품 삭제 오류:', error);
+        alert('상품 삭제 중 오류가 발생했습니다.');
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -276,16 +325,24 @@ export default function AdminPage({
                         />
                         <div>
                           <h3 className="font-semibold">{product.name}</h3>
-                          <p className="text-sm text-gray-600">{product.brand}</p>
+                          <p className="text-sm text-gray-600">{product.category}</p>
                           <p className="text-lg font-bold text-yellow-600">{product.price.toLocaleString()}원</p>
                           <p className="text-sm text-gray-500">재고: {product.stock}개</p>
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleEditProduct(product)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDeleteProduct(product.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>

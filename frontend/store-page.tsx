@@ -6,11 +6,11 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Heart, Plus } from "lucide-react"
+import { useEffect } from "react" // useEffect 추가
 
 interface Product {
   id: number
   name: string
-  brand: string
   price: number
   image: string
   category: string
@@ -25,7 +25,6 @@ interface Product {
 interface WishlistItem {
   id: number
   name: string
-  brand: string
   price: number
   image: string
   category: string
@@ -49,148 +48,146 @@ export default function StorePage({
   isAdmin,
   isLoggedIn,
   onNavigateToStoreRegistration,
-  products,
+  products: initialProducts, // 기존 products prop을 initialProducts로 변경
   onViewProduct,
 }: StorePageProps) {
-  const [activeTab, setActiveTab] = useState<"situation" | "category">("situation")
   const [selectedPet, setSelectedPet] = useState<"dog" | "cat">("dog")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"popular" | "latest" | "lowPrice" | "highPrice">("popular")
-  const [selectedTag, setSelectedTag] = useState<string | null>(null); // New state for selected tag/category
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // 카테고리 선택 상태
+  const [products, setProducts] = useState<Product[]>([]); // 상품 데이터를 위한 새로운 상태 추가
 
-  const handleSelectCategory = (key: string) => {
-    setSelectedTag(key);
+  const fetchProducts = async () => {
+    try {
+      console.log('상품 목록 가져오기 시작...');
+      const response = await fetch('/api/products'); // 백엔드 API 호출
+      console.log('API 응답 상태:', response.status);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('API 오류 응답:', errorText);
+        throw new Error(`상품 데이터를 가져오는 데 실패했습니다. (${response.status}): ${errorText}`);
+      }
+      
+      const data: Product[] = await response.json();
+      console.log('가져온 상품 데이터:', data);
+      setProducts(data); // 가져온 데이터로 products 상태 업데이트
+    } catch (error) {
+      console.error("Error fetching products:", error);
+      // 오류 처리 로직 (예: 사용자에게 메시지 표시)
+    }
   };
 
-  // Sample products data
-  const sampleProducts: Product[] = [
-    {
-      id: 1,
-      name: "[왕로하스닭] 강아지케이크 (고구마 치킨 버전)",
-      brand: "왕로하스닭",
-      price: 21000,
-      image: "/placeholder.svg?height=200&width=200&text=Dog+Cake",
-      category: "간식",
-      description: "강아지를 위한 특별한 케이크",
-      tags: ["케이크", "생일", "간식"],
-      stock: 15,
-      registrationDate: "2024-01-15",
-      registeredBy: "admin",
-      petType: "dog",
-    },
-    {
-      id: 2,
-      name: "강아지 케이크 - 댕댕놈부 강아지 수제 생일 케이크 맞춤 주문 제작",
-      brand: "댕댕놈부",
-      price: 16300,
-      image: "/placeholder.svg?height=200&width=200&text=Custom+Cake",
-      category: "간식",
-      description: "맞춤 제작 강아지 생일 케이크",
-      tags: ["맞춤제작", "생일", "케이크"],
-      stock: 8,
-      registrationDate: "2024-01-14",
-      registeredBy: "admin",
-      petType: "dog",
-    },
-    {
-      id: 3,
-      name: "애니몰 강아지 고양이 단가슴살 미트 케이크",
-      brand: "애니몰",
-      price: 9900,
-      image: "/placeholder.svg?height=200&width=200&text=Meat+Cake",
-      category: "간식",
-      description: "단백질이 풍부한 미트 케이크",
-      tags: ["단백질", "건강", "케이크"],
-      stock: 25,
-      registrationDate: "2024-01-13",
-      registeredBy: "admin",
-      petType: "all",
-    },
-    {
-      id: 4,
-      name: "댕댕 강아지 생일파티 레터링 케이크",
-      brand: "댕댕",
-      price: 20900,
-      image: "/placeholder.svg?height=200&width=200&text=Birthday+Cake",
-      category: "간식",
-      description: "레터링이 가능한 생일 케이크",
-      tags: ["생일파티", "레터링", "케이크"],
-      stock: 12,
-      registrationDate: "2024-01-12",
-      registeredBy: "admin",
-      petType: "dog",
-    },
-    {
-      id: 5,
-      name: "나우프레쉬와 퍼피 그레인프리 스몰브리드 강아지사료",
-      brand: "나우프레쉬",
-      price: 31080,
-      image: "/placeholder.svg?height=200&width=200&text=Dog+Food",
-      category: "사료",
-      description: "소형견을 위한 그레인프리 사료",
-      tags: ["그레인프리", "소형견", "사료"],
-      stock: 30,
-      registrationDate: "2024-01-11",
-      registeredBy: "admin",
-      petType: "dog",
-    },
-  ]
+  useEffect(() => {
+    fetchProducts();
+  }, []); // 컴포넌트 마운트 시 한 번만 실행
 
-  const allProducts = [...products, ...sampleProducts]
+  // 상품 목록 새로고침 함수를 외부로 노출
+  useEffect(() => {
+    // 전역 함수로 등록하여 다른 컴포넌트에서 호출할 수 있도록 함
+    (window as any).refreshStoreProducts = fetchProducts;
+    
+    return () => {
+      // 컴포넌트 언마운트 시 전역 함수 제거
+      delete (window as any).refreshStoreProducts;
+    };
+  }, []);
 
-  const situationCategories = [
-    { icon: "🐕", name: "의상", key: "clothing" },
-    { icon: "💊", name: "간식 관리", key: "treats" },
-    { icon: "🎂", name: "기념일", key: "celebration" },
-    { icon: "✈️", name: "여행", key: "travel" },
-    { icon: "🦮", name: "산책", key: "walk" },
-    { icon: "🏠", name: "분리불안", key: "separation" },
-    { icon: "📋", name: "일치 관리", key: "management" },
-  ]
+  const handleSelectCategory = (category: string) => {
+    setSelectedCategory(category);
+  };
+
+  // Sample products data -> 이 부분은 이제 필요 없으므로 제거합니다.
+  // const sampleProducts: Product[] = [
+  //   {
+  //     id: 1,
+  //     name: "[왕로하스닭] 강아지케이크 (고구마 치킨 버전)",
+  //     brand: "왕로하스닭",
+  //     price: 21000,
+  //     image: "/placeholder.svg?height=200&width=200&text=Dog+Cake",
+  //     category: "간식",
+  //     description: "강아지를 위한 특별한 케이크",
+  //     tags: ["케이크", "생일", "간식"],
+  //     stock: 15,
+  //     registrationDate: "2024-01-15",
+  //     registeredBy: "admin",
+  //     petType: "dog",
+  //   },
+  //   {
+  //     id: 2,
+  //     name: "강아지 케이크 - 댕댕놈부 강아지 수제 생일 케이크 맞춤 주문 제작",
+  //     brand: "댕댕놈부",
+  //     price: 16300,
+  //     image: "/placeholder.svg?height=200&width=200&text=Custom+Cake",
+  //     category: "간식",
+  //     description: "맞춤 제작 강아지 생일 케이크",
+  //     tags: ["맞춤제작", "생일", "케이크"],
+  //     stock: 8,
+  //     registrationDate: "2024-01-14",
+  //     registeredBy: "admin",
+  //     petType: "dog",
+  //   },
+  //   {
+  //     id: 3,
+  //     name: "애니몰 강아지 고양이 단가슴살 미트 케이크",
+  //     brand: "애니몰",
+  //     price: 9900,
+  //     image: "/placeholder.svg?height=200&width=200&text=Meat+Cake",
+  //     category: "간식",
+  //     description: "단백질이 풍부한 미트 케이크",
+  //     tags: ["단백질", "건강", "케이크"],
+  //     stock: 25,
+  //     registrationDate: "2024-01-13",
+  //     registeredBy: "admin",
+  //     petType: "all",
+  //   },
+  //   {
+  //     id: 4,
+  //     name: "댕댕 강아지 생일파티 레터링 케이크",
+  //     brand: "댕댕",
+  //     price: 20900,
+  //     image: "/placeholder.svg?height=200&width=200&text=Birthday+Cake",
+  //     category: "간식",
+  //     description: "레터링이 가능한 생일 케이크",
+  //     tags: ["생일파티", "레터링", "케이크"],
+  //     stock: 12,
+  //     registrationDate: "2024-01-12",
+  //     registeredBy: "admin",
+  //     petType: "dog",
+  //   },
+  //   {
+  //     id: 5,
+  //     name: "나우프레쉬와 퍼피 그레인프리 스몰브리드 강아지사료",
+  //     brand: "나우프레쉬",
+  //     price: 31080,
+  //     image: "/placeholder.svg?height=200&width=200&text=Dog+Food",
+  //     category: "사료",
+  //     description: "소형견을 위한 그레인프리 사료",
+  //     tags: ["그레인프리", "소형견", "사료"],
+  //     stock: 30,
+  //     registrationDate: "2024-01-11",
+  //     registeredBy: "admin",
+  //     petType: "dog",
+  //   },
+  // ]
+
+  const allProducts = [...products] // products prop 대신 새로 가져온 products 상태 사용
 
   const categoryItems = [
-    { icon: "🐕", name: "간식", key: "treats" },
-    { icon: "🛏️", name: "매트", key: "mat" },
     { icon: "🥣", name: "사료", key: "food" },
-    { icon: "🥣", name: "식기", key: "bowl" },
-    { icon: "💊", name: "영양제", key: "supplement" },
-    { icon: "🧻", name: "위생", key: "hygiene" },
-    { icon: "🎒", name: "이동장", key: "carrier" },
+    { icon: "🐕", name: "간식", key: "treats" },
     { icon: "🎾", name: "장난감", key: "toy" },
-    { icon: "🏠", name: "집/하우스", key: "house" },
-    { icon: "👕", name: "패션", key: "fashion" },
+    { icon: "🛏️", name: "용품", key: "supplies" },
+    { icon: "👕", name: "의류", key: "clothing" },
+    { icon: "💊", name: "건강관리", key: "health" },
   ]
 
-  const situationTags = [
-    "건사료",
-    "배변패드",
-    "목욕/구강",
-    "가습기",
-    "기능간식",
-    "노즈워크",
-    "트릿",
-    "이동가방",
-    "실루/사료",
-  ]
 
-  const categoryTags = [
-    "진짜보기",
-    "껌",
-    "비스킷",
-    "올로",
-    "저알러지 간식",
-    "치킨/스틱",
-    "츄르",
-    "캔/파우치",
-    "케이크",
-    "트릿",
-  ]
 
   const handleAddToWishlist = (product: Product) => {
     const wishlistItem: WishlistItem = {
       id: product.id,
       name: product.name,
-      brand: product.brand,
       price: product.price,
       image: product.image,
       category: product.category,
@@ -220,12 +217,11 @@ export default function StorePage({
       return false;
     }
 
-    // Category/Tag filter
-    if (selectedTag) {
-      const normalizedSelectedTag = selectedTag.toLowerCase();
-      const matchesCategory = product.category.toLowerCase().includes(normalizedSelectedTag);
-      const matchesTag = product.tags.some(tag => tag.toLowerCase().includes(normalizedSelectedTag));
-      if (!matchesCategory && !matchesTag) {
+    // Category filter
+    if (selectedCategory) {
+      const normalizedSelectedCategory = selectedCategory.toLowerCase();
+      const matchesCategory = product.category.toLowerCase().includes(normalizedSelectedCategory);
+      if (!matchesCategory) {
         return false;
       }
     }
@@ -235,8 +231,7 @@ export default function StorePage({
       const lowerCaseQuery = searchQuery.toLowerCase();
       if (
         !product.name.toLowerCase().includes(lowerCaseQuery) &&
-        !product.description.toLowerCase().includes(lowerCaseQuery) &&
-        !product.brand.toLowerCase().includes(lowerCaseQuery)
+        !product.description.toLowerCase().includes(lowerCaseQuery)
       ) {
         return false;
       }
@@ -310,33 +305,11 @@ export default function StorePage({
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex justify-center mb-8">
-          <div className="flex bg-gray-100 rounded-lg p-1">
-            <button
-              onClick={() => setActiveTab("situation")}
-              className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "situation" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              상황별
-            </button>
-            <button
-              onClick={() => setActiveTab("category")}
-              className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === "category" ? "bg-white text-gray-900 shadow-sm" : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              카테고리별
-            </button>
-          </div>
-        </div>
-
         {/* Category Icons */}
         <div className="mb-8">
           <div className="grid grid-cols-4 md:grid-cols-7 gap-6 max-w-4xl mx-auto">
-            {(activeTab === "situation" ? situationCategories : categoryItems).map((category) => (
-              <button key={category.key} className={`flex flex-col items-center space-y-2 group ${selectedTag === category.name ? 'text-blue-600' : ''}`} onClick={() => handleSelectCategory(category.name)}>
+            {categoryItems.map((category) => (
+              <button key={category.key} className={`flex flex-col items-center space-y-2 group ${selectedCategory === category.name ? 'text-blue-600' : ''}`} onClick={() => handleSelectCategory(category.name)}>
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl group-hover:bg-gray-200 transition-colors">
                   {category.icon}
                 </div>
@@ -346,19 +319,7 @@ export default function StorePage({
           </div>
         </div>
 
-        {/* Tags */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
-          {(activeTab === "situation" ? situationTags : categoryTags).map((tag) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className={`bg-yellow-100 text-yellow-800 hover:bg-yellow-200 cursor-pointer px-4 py-2 ${selectedTag === tag ? 'border-2 border-yellow-500' : ''}`}
-              onClick={() => handleSelectCategory(tag)}
-            >
-              {tag}
-            </Badge>
-          ))}
-        </div>
+
 
         {/* Sort Options */}
         <div className="flex justify-end mb-6">
@@ -422,7 +383,6 @@ export default function StorePage({
                 </button>
               </div>
               <CardContent className="p-4" onClick={() => onViewProduct(product)}>
-                <p className="text-xs text-gray-500 mb-1">{product.brand}</p>
                 <h3 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">{product.name}</h3>
                 <p className="text-lg font-bold text-gray-900">{product.price.toLocaleString()}원</p>
                 {product.stock === 0 && (
