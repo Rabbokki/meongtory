@@ -5,35 +5,28 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Heart, Plus } from "lucide-react"
+import { Search, Plus } from "lucide-react"
 import { useEffect } from "react" // useEffect 추가
 
 interface Product {
   id: number
   name: string
   price: number
-  image: string
+  imageUrl: string // image → imageUrl로 변경
   category: string
   description: string
   tags: string[]
   stock: number
   petType?: "dog" | "cat" | "all"; // Add petType to Product interface
+  targetAnimal?: "ALL" | "DOG" | "CAT"; // 백엔드 필드 추가
   registrationDate: string
   registeredBy: string
 }
 
-interface WishlistItem {
-  id: number
-  name: string
-  price: number
-  image: string
-  category: string
-}
+
 
 interface StorePageProps {
   onClose: () => void
-  onAddToWishlist: (item: WishlistItem) => void
-  isInWishlist: (id: number) => boolean
   isAdmin: boolean
   isLoggedIn: boolean
   onNavigateToStoreRegistration: () => void
@@ -43,8 +36,6 @@ interface StorePageProps {
 
 export default function StorePage({
   onClose,
-  onAddToWishlist,
-  isInWishlist,
   isAdmin,
   isLoggedIn,
   onNavigateToStoreRegistration,
@@ -69,9 +60,24 @@ export default function StorePage({
         throw new Error(`상품 데이터를 가져오는 데 실패했습니다. (${response.status}): ${errorText}`);
       }
       
-      const data: Product[] = await response.json();
-      console.log('가져온 상품 데이터:', data);
-      setProducts(data); // 가져온 데이터로 products 상태 업데이트
+      const rawData = await response.json();
+      console.log('가져온 상품 데이터:', rawData);
+      
+      // 백엔드 응답을 프론트엔드 형식으로 변환
+      const data: Product[] = rawData.map((item: any) => ({
+        ...item,
+        imageUrl: item.image || item.imageUrl, // image 필드를 imageUrl로 매핑
+        petType: item.targetAnimal?.toLowerCase() || 'all' // targetAnimal을 petType으로 매핑
+      }));
+      
+      // 최신순으로 정렬 (registrationDate 기준 내림차순)
+      const sortedData = data.sort((a, b) => {
+        const dateA = new Date(a.registrationDate).getTime();
+        const dateB = new Date(b.registrationDate).getTime();
+        return dateB - dateA; // 내림차순 (최신순)
+      });
+      
+      setProducts(sortedData); // 정렬된 데이터로 products 상태 업데이트
     } catch (error) {
       console.error("Error fetching products:", error);
       // 오류 처리 로직 (예: 사용자에게 메시지 표시)
@@ -184,16 +190,7 @@ export default function StorePage({
 
 
 
-  const handleAddToWishlist = (product: Product) => {
-    const wishlistItem: WishlistItem = {
-      id: product.id,
-      name: product.name,
-      price: product.price,
-      image: product.image,
-      category: product.category,
-    }
-    onAddToWishlist(wishlistItem)
-  }
+
 
   const sortedProducts = [...allProducts].sort((a, b) => {
     switch (sortBy) {
@@ -209,11 +206,12 @@ export default function StorePage({
   })
 
   const filteredProducts = allProducts.filter((product) => {
-    // Pet type filter
-    if (selectedPet === "dog" && product.petType !== "dog" && product.petType !== "all") {
+    // Pet type filter - targetAnimal 필드 사용
+    const petType = product.petType || product.targetAnimal?.toLowerCase() || 'all';
+    if (selectedPet === "dog" && petType !== "dog" && petType !== "all") {
       return false;
     }
-    if (selectedPet === "cat" && product.petType !== "cat" && product.petType !== "all") {
+    if (selectedPet === "cat" && petType !== "cat" && petType !== "all") {
       return false;
     }
 
@@ -365,22 +363,12 @@ export default function StorePage({
               <div className="relative" onClick={() => onViewProduct(product)}>
                 <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
                   <img
-                    src={product.image || "/placeholder.svg"}
+                    src={product.imageUrl || "/placeholder.svg"}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleAddToWishlist(product)
-                  }}
-                  className="absolute top-2 right-2 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
-                >
-                  <Heart
-                    className={`w-4 h-4 ${isInWishlist(product.id) ? "text-red-500 fill-red-500" : "text-gray-400"}`}
-                  />
-                </button>
+
               </div>
               <CardContent className="p-4" onClick={() => onViewProduct(product)}>
                 <h3 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">{product.name}</h3>

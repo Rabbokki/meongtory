@@ -112,18 +112,27 @@ export default function StoreProductRegistrationPage({
     setIsSubmitting(true)
 
     try {
-      const newProduct: Product = {
-        id: Date.now(), // 간단한 ID 생성
+      let imageUrl = "/placeholder.svg?height=300&width=300"
+      
+      // 이미지가 있으면 Base64로 변환하여 백엔드로 전송
+      if (imageFile) {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          imageUrl = reader.result as string;
+        };
+        reader.readAsDataURL(imageFile);
+        // Base64 변환을 기다리기 위해 잠시 대기
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      const newProduct = {
         name: formData.name.trim(),
         price: price,
-        image: imagePreview || "/placeholder.svg?height=300&width=300", // Use imagePreview
+        imageUrl: imageUrl, // 백엔드에서 기대하는 필드명
         category: formData.category,
         description: formData.description.trim(),
-        tags: [],
         stock: stock,
-        registrationDate: new Date().toISOString(),
-        registeredBy: currentUserId || "admin",
-        petType: formData.petType as "dog" | "cat" | "all", // Add petType
+        targetAnimal: formData.petType as "dog" | "cat" | "all", // 백엔드에서 기대하는 필드명
       }
 
       console.log("새 상품 데이터:", newProduct)
@@ -283,7 +292,13 @@ export default function StoreProductRegistrationPage({
                 <Input id="image-upload" type="file" accept="image/*" onChange={handleImageFileChange} />
                 {imagePreview ? (
                   <div className="mt-4 w-48 h-48 relative overflow-hidden rounded-md border border-gray-300">
-                    <Image src={imagePreview} alt="Image Preview" layout="fill" objectFit="cover" />
+                    <Image 
+                      src={imagePreview} 
+                      alt="Image Preview" 
+                      width={192}
+                      height={192}
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                 ) : (
                   <div className="mt-4 w-48 h-48 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400">
@@ -330,14 +345,14 @@ export default function StoreProductRegistrationPage({
             </CardHeader>
             <CardContent>
               <div className="border rounded-lg p-4 bg-white">
-                <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center">
+                <div className="aspect-square bg-gray-100 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
                   {imagePreview ? (
                     <Image
                       src={imagePreview}
                       alt="상품 미리보기"
-                      layout="fill"
-                      objectFit="cover"
-                      className="rounded-lg"
+                      width={300}
+                      height={300}
+                      className="w-full h-full object-cover rounded-lg"
                     />
                   ) : (
                     <div className="text-center text-gray-400">

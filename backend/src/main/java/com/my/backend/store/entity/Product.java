@@ -29,6 +29,7 @@ public class Product {
     @Column(nullable = false)
     private Integer stock = 0;
 
+    @Column(nullable = true)
     private String imageUrl;
 
     @Enumerated(EnumType.STRING)

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Heart, Search, Store, BookOpen, User } from "lucide-react"
+import { Heart, Search, Store, BookOpen, User, ShoppingCart } from "lucide-react"
 import LoginModal from "./login-modal"
 import SignupModal from "./signup-modal"
 import PasswordRecoveryModal from "./password-recovery-modal"
@@ -25,7 +25,7 @@ import CommunityDetailPage from "./community-detail-page"
 import CommunityWritePage from "./community-write-page"
 import DogResearchLabPage from "./dog-research-lab-page"
 import AnimalRegistrationPage from "./animal-registration-page"
-import WishlistPage from "./wishlist-page"
+import CartPage from "./cart-page"
 import Chatbot from "./chatbot"
 import AdminPage from "./admin-page"
 import PetNamingService from "./pet-naming-service"
@@ -77,6 +77,17 @@ interface WishlistItem {
   price: number
   image: string
   category: string
+}
+
+interface CartItem {
+  id: number
+  name: string
+  brand: string
+  price: number
+  image: string
+  category: string
+  quantity: number
+  order: number // 순서 고정을 위한 필드
 }
 
 interface Insurance {
@@ -154,7 +165,15 @@ interface OrderItem {
   quantity: number
   orderDate: string
   status: "completed" | "pending" | "cancelled"
-  image: string
+  ImageUrl: string
+}
+
+interface Order {
+  orderId: number
+  userId: number
+  totalPrice: number
+  paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED"
+  orderedAt: string
 }
 
 // Navigation Header Component
@@ -276,7 +295,7 @@ export default function PetServiceWebsite() {
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
-  const [currentUser, setCurrentUser] = useState<{ email: string; name: string } | null>(null)
+  const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null)
   const [oauthMessage, setOauthMessage] = useState<string | null>(null)
 
   // OAuth 콜백 처리
@@ -288,7 +307,7 @@ export default function PetServiceWebsite() {
     if (success) {
       setOauthMessage(`OAuth 로그인 성공: ${success}`)
       setIsLoggedIn(true)
-      setCurrentUser({ email: "oauth@example.com", name: "OAuth 사용자" })
+      setCurrentUser({ id: 1, email: "oauth@example.com", name: "OAuth 사용자" })
       // URL에서 파라미터 제거
       window.history.replaceState({}, document.title, window.location.pathname)
     } else if (error) {
@@ -305,6 +324,7 @@ export default function PetServiceWebsite() {
   const [selectedDiaryEntry, setSelectedDiaryEntry] = useState<DiaryEntry | null>(null)
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null)
   const [wishlist, setWishlist] = useState<WishlistItem[]>([])
+  const [cart, setCart] = useState<CartItem[]>([])
   const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([])
 
   // Sample data
@@ -464,42 +484,24 @@ export default function PetServiceWebsite() {
     },
   ])
 
-  const [orders, setOrders] = useState<OrderItem[]>([
-    {
-      id: 1,
-      productId: 1,
-      productName: "프리미엄 강아지 사료 (성견용)",
-      price: 45000,
-      quantity: 1,
-      orderDate: "2024-03-01",
-      status: "completed",
-      image: "/placeholder.svg?height=100&width=100",
-    },
-    {
-      id: 2,
-      productId: 2,
-      productName: "고양이 장난감 세트",
-      price: 25000,
-      quantity: 2,
-      orderDate: "2024-03-10",
-      status: "pending",
-      image: "/placeholder.svg?height=100&width=100",
-    },
-  ])
+  const [orders, setOrders] = useState<OrderItem[]>([])
 
   // Event handlers
   const handleLogin = (email: string, password: string) => {
     setIsLoggedIn(true)
-    setCurrentUser({ email, name: email.split("@")[0] })
+    
+    // 이메일 기반으로 사용자 ID 생성 (간단한 해시 함수)
+    const userId = email.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 1000 + 1
+    setCurrentUser({ id: userId, email, name: email.split("@")[0] })
 
     // 관리자 계정 확인 (admin 또는 admin@test.com)
     if (email === "admin" || email === "admin@test.com") {
       setIsAdmin(true)
-      console.log("관리자로 로그인됨:", email)
+      console.log("관리자로 로그인됨:", email, "사용자 ID:", userId)
       setCurrentPage("admin") // 관리자로 로그인 시 관리자 페이지로 자동 이동
     } else {
       setIsAdmin(false)
-      console.log("일반 사용자로 로그인됨:", email)
+      console.log("일반 사용자로 로그인됨:", email, "사용자 ID:", userId)
       setCurrentPage("home") // 일반 사용자 로그인 시 홈으로 이동 (또는 현재 페이지 유지)
     }
 
@@ -510,7 +512,10 @@ export default function PetServiceWebsite() {
     console.log("회원가입 데이터:", userData)
     // 회원가입 후 자동 로그인
     setIsLoggedIn(true)
-    setCurrentUser({ email: userData.email, name: userData.name })
+    
+    // 이메일 기반으로 사용자 ID 생성
+    const userId = userData.email.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 1000 + 1
+    setCurrentUser({ id: userId, email: userData.email, name: userData.name })
     // Optionally add pet data to pets state if it's a new pet for the user
     if (userData.petType && userData.petAge && userData.petBreed) {
       const newPet: Pet = {
@@ -558,6 +563,310 @@ export default function PetServiceWebsite() {
 
   const isInWishlist = (id: number) => {
     return wishlist.some((item) => item.id === id)
+  }
+
+  const handleAddToCart = async (product: Product) => {
+    if (!isLoggedIn) {
+      alert("로그인이 필요합니다.")
+      return
+    }
+    
+    console.log('장바구니 추가 시작:', product)
+    console.log('Product ID:', product.id)
+    console.log('Product 전체 객체:', JSON.stringify(product, null, 2))
+    
+    if (!product.id) {
+      alert('상품 ID가 없습니다.')
+      return
+    }
+    
+    try {
+      const currentUserId = currentUser?.id || 1
+      const url = `/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
+      console.log('요청 URL:', url)
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }
+      })
+      
+      console.log('응답 상태:', response.status)
+      console.log('응답 헤더:', response.headers)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('응답 에러:', errorText)
+        throw new Error(`장바구니 추가에 실패했습니다. (${response.status})`)
+      }
+      
+      const result = await response.json()
+      console.log('장바구니 추가 성공:', result)
+      
+      alert(`${product.name}을(를) 장바구니에 추가했습니다.`)
+      // 장바구니 목록 새로고침
+      fetchCartItems()
+      // 장바구니 페이지로 이동
+      setCurrentPage("cart")
+    } catch (error) {
+      console.error('장바구니 추가 오류:', error)
+      alert('장바구니 추가에 실패했습니다: ' + (error as Error).message)
+    }
+  }
+
+  const isInCart = (id: number) => {
+    return cart.some((item) => item.id === id)
+  }
+
+  // 장바구니 목록 조회
+  const fetchCartItems = async () => {
+    if (!isLoggedIn) return
+    
+    console.log('장바구니 조회 시작')
+    console.log('현재 사용자:', currentUser)
+    
+    // 현재 로그인한 사용자의 ID (임시로 1 사용, 실제로는 currentUser.id 사용)
+    const currentUserId = currentUser?.id || 1
+    
+    try {
+      const response = await fetch(`/api/carts/${currentUserId}`)
+      console.log('장바구니 조회 응답 상태:', response.status)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('장바구니 조회 에러:', errorText)
+        throw new Error('장바구니 조회에 실패했습니다.')
+      }
+      
+      const cartData = await response.json()
+      console.log('장바구니 데이터:', cartData)
+      
+      // 백엔드 응답을 프론트엔드 형식으로 변환 (cartId로 정렬하여 추가 순서 유지)
+      const cartItems: CartItem[] = cartData
+        .sort((a: any, b: any) => a.cartId - b.cartId) // cartId로 정렬하여 추가 순서 유지
+        .map((item: any, index: number) => ({
+          id: item.cartId,
+          name: item.product.name,
+          brand: item.product.brand || "브랜드 없음",
+          price: item.product.price,
+          image: item.product.imageUrl || "/placeholder.svg",
+          category: item.product.category,
+          quantity: item.quantity,
+          order: index // 순서 고정을 위한 인덱스 추가
+        }))
+      
+      console.log('변환된 장바구니 아이템:', cartItems)
+      setCart(cartItems)
+    } catch (error) {
+      console.error('장바구니 조회 오류:', error)
+    }
+  }
+
+  // 장바구니에서 상품 삭제
+  const handleRemoveFromCart = async (cartId: number) => {
+    try {
+      const response = await fetch(`/api/carts/${cartId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        throw new Error('장바구니에서 삭제에 실패했습니다.')
+      }
+      
+      // 장바구니 목록 새로고침
+      fetchCartItems()
+    } catch (error) {
+      console.error('장바구니 삭제 오류:', error)
+      alert('장바구니에서 삭제에 실패했습니다.')
+    }
+  }
+
+  // 장바구니 수량 업데이트
+  const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
+    try {
+      const response = await fetch(`/api/carts/${cartId}?quantity=${quantity}`, {
+        method: 'PUT'
+      })
+      
+      if (!response.ok) {
+        throw new Error('수량 업데이트에 실패했습니다.')
+      }
+      
+      // 장바구니 목록 새로고침
+      fetchCartItems()
+    } catch (error) {
+      console.error('수량 업데이트 오류:', error)
+      alert('수량 업데이트에 실패했습니다.')
+    }
+  }
+
+  // 컴포넌트 마운트 시 장바구니 조회
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchCartItems()
+    }
+  }, [isLoggedIn])
+
+  // 주문 관련 함수들
+  const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
+    try {
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('주문 생성에 실패했습니다.')
+      }
+      
+      const newOrder = await response.json()
+      setOrders(prev => [...prev, newOrder])
+      return newOrder
+    } catch (error) {
+      console.error('주문 생성 오류:', error)
+      throw error
+    }
+  }
+
+  const purchaseAllFromCart = async () => {
+    if (!isLoggedIn || !currentUser) {
+      alert('로그인이 필요합니다.')
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/orders/purchase-all/${currentUser.id}`, {
+        method: 'POST'
+      })
+      
+      if (!response.ok) {
+        throw new Error('전체 구매에 실패했습니다.')
+      }
+      
+      const newOrder = await response.json()
+      setOrders(prev => [...prev, newOrder])
+      
+      // 장바구니 비우기
+      setCart([])
+      
+      // 주문 목록 새로고침
+      await fetchUserOrders()
+      
+      alert('전체 구매가 완료되었습니다!')
+      setCurrentPage("myPage")
+    } catch (error) {
+      console.error('전체 구매 오류:', error)
+      alert('전체 구매에 실패했습니다.')
+    }
+  }
+
+  const fetchUserOrders = async () => {
+    if (!isLoggedIn || !currentUser) return
+    
+    try {
+      const response = await fetch(`/api/orders/user/${currentUser.id}`)
+      
+      if (!response.ok) {
+        throw new Error('주문 조회에 실패했습니다.')
+      }
+      
+      const userOrders = await response.json()
+      console.log('백엔드에서 받은 주문 데이터:', userOrders)
+      
+      // 주문 데이터를 OrderItem 형태로 변환
+      const orderItems: OrderItem[] = userOrders.flatMap((order: any) => {
+        console.log('처리 중인 주문:', order)
+        
+        if (order.orderItems && order.orderItems.length > 0) {
+          // 주문에 상품 정보가 있는 경우
+          return order.orderItems.map((item: any) => {
+            console.log('처리 중인 주문 아이템:', item)
+            return {
+              id: item.id || order.orderId,
+              productId: item.productId || 0,
+              productName: item.productName || `주문 #${order.orderId}`,
+              price: item.price || order.totalPrice,
+              quantity: item.quantity || 1,
+              orderDate: order.orderedAt || new Date().toISOString(),
+              status: order.paymentStatus === 'COMPLETED' ? 'completed' : 
+                      order.paymentStatus === 'PENDING' ? 'pending' : 'cancelled',
+              ImageUrl: item.ImageUrl || "/placeholder.svg"
+            }
+          })
+        } else {
+          // 주문에 상품 정보가 없는 경우 (기존 방식)
+          return [{
+            id: order.orderId,
+            productId: 0,
+            productName: `주문 #${order.orderId}`,
+            price: order.totalPrice,
+            quantity: 1,
+            orderDate: order.orderedAt || new Date().toISOString(),
+            status: order.paymentStatus === 'COMPLETED' ? 'completed' : 
+                    order.paymentStatus === 'PENDING' ? 'pending' : 'cancelled',
+            image: "/placeholder.svg"
+          }]
+        }
+      })
+      
+      console.log('변환된 주문 아이템:', orderItems)
+      
+      // 최신순으로 정렬 (orderDate 기준 내림차순)
+      const sortedOrderItems = orderItems.sort((a, b) => {
+        const dateA = new Date(a.orderDate).getTime();
+        const dateB = new Date(b.orderDate).getTime();
+        return dateB - dateA; // 내림차순 (최신순)
+      });
+      
+      console.log('정렬된 주문 아이템:', sortedOrderItems)
+      setOrders(sortedOrderItems)
+    } catch (error) {
+      console.error('주문 조회 오류:', error)
+    }
+  }
+
+  const deleteOrder = async (orderId: number) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: 'DELETE'
+      })
+      
+      if (!response.ok) {
+        throw new Error('주문 삭제에 실패했습니다.')
+      }
+      
+      setOrders(prev => prev.filter(order => order.id !== orderId))
+      alert('주문이 삭제되었습니다.')
+    } catch (error) {
+      console.error('주문 삭제 오류:', error)
+      alert('주문 삭제에 실패했습니다.')
+    }
+  }
+
+  const updatePaymentStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}/status?status=${status}`, {
+        method: 'PUT'
+      })
+      
+      if (!response.ok) {
+        throw new Error('결제 상태 업데이트에 실패했습니다.')
+      }
+      
+      const updatedOrder = await response.json()
+      setOrders(prev => prev.map(order => 
+        order.id === orderId 
+          ? { ...order, status: status === "COMPLETED" ? "completed" : status === "PENDING" ? "pending" : "cancelled" }
+          : order
+      ))
+    } catch (error) {
+      console.error('결제 상태 업데이트 오류:', error)
+      alert('결제 상태 업데이트에 실패했습니다.')
+    }
   }
 
   const handleAddPet = (petData: any) => {
@@ -623,6 +932,54 @@ export default function PetServiceWebsite() {
   const handleDeleteCommunityPost = (postId: number) => {
     setCommunityPosts((prev) => prev.filter((post) => post.id !== postId));
     setSelectedPost(null); // Close detail view after deletion
+  }
+
+  // 바로구매 함수
+  const handleBuyNow = async (product: Product) => {
+    if (!isLoggedIn || !currentUser) {
+      alert('로그인이 필요합니다.')
+      return
+    }
+
+    try {
+      // 바로구매를 위한 주문 생성
+      const orderData = {
+        userId: currentUser.id,
+        totalPrice: product.price,
+        orderItems: [{
+          productId: product.id,
+          productName: product.name || product.brand + " " + product.category,
+          productImage: product.image || "/placeholder.svg",
+          quantity: 1,
+          price: product.price
+        }]
+      }
+      
+      console.log('바로구매 주문 데이터:', orderData);
+      
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(orderData)
+      })
+      
+      if (!response.ok) {
+        throw new Error('주문 생성에 실패했습니다.')
+      }
+      
+      const newOrder = await response.json()
+      
+      // 주문 목록 새로고침
+      await fetchUserOrders()
+      
+      alert('바로구매가 완료되었습니다!')
+      setCurrentPage("myPage")
+    } catch (error) {
+      console.error('바로구매 오류:', error)
+      alert('바로구매에 실패했습니다.')
+    }
   }
 
   // Render current page
@@ -694,12 +1051,10 @@ export default function PetServiceWebsite() {
               setCurrentPage("store")
             }}
             onAddToWishlist={handleAddToWishlist}
-            onAddToCart={(product) => {
-              console.log("장바구니에 추가:", product)
-              alert(`${product.name}을(를) 장바구니에 추가했습니다.`)
-            }}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
             isInWishlist={isInWishlist}
-            isInCart={(id) => false} // 임시로 항상 false 반환
+            isInCart={isInCart}
           />
         )
 
@@ -855,20 +1210,44 @@ export default function PetServiceWebsite() {
       case "research":
         return <DogResearchLabPage onClose={() => setCurrentPage("home")} />
 
-      case "wishlist":
+      case "cart":
+        if (!isLoggedIn) {
+          return (
+            <div className="min-h-screen bg-gray-50 pt-20">
+              <div className="container mx-auto px-4 py-8">
+                <div className="max-w-md mx-auto text-center">
+                  <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <ShoppingCart className="w-12 h-12 text-gray-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">로그인이 필요합니다</h3>
+                  <p className="text-gray-600 mb-6">장바구니를 이용하려면 로그인해주세요.</p>
+                  <div className="space-y-3">
+                    <Button 
+                      onClick={() => setShowLoginModal(true)} 
+                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
+                    >
+                      로그인하기
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setCurrentPage("home")}
+                      className="w-full"
+                    >
+                      홈으로 돌아가기
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
         return (
-          <WishlistPage
-            wishlistItems={wishlist}
-            onRemoveFromWishlist={(id) => {
-              setWishlist((prev) => prev.filter((item) => item.id !== id))
-            }}
+          <CartPage
+            cartItems={cart}
+            onRemoveFromCart={handleRemoveFromCart}
             onNavigateToStore={() => setCurrentPage("store")}
-            onPurchase={(items) => {
-              if (Array.isArray(items)) {
-                console.log("구매:", items)
-                alert(`${items.length}개 상품을 구매합니다.`)
-              }
-            }}
+            onPurchase={purchaseAllFromCart}
+            onUpdateQuantity={handleUpdateCartQuantity}
           />
         )
 
@@ -902,6 +1281,7 @@ export default function PetServiceWebsite() {
             onDeleteProduct={(productId) => {
               setProducts((prev) => prev.filter((product) => product.id !== productId));
             }}
+            onUpdateOrderStatus={updatePaymentStatus}
             isAdmin={isAdmin}
             onAdminLogout={handleLogout} // Pass the logout handler
           />
@@ -913,7 +1293,7 @@ export default function PetServiceWebsite() {
             currentUser={currentUser}
             userPets={pets.filter((pet) => pet.ownerEmail === currentUser?.email)} // Filter pets by logged-in user
             userAdoptionInquiries={adoptionInquiries.filter((inquiry) => inquiry.email === currentUser?.email)} // Filter inquiries by logged-in user
-            userOrders={orders} // Pass all orders for now, ideally filtered by user
+            userOrders={orders} // Pass filtered orders for current user
             onClose={() => setCurrentPage("home")}
           />
         )
@@ -1009,16 +1389,26 @@ export default function PetServiceWebsite() {
                           </div>
                           <p className="text-sm font-medium">펫용품 쇼핑</p>
                         </button>
-                        <button onClick={() => setCurrentPage("wishlist")} className="text-center space-y-2 w-full">
+                        <button 
+                          onClick={() => {
+                            if (!isLoggedIn) {
+                              alert("장바구니를 이용하려면 로그인이 필요합니다.")
+                              setShowLoginModal(true)
+                            } else {
+                              setCurrentPage("cart")
+                            }
+                          }} 
+                          className="text-center space-y-2 w-full"
+                        >
                           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto relative">
-                            <Heart className="w-8 h-8 text-green-600 fill-green-600" />
-                            {wishlist.length > 0 && (
+                            <ShoppingCart className="w-8 h-8 text-green-600" />
+                            {isLoggedIn && cart.length > 0 && (
                               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                {wishlist.length}
+                                {cart.length}
                               </span>
                             )}
                           </div>
-                          <p className="text-sm font-medium">찜한 상품</p>
+                          <p className="text-sm font-medium">장바구니</p>
                         </button>
                       </div>
                     </CardContent>

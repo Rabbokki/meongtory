@@ -11,7 +11,7 @@ interface Product {
   id: number
   name: string
   price: number
-  image: string
+  imageUrl: string // image → imageUrl로 변경
   category: string
   description: string
   tags: string[]
@@ -27,6 +27,7 @@ interface StoreProductDetailPageProps {
   onBack: () => void
   onAddToWishlist: (product: Product) => void
   onAddToCart: (product: Product) => void
+  onBuyNow: (product: Product) => void
   isInWishlist: (id: number) => boolean
   isInCart: (id: number) => boolean
 }
@@ -36,6 +37,7 @@ export default function StoreProductDetailPage({
   onBack,
   onAddToWishlist,
   onAddToCart,
+  onBuyNow,
   isInWishlist,
   isInCart,
 }: StoreProductDetailPageProps) {
@@ -53,7 +55,17 @@ export default function StoreProductDetailPage({
           throw new Error('상품을 찾을 수 없습니다.')
         }
         
-        const data = await response.json()
+        const rawData = await response.json()
+        console.log('상품 상세 데이터:', rawData);
+        
+        // 백엔드 응답을 프론트엔드 형식으로 변환
+        const data: Product = {
+          ...rawData,
+          id: rawData.productId || rawData.id, // productId를 id로 매핑
+          imageUrl: rawData.image || rawData.imageUrl, // image 필드를 imageUrl로 매핑
+          petType: rawData.targetAnimal?.toLowerCase() || 'all' // targetAnimal을 petType으로 매핑
+        };
+        
         setProduct(data)
       } catch (error) {
         console.error('상품 조회 오류:', error)
@@ -108,7 +120,7 @@ export default function StoreProductDetailPage({
             <CardContent className="p-6">
               <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
                 <Image
-                  src={product.image || "/placeholder.svg"}
+                  src={product.imageUrl || "/placeholder.svg"}
                   alt={product.name}
                   width={500}
                   height={500}
@@ -180,6 +192,7 @@ export default function StoreProductDetailPage({
                     {isInCart(product.id) ? '장바구니에 추가됨' : '장바구니에 추가'}
                   </Button>
                   <Button
+                    onClick={() => onBuyNow(product)}
                     variant="outline"
                     disabled={product.stock === 0}
                     className="flex-1"

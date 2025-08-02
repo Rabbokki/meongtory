@@ -4,7 +4,8 @@ import { Input } from './components/ui/input';
 import { Label } from './components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from './components/ui/card';
-import { ArrowLeft, Save, X } from 'lucide-react';
+import { ArrowLeft, Save, X, Upload } from 'lucide-react';
+import Image from 'next/image';
 
 interface Product {
   id: number;
@@ -46,6 +47,8 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // 상품 데이터 로드
   useEffect(() => {
@@ -76,11 +79,51 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
     }
   };
 
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setImageFile(null);
+      setImagePreview(null);
+    }
+  };
+
   const handleSave = async () => {
     if (!product) return;
 
     try {
       setSaving(true);
+      
+      let imageUrl = product.image;
+      
+      // 새 이미지가 업로드된 경우 S3에 업로드 (백엔드 서버가 실행 중일 때만)
+      if (imageFile) {
+        try {
+          const formData = new FormData();
+          formData.append('file', imageFile);
+          
+          const uploadResponse = await fetch('/api/products/upload-image', {
+            method: 'POST',
+            body: formData,
+          });
+          
+          if (!uploadResponse.ok) {
+            console.warn('S3 업로드 실패, 기존 이미지 유지');
+          } else {
+            const uploadResult = await uploadResponse.json();
+            imageUrl = uploadResult.imageUrl;
+          }
+        } catch (error) {
+          console.warn('S3 업로드 중 오류, 기존 이미지 유지:', error);
+        }
+      }
+
       const response = await fetch(`/api/products/${productId}`, {
         method: 'PUT',
         headers: {
@@ -94,7 +137,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
           stock: product.stock,
           targetAnimal: product.petType === 'all' ? 'ALL' : product.petType === 'dog' ? 'DOG' : 'CAT',
           tags: JSON.stringify(product.tags),
-          imageUrl: product.image,
+          imageUrl: imageUrl,
         }),
       });
 
@@ -243,15 +286,26 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
               />
             </div>
 
-            {/* 이미지 URL */}
+            {/* 이미지 업로드 */}
             <div className="space-y-2">
-              <Label htmlFor="image">이미지 URL</Label>
-              <Input
-                id="image"
-                value={product.image}
-                onChange={(e) => handleInputChange('image', e.target.value)}
-                placeholder="이미지 URL을 입력하세요"
+              <Label htmlFor="image-upload">상품 이미지</Label>
+              <Input 
+                id="image-upload" 
+                type="file" 
+                accept="image/*" 
+                onChange={handleImageFileChange}
               />
+              {(imagePreview || product.image) && (
+                <div className="mt-4 w-48 h-48 relative overflow-hidden rounded-md border border-gray-300">
+                  <Image
+                    src={imagePreview || product.image}
+                    alt="상품 이미지"
+                    width={192}
+                    height={192}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
             </div>
 
             {/* 버튼 */}

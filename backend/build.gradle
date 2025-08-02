@@ -31,9 +31,14 @@ dependencies {
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     annotationProcessor 'org.projectlombok:lombok'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'com.h2database:h2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     //env용
     implementation 'io.github.cdimascio:java-dotenv:5.2.2'
+    // AWS S3
+    implementation 'software.amazon.awssdk:s3:2.24.12'
+    implementation 'software.amazon.awssdk:sts:2.24.12'
+    implementation 'software.amazon.awssdk:core:2.24.12'
 }
 
 tasks.named('test') {
