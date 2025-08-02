@@ -2,43 +2,47 @@ services:
   db:
     image: postgres:15
     environment:
-      - POSTGRES_USER=jjj
-      - POSTGRES_PASSWORD=1q2w3e4r!
-      - POSTGRES_DB=meong
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./pg_hba.conf:/var/lib/postgresql/data/pg_hba.conf
+      - ./init-db:/docker-entrypoint-initdb.d
     ports:
       - "5433:5432"
     networks:
       - meongtory-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U jjj -d meong"]
-      interval: 5s
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 30s
     restart: unless-stopped
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "8082:8081"
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/meong
-      - SPRING_DATASOURCE_USERNAME=jjj
-      - SPRING_DATASOURCE_PASSWORD=1q2w3e4r!
-      - SERVER_PORT=8081
-      - JWT_SECRET_KEY=7J2064W467Kg7J207IWY7Lqg7ZSE7IiY6rCV7IOd67aE65Ok7ZmU7J207YyF7ZWY7IS47JqU7KKL7J2A7ZqM7IKs7JeQ66qo65GQ7Leo7JeF7ISx6rO17ZWY7Iuk6rGw652866+/7Iq164uI64uk65287J2067iM7IS47IWY65Ok7Ja07KO87IWU7ISc6rCQ7IKs7ZWp64uI64uk64+E7JuA7J2065CY7JeI7Jy866m07KKL6rKg7Iq164uI64uk
-      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SERVER_PORT=${BACKEND_PORT}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
     depends_on:
       db:
         condition: service_healthy
     networks:
       - meongtory-network
     restart: on-failure
+
 volumes:
   postgres_data:
+
 networks:
   meongtory-network:
     driver: bridge

@@ -66,3 +66,4 @@ credentials/
 model_checkpoints/
 runs/
 logs/
+application.yml

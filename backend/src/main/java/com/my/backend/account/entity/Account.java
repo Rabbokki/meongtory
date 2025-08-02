@@ -1,6 +1,8 @@
 package com.my.backend.account.entity;
 
+import com.my.backend.account.dto.AccountRegisterRequestDto;
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -21,6 +23,10 @@ public class Account extends BaseEntity {
     private Long id;
 
     @Column(nullable = true)
+    private String name;
+
+
+    @Column(nullable = true)
     private String email;
 
     @Column(nullable = false)
@@ -28,4 +34,24 @@ public class Account extends BaseEntity {
 
     @Column(nullable = false)
     private String role;
+
+    @Enumerated(EnumType.STRING)
+    private PetType pet;
+
+    @Column(nullable = true)
+    private String petAge;
+
+    @Column(nullable = true)
+    private String petBreeds;
+
+
+    public Account(AccountRegisterRequestDto requestDto) {
+        this.name = requestDto.getName();
+        this.email = requestDto.getEmail();
+        this.password = requestDto.getPassword();
+        this.role = "USER";
+        this.pet = requestDto.getPet();
+        this.petAge = requestDto.getPetAge();
+        this.petBreeds = requestDto.getPetBreeds();
+    }
 }

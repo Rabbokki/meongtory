@@ -15,6 +15,7 @@ logfile/
 target/
 bin/
 build/
+application.yml
 
 ### Gradle ###
 .gradle/
