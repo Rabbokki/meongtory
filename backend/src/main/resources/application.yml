@@ -18,11 +18,22 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/google"
+            scope:
+              - email
+              - profile
 server:
   port: ${SERVER_PORT:8080}
 jwt:
   secret:
-    key: ${JWT_SECRET_KEY:7J2064W467Kg7J207IWY7Lqg7ZSE7IiY6rCV7IOd67aE65Ok7ZmU7J207YyF7ZWY7IS47JqU7KKL7J2A7ZqM7IKs7JeQ66qo65GQ7Leo7JeF7ISx6rO17ZWY7Iuk6rGw652866+/7Iq164uI64uk65287J2067iM7IS47IWY65Ok7Ja07KO87IWU7ISc6rCQ7IKs7ZWp64uI64uk64+E7JuA7J2065CY7JeI7Jy}
+    key: ${JWT_SECRET_KEY}
 logging:
   level:
     org.springframework: INFO

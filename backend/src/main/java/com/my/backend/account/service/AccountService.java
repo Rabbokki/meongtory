@@ -3,6 +3,7 @@ package com.my.backend.account.service;
 import com.my.backend.account.dto.AccountRegisterRequestDto;
 import com.my.backend.account.dto.AccountResponseDto;
 import com.my.backend.account.dto.LoginRequestDto;
+import com.my.backend.account.dto.UserInfoDto;
 import com.my.backend.account.entity.Account;
 import com.my.backend.account.entity.RefreshToken;
 import com.my.backend.account.repository.AccountRepository;
@@ -39,7 +40,6 @@ public class AccountService {
         requestDto.setEncodePwd(passwordEncoder.encode(requestDto.getPassword()));
 
         Account account = new Account(requestDto);
-
         accountRepository.save(account);
 
         AccountResponseDto responseDto = new AccountResponseDto(
@@ -57,7 +57,6 @@ public class AccountService {
 
     @Transactional
     public TokenDto accountLogin(LoginRequestDto request) {
-
         Account account = accountRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 이메일입니다."));
 
@@ -71,13 +70,30 @@ public class AccountService {
                 .refreshToken(tokenDto.getRefreshToken())
                 .build();
         refreshTokenRepository.save(refreshToken);
-        System.out.println("로그인 성공");
+        log.info("로그인 성공: {}", account.getEmail());
         return tokenDto;
     }
 
     @Transactional
     public void accountLogout(String email) {
         refreshTokenRepository.deleteByAccountEmail(email);
+        log.info("로그아웃 성공: {}", email);
     }
 
+    public AccountResponseDto getUserInfoByEmail(String email) {
+        if (email == null || email.isEmpty()) {
+            throw new IllegalArgumentException("이메일이 제공되지 않았습니다.");
+        }
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("계정이 없습니다: " + email));
+        return new AccountResponseDto(
+                account.getId(),
+                account.getEmail(),
+                account.getName(),
+                account.getRole(),
+                account.getPet(),
+                account.getPetAge(),
+                account.getPetBreeds()
+        );
+    }
 }

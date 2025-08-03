@@ -17,6 +17,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+
 @RestController
 @RequestMapping("/api/accounts")
 @RequiredArgsConstructor
@@ -49,5 +51,11 @@ public class AccountController {
         String email = userDetails.getAccount().getEmail();
         accountService.accountLogout(email);
         return ResponseDto.success("로그아웃이 완료되었습니다.");
+    }
+
+    @GetMapping("/me")
+    public ResponseDto<?> getUserInfo(@AuthenticationPrincipal UserDetailsImpl userDetails) throws IOException {
+        String email = userDetails.getUsername();
+        return ResponseDto.success(accountService.getUserInfoByEmail(email));
     }
 }

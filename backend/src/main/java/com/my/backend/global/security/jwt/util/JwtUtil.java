@@ -47,14 +47,15 @@ public class JwtUtil {
         key = Keys.hmacShaKeyFor(bytes);
     }
 
-    // header 토큰을 가져오는 기능
+    // 헤더에서 토큰 가져오기
     public String getHeaderToken(HttpServletRequest request, String headerName) {
         String token = request.getHeader(headerName);
-        log.info("Header {} value: {}", headerName, token); // 디버깅용 로그 추가
+        log.info("Header {} value: {}", headerName, token);
         return token;
     }
+
     // 토큰 생성
-    public TokenDto createAllToken(String email, String role){
+    public TokenDto createAllToken(String email, String role) {
         return new TokenDto(
                 createToken(email, role, "Access"),
                 createToken(email, role, "Refresh")
@@ -62,9 +63,7 @@ public class JwtUtil {
     }
 
     public String createToken(String email, String role, String type) {
-
         Date date = new Date();
-
         long time = type.equals("Access") ? ACCESS_TIME : REFRESH_TIME;
 
         String token = Jwts.builder()
@@ -74,25 +73,17 @@ public class JwtUtil {
                 .setIssuedAt(date)
                 .signWith(key, signatureAlgorithm)
                 .compact();
-        log.info("Generated token: {}", token); // 토큰 생성 로그 추가
+        log.info("Generated token: {}", token);
         return token;
     }
+
     // 토큰 검증
-//    public Boolean tokenValidation(String token) {
-//        try {
-//            Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
-//            return true;
-//        } catch (Exception ex) {
-//            log.error(ex.getMessage());
-//            return false;
-//        }
-//    }
     public boolean tokenValidation(String token) {
         try {
             Jwts.parserBuilder()
-                    .setSigningKey(Base64.getDecoder().decode(secretKey))  // secretKey를 byte[]로 디코딩
+                    .setSigningKey(key)
                     .build()
-                    .parseClaimsJws(token);  // JWT 파싱
+                    .parseClaimsJws(token);
             log.info("Token validated successfully: {}", token);
             return true;
         } catch (Exception e) {
@@ -101,24 +92,11 @@ public class JwtUtil {
         }
     }
 
-    public String getEmailFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(Base64.getDecoder().decode(secretKey))  // secretKey를 byte[]로 디코딩
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.getSubject();  // 이메일을 가져옴
-    }
-
-    // refreshToken 토큰 검증
+    // 리프레시 토큰 검증
     public Boolean refreshTokenValidation(String token) {
+        if (!tokenValidation(token)) return false;
 
-        // 1차 토큰 검증
-        if(!tokenValidation(token)) return false;
-
-        // DB에 저장한 토큰 비교
         Optional<RefreshToken> refreshToken = refreshTokenRepository.findByAccountEmail(getEmailFromToken(token));
-
         return refreshToken.isPresent() && token.equals(refreshToken.get().getRefreshToken());
     }
 
@@ -128,10 +106,13 @@ public class JwtUtil {
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
     }
 
-    // 토큰에서 email 가져오는 기능
-//    public String getEmailFromToken(String token) {
-//        return Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token).getBody().getSubject();
-//    }
-
-
+    // 토큰에서 이메일 추출
+    public String getEmailFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.getSubject();
+    }
 }

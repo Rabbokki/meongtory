@@ -3,13 +3,12 @@
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Heart, Search, Store, BookOpen, User, ShoppingCart } from "lucide-react"
 import LoginModal from "./login-modal"
 import SignupModal from "./signup-modal"
 import PasswordRecoveryModal from "./password-recovery-modal"
-import MyPage from "./my-page" // Import the new MyPage component
-
+import MyPage from "./my-page"
 import AdoptionPage from "./adoption-page"
 import AdoptionDetailPage from "./adoption-detail-page"
 import StorePage from "./store-page"
@@ -30,9 +29,11 @@ import Chatbot from "./chatbot"
 import AdminPage from "./admin-page"
 import PetNamingService from "./pet-naming-service"
 import InsuranceFavoritesPage from "./insurance-favorites-page"
-import GrowthDiaryWritePage from "./growth-diary-write-page" // New import
+import GrowthDiaryWritePage from "./growth-diary-write-page"
+import axios from "axios"
+import { Toaster, toast } from "react-hot-toast"
 
-// Types
+// Types (unchanged)
 interface Pet {
   id: number
   name: string
@@ -52,7 +53,7 @@ interface Pet {
   specialNeeds?: string
   dateRegistered: string
   adoptionStatus: "available" | "pending" | "adopted"
-  ownerEmail?: string // Added for MyPage filtering
+  ownerEmail?: string
 }
 
 interface Product {
@@ -65,7 +66,7 @@ interface Product {
   description: string
   tags: string[]
   stock: number
-  petType?: "dog" | "cat" | "all"; // Add petType to Product interface
+  petType?: "dog" | "cat" | "all"
   registrationDate: string
   registeredBy: string
 }
@@ -87,7 +88,7 @@ interface CartItem {
   image: string
   category: string
   quantity: number
-  order: number // 순서 고정을 위한 필드
+  order: number
 }
 
 interface Insurance {
@@ -112,12 +113,12 @@ interface DiaryEntry {
   content: string
   images: string[]
   milestones: string[]
-  tags?: string[] // Added tags to the interface
+  tags?: string[]
   weight?: number
   height?: number
   mood: string
   activities: string[]
-  ownerEmail?: string // Added for filtering
+  ownerEmail?: string
 }
 
 interface CommunityPost {
@@ -132,7 +133,7 @@ interface CommunityPost {
   likes: number
   comments: number
   tags: string[]
-  ownerEmail?: string; // Add ownerEmail to CommunityPost interface
+  ownerEmail?: string
 }
 
 interface AdoptionInquiry {
@@ -176,6 +177,29 @@ interface Order {
   orderedAt: string
 }
 
+// Axios Interceptor for Debugging
+axios.interceptors.request.use(
+  (config) => {
+    console.log("Request:", config.method, config.url, config.headers)
+    return config
+  },
+  (error) => {
+    console.error("Request Error:", error)
+    return Promise.reject(error)
+  }
+)
+
+axios.interceptors.response.use(
+  (response) => {
+    console.log("Response:", response.status, response.data)
+    return response
+  },
+  (error) => {
+    console.error("Response Error:", error.response?.status, error.response?.data)
+    return Promise.reject(error)
+  }
+)
+
 // Navigation Header Component
 function NavigationHeader({
   currentPage,
@@ -184,7 +208,7 @@ function NavigationHeader({
   isAdmin,
   onLogin,
   onLogout,
-  onNavigateToMyPage, // New prop for MyPage
+  onNavigateToMyPage,
 }: {
   currentPage: string
   onNavigate: (page: string) => void
@@ -192,7 +216,7 @@ function NavigationHeader({
   isAdmin: boolean
   onLogin: () => void
   onLogout: () => void
-  onNavigateToMyPage: () => void // New prop
+  onNavigateToMyPage: () => void
 }) {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -253,7 +277,7 @@ function NavigationHeader({
             >
               강아지 연구소
             </button>
-            {isLoggedIn && ( // Only show MyPage if logged in
+            {isLoggedIn && (
               <button
                 onClick={onNavigateToMyPage}
                 className={`text-sm font-medium transition-colors ${
@@ -269,9 +293,11 @@ function NavigationHeader({
           <div className="flex items-center space-x-3">
             {isLoggedIn ? (
               <>
-                {/* 관리자 페이지 버튼 제거됨 */}
                 <Button onClick={onLogout} variant="outline" size="sm" className="text-sm bg-transparent">
                   로그아웃
+                </Button>
+                <Button onClick={onNavigateToMyPage} variant="outline" size="sm" className="text-sm bg-transparent">
+                  마이페이지
                 </Button>
               </>
             ) : (
@@ -287,6 +313,28 @@ function NavigationHeader({
   )
 }
 
+// Refresh Token Function
+const refreshAccessToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem("refreshToken")
+    if (!refreshToken) throw new Error("No refresh token available")
+
+    const response = await axios.post(
+      "http://localhost:8080/api/accounts/refresh",
+      { refreshToken },
+      { headers: { "Content-Type": "application/json" } }
+    )
+
+    const { accessToken } = response.data.data
+    localStorage.setItem("accessToken", accessToken)
+    console.log("Token refreshed successfully")
+    return accessToken
+  } catch (err) {
+    console.error("토큰 갱신 실패:", err)
+    return null
+  }
+}
+
 export default function PetServiceWebsite() {
   // State management
   const [currentPage, setCurrentPage] = useState("home")
@@ -296,26 +344,6 @@ export default function PetServiceWebsite() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null)
-  const [oauthMessage, setOauthMessage] = useState<string | null>(null)
-
-  // OAuth 콜백 처리
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const success = urlParams.get("success")
-    const error = urlParams.get("error")
-
-    if (success) {
-      setOauthMessage(`OAuth 로그인 성공: ${success}`)
-      setIsLoggedIn(true)
-      setCurrentUser({ id: 1, email: "oauth@example.com", name: "OAuth 사용자" })
-      // URL에서 파라미터 제거
-      window.history.replaceState({}, document.title, window.location.pathname)
-    } else if (error) {
-      setOauthMessage(`OAuth 로그인 실패: ${error}`)
-      // URL에서 파라미터 제거
-      window.history.replaceState({}, document.title, window.location.pathname)
-    }
-  }, [])
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
@@ -326,6 +354,582 @@ export default function PetServiceWebsite() {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([])
   const [cart, setCart] = useState<CartItem[]>([])
   const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Check initial login state and fetch user info
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      if (typeof window === "undefined") return
+
+      let accessToken = localStorage.getItem("accessToken")
+      if (!accessToken) {
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        const response = await axios.get("http://localhost:8080/api/accounts/me", {
+          headers: { "Access_Token": accessToken },
+        })
+        const { id, email, name, role } = response.data.data
+        setCurrentUser({ id, email, name })
+        setIsLoggedIn(true)
+        setIsAdmin(role === "ADMIN")
+        console.log("Initial login check successful:", { id, email, name, role })
+      } catch (err: any) {
+        console.error("사용자 정보 조회 실패:", err)
+        if (err.response?.status === 401) {
+          accessToken = await refreshAccessToken()
+          if (accessToken) {
+            try {
+              const response = await axios.get("http://localhost:8080/api/accounts/me", {
+                headers: { "Access_Token": accessToken },
+              })
+              const { id, email, name, role } = response.data.data
+              setCurrentUser({ id, email, name })
+              setIsLoggedIn(true)
+              setIsAdmin(role === "ADMIN")
+              console.log("Retry login check successful:", { id, email, name, role })
+            } catch (retryErr) {
+              console.error("재시도 실패:", retryErr)
+              localStorage.removeItem("accessToken")
+              localStorage.removeItem("refreshToken")
+              setIsLoggedIn(false)
+              setCurrentUser(null)
+              setIsAdmin(false)
+            }
+          } else {
+            localStorage.removeItem("accessToken")
+            localStorage.removeItem("refreshToken")
+            setIsLoggedIn(false)
+            setCurrentUser(null)
+            setIsAdmin(false)
+          }
+        } else {
+          localStorage.removeItem("accessToken")
+          localStorage.removeItem("refreshToken")
+          setIsLoggedIn(false)
+          setCurrentUser(null)
+          setIsAdmin(false)
+        }
+      }
+      setIsLoading(false)
+    }
+
+    checkLoginStatus()
+  }, [])
+
+  // OAuth callback handling
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const urlParams = new URLSearchParams(window.location.search)
+    const success = urlParams.get("success")
+    const error = urlParams.get("error")
+    const accessToken = urlParams.get("accessToken")
+    const refreshToken = urlParams.get("refreshToken")
+
+    if (success && accessToken && refreshToken) {
+      localStorage.setItem("accessToken", accessToken)
+      localStorage.setItem("refreshToken", refreshToken)
+
+      const fetchUserInfo = async () => {
+        try {
+          const response = await axios.get("http://localhost:8080/api/accounts/me", {
+            headers: { "Access_Token": accessToken },
+          })
+          const { id, email, name, role } = response.data.data
+          setCurrentUser({ id, email, name })
+          setIsLoggedIn(true)
+          setIsAdmin(role === "ADMIN")
+          toast.success("OAuth 로그인 되었습니다", { duration: 5000 })
+          console.log("OAuth login successful:", { id, email, name, role })
+        } catch (err: any) {
+          console.error("사용자 정보 조회 실패:", err)
+          toast.error("사용자 정보 조회 실패: " + (err.response?.data?.message || err.message), { duration: 5000 })
+          localStorage.removeItem("accessToken")
+          localStorage.removeItem("refreshToken")
+          setIsLoggedIn(false)
+          setCurrentUser(null)
+          setIsAdmin(false)
+        }
+        window.history.replaceState({}, document.title, window.location.pathname)
+      }
+
+      fetchUserInfo()
+    } else if (error) {
+      toast.error(decodeURIComponent(error), { duration: 5000 })
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [])
+
+  // Event handlers
+  const handleLogin = async (email: string, password: string) => {
+    try {
+      console.log("로그인 시도:", { email })
+      const response = await axios.post(
+        "http://localhost:8080/api/accounts/login",
+        { email, password },
+        { headers: { "Content-Type": "application/json" } }
+      )
+
+      const { data } = response.data
+      const { accessToken, refreshToken, user } = data
+
+      localStorage.setItem("accessToken", accessToken)
+      localStorage.setItem("refreshToken", refreshToken)
+      setCurrentUser({ id: user.id, email: user.email, name: user.name })
+      setIsLoggedIn(true)
+      setIsAdmin(user.role === "ADMIN")
+      setShowLoginModal(false)
+      toast.success("로그인 되었습니다", { duration: 5000 })
+      setCurrentPage(user.role === "ADMIN" ? "admin" : "home")
+    } catch (err: any) {
+      console.error("로그인 실패:", err.response?.data?.message || err.message)
+      const errorMessage =
+        err.response?.data?.code === "LOGIN_FAILED"
+          ? "이메일 또는 비밀번호가 올바르지 않습니다."
+          : "로그인 중 오류가 발생했습니다."
+      toast.error(errorMessage, { duration: 5000 })
+    }
+  }
+
+  const handleSignup = (userData: any) => {
+    console.log("회원가입 데이터:", userData)
+    setIsLoggedIn(true)
+    const userId = userData.email.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 1000 + 1
+    setCurrentUser({ id: userId, email: userData.email, name: userData.name })
+    toast.success("회원가입 및 로그인이 완료되었습니다", { duration: 5000 })
+
+    if (userData.petType && userData.petAge && userData.petBreed) {
+      const newPet: Pet = {
+        id: pets.length + 1,
+        name: `${userData.name}'s Pet`,
+        breed: userData.petBreed,
+        age: userData.petAge,
+        gender: "미상",
+        size: "미상",
+        personality: [],
+        healthStatus: "건강함",
+        description: "사용자가 등록한 펫",
+        images: ["/placeholder.svg?height=400&width=600"],
+        location: "사용자 거주지",
+        contact: "사용자 연락처",
+        adoptionFee: 0,
+        isNeutered: false,
+        isVaccinated: false,
+        dateRegistered: new Date().toISOString().split("T")[0],
+        adoptionStatus: "available",
+        ownerEmail: userData.email,
+      }
+      setPets((prev) => [...prev, newPet])
+    }
+    setShowSignupModal(false)
+  }
+
+  const handleLogout = async () => {
+    try {
+      const accessToken = localStorage.getItem("accessToken")
+      if (accessToken) {
+        await axios.post(
+          "http://localhost:8080/api/accounts/logout",
+          {},
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "Access_Token": accessToken,
+            },
+          }
+        )
+      }
+      localStorage.removeItem("accessToken")
+      localStorage.removeItem("refreshToken")
+      setIsLoggedIn(false)
+      setIsAdmin(false)
+      setCurrentUser(null)
+      toast.success("로그아웃 되었습니다", { duration: 5000 })
+      setCurrentPage("home")
+    } catch (err: any) {
+      console.error("로그아웃 실패:", err.response?.data?.message || err.message)
+      toast.error("로그아웃 실패", { duration: 5000 })
+    }
+  }
+
+  const handleAddToWishlist = (item: WishlistItem) => {
+    setWishlist((prev) => {
+      const exists = prev.find((w) => w.id === item.id)
+      if (exists) {
+        toast.success("위시리스트에서 제거되었습니다", { duration: 5000 })
+        return prev.filter((w) => w.id !== item.id)
+      } else {
+        toast.success("위시리스트에 추가되었습니다", { duration: 5000 })
+        return [...prev, item]
+      }
+    })
+  }
+
+  const isInWishlist = (id: number) => {
+    return wishlist.some((item) => item.id === id)
+  }
+
+  const handleAddToCart = async (product: Product) => {
+    if (!isLoggedIn) {
+      toast.error("로그인이 필요합니다", { duration: 5000 })
+      setShowLoginModal(true)
+      return
+    }
+
+    try {
+      const currentUserId = currentUser?.id || 1
+      const url = `/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      })
+
+      if (!response.ok) {
+        throw new Error(`장바구니 추가에 실패했습니다. (${response.status})`)
+      }
+
+      await fetchCartItems()
+      toast.success(`${product.name}을(를) 장바구니에 추가했습니다`, { duration: 5000 })
+      setCurrentPage("cart")
+    } catch (error) {
+      console.error("장바구니 추가 오류:", error)
+      toast.error("장바구니 추가에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  const isInCart = (id: number) => {
+    return cart.some((item) => item.id === id)
+  }
+
+  const fetchCartItems = async () => {
+    if (!isLoggedIn) return
+
+    const currentUserId = currentUser?.id || 1
+    try {
+      const response = await fetch(`/api/carts/${currentUserId}`)
+      if (!response.ok) {
+        throw new Error("장바구니 조회에 실패했습니다.")
+      }
+
+      const cartData = await response.json()
+      const cartItems: CartItem[] = cartData
+        .sort((a: any, b: any) => a.cartId - b.cartId)
+        .map((item: any, index: number) => ({
+          id: item.cartId,
+          name: item.product.name,
+          brand: item.product.brand || "브랜드 없음",
+          price: item.product.price,
+          image: item.product.imageUrl || "/placeholder.svg",
+          category: item.product.category,
+          quantity: item.quantity,
+          order: index,
+        }))
+      setCart(cartItems)
+    } catch (error) {
+      console.error("장바구니 조회 오류:", error)
+      toast.error("장바구니 조회에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  const handleRemoveFromCart = async (cartId: number) => {
+    try {
+      const response = await fetch(`/api/carts/${cartId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("장바구니에서 삭제에 실패했습니다.")
+      }
+
+      await fetchCartItems()
+      toast.success("장바구니에서 상품을 삭제했습니다", { duration: 5000 })
+    } catch (error) {
+      console.error("장바구니 삭제 오류:", error)
+      toast.error("장바구니에서 삭제에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
+    try {
+      const response = await fetch(`/api/carts/${cartId}?quantity=${quantity}`, {
+        method: "PUT",
+      })
+
+      if (!response.ok) {
+        throw new Error("수량 업데이트에 실패했습니다.")
+      }
+
+      await fetchCartItems()
+      toast.success("장바구니 수량을 업데이트했습니다", { duration: 5000 })
+    } catch (error) {
+      console.error("수량 업데이트 오류:", error)
+      toast.error("수량 업데이트에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      fetchCartItems()
+    }
+  }, [isLoggedIn])
+
+  const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
+    try {
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderData),
+      })
+
+      if (!response.ok) {
+        throw new Error("주문 생성에 실패했습니다.")
+      }
+
+      const newOrder = await response.json()
+      setOrders((prev) => [...prev, newOrder])
+      toast.success("주문이 생성되었습니다", { duration: 5000 })
+      return newOrder
+    } catch (error) {
+      console.error("주문 생성 오류:", error)
+      toast.error("주문 생성에 실패했습니다", { duration: 5000 })
+      throw error
+    }
+  }
+
+  const purchaseAllFromCart = async () => {
+    if (!isLoggedIn || !currentUser) {
+      toast.error("로그인이 필요합니다", { duration: 5000 })
+      setShowLoginModal(true)
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/orders/purchase-all/${currentUser.id}`, {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("전체 구매에 실패했습니다.")
+      }
+
+      const newOrder = await response.json()
+      setOrders((prev) => [...prev, newOrder])
+      setCart([])
+      await fetchUserOrders()
+      toast.success("전체 구매가 완료되었습니다", { duration: 5000 })
+      setCurrentPage("myPage")
+    } catch (error) {
+      console.error("전체 구매 오류:", error)
+      toast.error("전체 구매에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  const fetchUserOrders = async () => {
+    if (!isLoggedIn || !currentUser) return
+
+    try {
+      const response = await fetch(`/api/orders/user/${currentUser.id}`)
+      if (!response.ok) {
+        throw new Error("주문 조회에 실패했습니다.")
+      }
+
+      const userOrders = await response.json()
+      const orderItems: OrderItem[] = userOrders.flatMap((order: any) => {
+        if (order.orderItems && order.orderItems.length > 0) {
+          return order.orderItems.map((item: any) => ({
+            id: item.id || order.orderId,
+            productId: item.productId || 0,
+            productName: item.productName || `주문 #${order.orderId}`,
+            price: item.price || order.totalPrice,
+            quantity: item.quantity || 1,
+            orderDate: order.orderedAt || new Date().toISOString(),
+            status: order.paymentStatus === "COMPLETED" ? "completed" : order.paymentStatus === "PENDING" ? "pending" : "cancelled",
+            ImageUrl: item.ImageUrl || "/placeholder.svg",
+          }))
+        } else {
+          return [{
+            id: order.orderId,
+            productId: 0,
+            productName: `주문 #${order.orderId}`,
+            price: order.totalPrice,
+            quantity: 1,
+            orderDate: order.orderedAt || new Date().toISOString(),
+            status: order.paymentStatus === "COMPLETED" ? "completed" : order.paymentStatus === "PENDING" ? "pending" : "cancelled",
+            ImageUrl: "/placeholder.svg",
+          }]
+        }
+      })
+      const sortedOrderItems = orderItems.sort((a, b) => {
+        const dateA = new Date(a.orderDate).getTime()
+        const dateB = new Date(b.orderDate).getTime()
+        return dateB - dateA
+      })
+      setOrders(sortedOrderItems)
+    } catch (error) {
+      console.error("주문 조회 오류:", error)
+      toast.error("주문 조회에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  const deleteOrder = async (orderId: number) => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, {
+        method: "DELETE",
+      })
+
+      if (!response.ok) {
+        throw new Error("주문 삭제에 실패했습니다.")
+      }
+
+      setOrders((prev) => prev.filter((order) => order.id !== orderId))
+      toast.success("주문이 삭제되었습니다", { duration: 5000 })
+    } catch (error) {
+      console.error("주문 삭제 오류:", error)
+      toast.error("주문 삭제에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  const updatePaymentStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
+    try {
+      const response = await fetch(`/api/orders/${orderId}/status?status=${status}`, {
+        method: "PUT",
+      })
+
+      if (!response.ok) {
+        throw new Error("결제 상태 업데이트에 실패했습니다.")
+      }
+
+      const updatedOrder = await response.json()
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === orderId
+            ? { ...order, status: status === "COMPLETED" ? "completed" : status === "PENDING" ? "pending" : "cancelled" }
+            : order
+        )
+      )
+      toast.success("결제 상태가 업데이트되었습니다", { duration: 5000 })
+    } catch (error) {
+      console.error("결제 상태 업데이트 오류:", error)
+      toast.error("결제 상태 업데이트에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  const handleAddPet = (petData: any) => {
+    const newPet: Pet = {
+      id: pets.length + 1,
+      ...petData,
+      dateRegistered: new Date().toISOString().split("T")[0],
+      adoptionStatus: "available",
+    }
+    setPets((prev) => [...prev, newPet])
+    toast.success("새로운 펫이 등록되었습니다", { duration: 5000 })
+    setCurrentPage("adoption")
+  }
+
+  const handleAddProduct = (productData: any) => {
+    const newProduct: Product = {
+      id: products.length + 1,
+      ...productData,
+      registrationDate: new Date().toISOString().split("T")[0],
+      registeredBy: currentUser?.email || "admin",
+      petType: productData.petType || "all",
+    }
+    setProducts((prev) => [...prev, newProduct])
+    toast.success("새로운 상품이 등록되었습니다", { duration: 5000 })
+    setCurrentPage("store")
+  }
+
+  const handleViewProduct = (product: Product) => {
+    setSelectedProductId(product.id)
+    setCurrentPage("product-detail")
+  }
+
+  const handleEditProduct = (product: Product) => {
+    setSelectedProductForEdit(product)
+    setCurrentPage("product-edit")
+  }
+
+  const handleSaveProduct = (updatedProduct: Product) => {
+    setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)))
+    toast.success("상품이 수정되었습니다", { duration: 5000 })
+  }
+
+  const addToInsuranceFavorites = (id: number) => {
+    setFavoriteInsurance((prev) => {
+      if (prev.includes(id)) return prev
+      return [...prev, id]
+    })
+    toast.success("펫보험이 즐겨찾기에 추가되었습니다", { duration: 5000 })
+  }
+
+  const removeFromInsuranceFavorites = (id: number) => {
+    setFavoriteInsurance((prev) => prev.filter((itemId) => itemId !== id))
+    toast.success("펫보험이 즐겨찾기에서 제거되었습니다", { duration: 5000 })
+  }
+
+  const handleUpdateDiaryEntry = (updatedEntry: DiaryEntry) => {
+    setDiaryEntries((prev) =>
+      prev.map((entry) => (entry.id === updatedEntry.id ? updatedEntry : entry))
+    )
+    setSelectedDiaryEntry(updatedEntry)
+    toast.success("성장일기가 수정되었습니다", { duration: 5000 })
+  }
+
+  const handleDeleteDiaryEntry = (entryId: number) => {
+    setDiaryEntries((prev) => prev.filter((entry) => entry.id !== entryId))
+    setSelectedDiaryEntry(null)
+    toast.success("성장일기가 삭제되었습니다", { duration: 5000 })
+  }
+
+  const handleDeleteCommunityPost = (postId: number) => {
+    setCommunityPosts((prev) => prev.filter((post) => post.id !== postId))
+    setSelectedPost(null)
+    toast.success("게시물이 삭제되었습니다", { duration: 5000 })
+  }
+
+  const handleBuyNow = async (product: Product) => {
+    if (!isLoggedIn || !currentUser) {
+      toast.error("로그인이 필요합니다", { duration: 5000 })
+      setShowLoginModal(true)
+      return
+    }
+
+    try {
+      const orderData = {
+        userId: currentUser.id,
+        totalPrice: product.price,
+        orderItems: [
+          {
+            productId: product.id,
+            productName: product.name || product.brand + " " + product.category,
+            productImage: product.image || "/placeholder.svg",
+            quantity: 1,
+            price: product.price,
+          },
+        ],
+      }
+
+      const response = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderData),
+      })
+
+      if (!response.ok) {
+        throw new Error("주문 생성에 실패했습니다.")
+      }
+
+      await fetchUserOrders()
+      toast.success("바로구매가 완료되었습니다", { duration: 5000 })
+      setCurrentPage("myPage")
+    } catch (error) {
+      console.error("바로구매 오류:", error)
+      toast.error("바로구매에 실패했습니다", { duration: 5000 })
+    }
+  }
 
   // Sample data
   const [pets, setPets] = useState<Pet[]>([
@@ -347,7 +951,7 @@ export default function PetServiceWebsite() {
       isVaccinated: true,
       dateRegistered: "2024-01-15",
       adoptionStatus: "available",
-      ownerEmail: "user@test.com", // Assign to a user
+      ownerEmail: "user@test.com",
     },
     {
       id: 2,
@@ -367,7 +971,7 @@ export default function PetServiceWebsite() {
       isVaccinated: true,
       dateRegistered: "2024-02-01",
       adoptionStatus: "available",
-      ownerEmail: "user@test.com", // Assign to a user
+      ownerEmail: "user@test.com",
     },
   ])
 
@@ -417,7 +1021,6 @@ export default function PetServiceWebsite() {
   ])
 
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
-
   const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([
     {
       id: 1,
@@ -426,7 +1029,7 @@ export default function PetServiceWebsite() {
       author: "펫러버123",
       date: "2024-01-20",
       category: "훈련",
-      boardType: "자유게시판", // Changed to 자유게시판
+      boardType: "자유게시판",
       views: 45,
       likes: 12,
       comments: 8,
@@ -454,7 +1057,7 @@ export default function PetServiceWebsite() {
       petName: "초코",
       inquirerName: "김철수",
       phone: "010-9876-5432",
-      email: "user@test.com", // Assign to a user
+      email: "user@test.com",
       message: "초코를 입양하고 싶습니다. 아이들과 함께 살고 있는데 괜찮을까요?",
       status: "대기중",
       date: "2024-01-21",
@@ -465,7 +1068,7 @@ export default function PetServiceWebsite() {
       petName: "메리",
       inquirerName: "박영희",
       phone: "010-5555-6666",
-      email: "user@test.com", // Assign to a user
+      email: "user@test.com",
       message: "메리 입양에 관심 있습니다. 방문 상담 가능할까요?",
       status: "연락완료",
       date: "2024-02-05",
@@ -486,504 +1089,16 @@ export default function PetServiceWebsite() {
 
   const [orders, setOrders] = useState<OrderItem[]>([])
 
-  // Event handlers
-  const handleLogin = (email: string, password: string) => {
-    setIsLoggedIn(true)
-    
-    // 이메일 기반으로 사용자 ID 생성 (간단한 해시 함수)
-    const userId = email.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 1000 + 1
-    setCurrentUser({ id: userId, email, name: email.split("@")[0] })
-
-    // 관리자 계정 확인 (admin 또는 admin@test.com)
-    if (email === "admin" || email === "admin@test.com") {
-      setIsAdmin(true)
-      console.log("관리자로 로그인됨:", email, "사용자 ID:", userId)
-      setCurrentPage("admin") // 관리자로 로그인 시 관리자 페이지로 자동 이동
-    } else {
-      setIsAdmin(false)
-      console.log("일반 사용자로 로그인됨:", email, "사용자 ID:", userId)
-      setCurrentPage("home") // 일반 사용자 로그인 시 홈으로 이동 (또는 현재 페이지 유지)
-    }
-
-    setShowLoginModal(false)
-  }
-
-  const handleSignup = (userData: any) => {
-    console.log("회원가입 데이터:", userData)
-    // 회원가입 후 자동 로그인
-    setIsLoggedIn(true)
-    
-    // 이메일 기반으로 사용자 ID 생성
-    const userId = userData.email.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 1000 + 1
-    setCurrentUser({ id: userId, email: userData.email, name: userData.name })
-    // Optionally add pet data to pets state if it's a new pet for the user
-    if (userData.petType && userData.petAge && userData.petBreed) {
-      const newPet: Pet = {
-        id: pets.length + 1,
-        name: `${userData.name}'s Pet`, // Placeholder name
-        breed: userData.petBreed,
-        age: userData.petAge,
-        gender: "미상", // Default
-        size: "미상", // Default
-        personality: [],
-        healthStatus: "건강함",
-        description: "사용자가 등록한 펫",
-        images: ["/placeholder.svg?height=400&width=600"],
-        location: "사용자 거주지",
-        contact: "사용자 연락처",
-        adoptionFee: 0,
-        isNeutered: false,
-        isVaccinated: false,
-        dateRegistered: new Date().toISOString().split("T")[0],
-        adoptionStatus: "available" as const, // Not for adoption, just for user info
-        ownerEmail: userData.email,
-      }
-      setPets((prev) => [...prev, newPet])
-    }
-    setShowSignupModal(false)
-  }
-
-  const handleLogout = () => {
-    setIsLoggedIn(false)
-    setIsAdmin(false)
-    setCurrentUser(null)
-    setCurrentPage("home")
-  }
-
-  const handleAddToWishlist = (item: WishlistItem) => {
-    setWishlist((prev) => {
-      const exists = prev.find((w) => w.id === item.id)
-      if (exists) {
-        return prev.filter((w) => w.id !== item.id)
-      } else {
-        return [...prev, item]
-      }
-    })
-  }
-
-  const isInWishlist = (id: number) => {
-    return wishlist.some((item) => item.id === id)
-  }
-
-  const handleAddToCart = async (product: Product) => {
-    if (!isLoggedIn) {
-      alert("로그인이 필요합니다.")
-      return
-    }
-    
-    console.log('장바구니 추가 시작:', product)
-    console.log('Product ID:', product.id)
-    console.log('Product 전체 객체:', JSON.stringify(product, null, 2))
-    
-    if (!product.id) {
-      alert('상품 ID가 없습니다.')
-      return
-    }
-    
-    try {
-      const currentUserId = currentUser?.id || 1
-      const url = `/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
-      console.log('요청 URL:', url)
-      
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        }
-      })
-      
-      console.log('응답 상태:', response.status)
-      console.log('응답 헤더:', response.headers)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('응답 에러:', errorText)
-        throw new Error(`장바구니 추가에 실패했습니다. (${response.status})`)
-      }
-      
-      const result = await response.json()
-      console.log('장바구니 추가 성공:', result)
-      
-      alert(`${product.name}을(를) 장바구니에 추가했습니다.`)
-      // 장바구니 목록 새로고침
-      fetchCartItems()
-      // 장바구니 페이지로 이동
-      setCurrentPage("cart")
-    } catch (error) {
-      console.error('장바구니 추가 오류:', error)
-      alert('장바구니 추가에 실패했습니다: ' + (error as Error).message)
-    }
-  }
-
-  const isInCart = (id: number) => {
-    return cart.some((item) => item.id === id)
-  }
-
-  // 장바구니 목록 조회
-  const fetchCartItems = async () => {
-    if (!isLoggedIn) return
-    
-    console.log('장바구니 조회 시작')
-    console.log('현재 사용자:', currentUser)
-    
-    // 현재 로그인한 사용자의 ID (임시로 1 사용, 실제로는 currentUser.id 사용)
-    const currentUserId = currentUser?.id || 1
-    
-    try {
-      const response = await fetch(`/api/carts/${currentUserId}`)
-      console.log('장바구니 조회 응답 상태:', response.status)
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('장바구니 조회 에러:', errorText)
-        throw new Error('장바구니 조회에 실패했습니다.')
-      }
-      
-      const cartData = await response.json()
-      console.log('장바구니 데이터:', cartData)
-      
-      // 백엔드 응답을 프론트엔드 형식으로 변환 (cartId로 정렬하여 추가 순서 유지)
-      const cartItems: CartItem[] = cartData
-        .sort((a: any, b: any) => a.cartId - b.cartId) // cartId로 정렬하여 추가 순서 유지
-        .map((item: any, index: number) => ({
-          id: item.cartId,
-          name: item.product.name,
-          brand: item.product.brand || "브랜드 없음",
-          price: item.product.price,
-          image: item.product.imageUrl || "/placeholder.svg",
-          category: item.product.category,
-          quantity: item.quantity,
-          order: index // 순서 고정을 위한 인덱스 추가
-        }))
-      
-      console.log('변환된 장바구니 아이템:', cartItems)
-      setCart(cartItems)
-    } catch (error) {
-      console.error('장바구니 조회 오류:', error)
-    }
-  }
-
-  // 장바구니에서 상품 삭제
-  const handleRemoveFromCart = async (cartId: number) => {
-    try {
-      const response = await fetch(`/api/carts/${cartId}`, {
-        method: 'DELETE'
-      })
-      
-      if (!response.ok) {
-        throw new Error('장바구니에서 삭제에 실패했습니다.')
-      }
-      
-      // 장바구니 목록 새로고침
-      fetchCartItems()
-    } catch (error) {
-      console.error('장바구니 삭제 오류:', error)
-      alert('장바구니에서 삭제에 실패했습니다.')
-    }
-  }
-
-  // 장바구니 수량 업데이트
-  const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
-    try {
-      const response = await fetch(`/api/carts/${cartId}?quantity=${quantity}`, {
-        method: 'PUT'
-      })
-      
-      if (!response.ok) {
-        throw new Error('수량 업데이트에 실패했습니다.')
-      }
-      
-      // 장바구니 목록 새로고침
-      fetchCartItems()
-    } catch (error) {
-      console.error('수량 업데이트 오류:', error)
-      alert('수량 업데이트에 실패했습니다.')
-    }
-  }
-
-  // 컴포넌트 마운트 시 장바구니 조회
-  useEffect(() => {
-    if (isLoggedIn) {
-      fetchCartItems()
-    }
-  }, [isLoggedIn])
-
-  // 주문 관련 함수들
-  const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
-    try {
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData)
-      })
-      
-      if (!response.ok) {
-        throw new Error('주문 생성에 실패했습니다.')
-      }
-      
-      const newOrder = await response.json()
-      setOrders(prev => [...prev, newOrder])
-      return newOrder
-    } catch (error) {
-      console.error('주문 생성 오류:', error)
-      throw error
-    }
-  }
-
-  const purchaseAllFromCart = async () => {
-    if (!isLoggedIn || !currentUser) {
-      alert('로그인이 필요합니다.')
-      return
-    }
-
-    try {
-      const response = await fetch(`/api/orders/purchase-all/${currentUser.id}`, {
-        method: 'POST'
-      })
-      
-      if (!response.ok) {
-        throw new Error('전체 구매에 실패했습니다.')
-      }
-      
-      const newOrder = await response.json()
-      setOrders(prev => [...prev, newOrder])
-      
-      // 장바구니 비우기
-      setCart([])
-      
-      // 주문 목록 새로고침
-      await fetchUserOrders()
-      
-      alert('전체 구매가 완료되었습니다!')
-      setCurrentPage("myPage")
-    } catch (error) {
-      console.error('전체 구매 오류:', error)
-      alert('전체 구매에 실패했습니다.')
-    }
-  }
-
-  const fetchUserOrders = async () => {
-    if (!isLoggedIn || !currentUser) return
-    
-    try {
-      const response = await fetch(`/api/orders/user/${currentUser.id}`)
-      
-      if (!response.ok) {
-        throw new Error('주문 조회에 실패했습니다.')
-      }
-      
-      const userOrders = await response.json()
-      console.log('백엔드에서 받은 주문 데이터:', userOrders)
-      
-      // 주문 데이터를 OrderItem 형태로 변환
-      const orderItems: OrderItem[] = userOrders.flatMap((order: any) => {
-        console.log('처리 중인 주문:', order)
-        
-        if (order.orderItems && order.orderItems.length > 0) {
-          // 주문에 상품 정보가 있는 경우
-          return order.orderItems.map((item: any) => {
-            console.log('처리 중인 주문 아이템:', item)
-            return {
-              id: item.id || order.orderId,
-              productId: item.productId || 0,
-              productName: item.productName || `주문 #${order.orderId}`,
-              price: item.price || order.totalPrice,
-              quantity: item.quantity || 1,
-              orderDate: order.orderedAt || new Date().toISOString(),
-              status: order.paymentStatus === 'COMPLETED' ? 'completed' : 
-                      order.paymentStatus === 'PENDING' ? 'pending' : 'cancelled',
-              ImageUrl: item.ImageUrl || "/placeholder.svg"
-            }
-          })
-        } else {
-          // 주문에 상품 정보가 없는 경우 (기존 방식)
-          return [{
-            id: order.orderId,
-            productId: 0,
-            productName: `주문 #${order.orderId}`,
-            price: order.totalPrice,
-            quantity: 1,
-            orderDate: order.orderedAt || new Date().toISOString(),
-            status: order.paymentStatus === 'COMPLETED' ? 'completed' : 
-                    order.paymentStatus === 'PENDING' ? 'pending' : 'cancelled',
-            image: "/placeholder.svg"
-          }]
-        }
-      })
-      
-      console.log('변환된 주문 아이템:', orderItems)
-      
-      // 최신순으로 정렬 (orderDate 기준 내림차순)
-      const sortedOrderItems = orderItems.sort((a, b) => {
-        const dateA = new Date(a.orderDate).getTime();
-        const dateB = new Date(b.orderDate).getTime();
-        return dateB - dateA; // 내림차순 (최신순)
-      });
-      
-      console.log('정렬된 주문 아이템:', sortedOrderItems)
-      setOrders(sortedOrderItems)
-    } catch (error) {
-      console.error('주문 조회 오류:', error)
-    }
-  }
-
-  const deleteOrder = async (orderId: number) => {
-    try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: 'DELETE'
-      })
-      
-      if (!response.ok) {
-        throw new Error('주문 삭제에 실패했습니다.')
-      }
-      
-      setOrders(prev => prev.filter(order => order.id !== orderId))
-      alert('주문이 삭제되었습니다.')
-    } catch (error) {
-      console.error('주문 삭제 오류:', error)
-      alert('주문 삭제에 실패했습니다.')
-    }
-  }
-
-  const updatePaymentStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
-    try {
-      const response = await fetch(`/api/orders/${orderId}/status?status=${status}`, {
-        method: 'PUT'
-      })
-      
-      if (!response.ok) {
-        throw new Error('결제 상태 업데이트에 실패했습니다.')
-      }
-      
-      const updatedOrder = await response.json()
-      setOrders(prev => prev.map(order => 
-        order.id === orderId 
-          ? { ...order, status: status === "COMPLETED" ? "completed" : status === "PENDING" ? "pending" : "cancelled" }
-          : order
-      ))
-    } catch (error) {
-      console.error('결제 상태 업데이트 오류:', error)
-      alert('결제 상태 업데이트에 실패했습니다.')
-    }
-  }
-
-  const handleAddPet = (petData: any) => {
-    const newPet: Pet = {
-      id: pets.length + 1,
-      ...petData,
-      dateRegistered: new Date().toISOString().split("T")[0],
-      adoptionStatus: "available" as const,
-    }
-    setPets((prev) => [...prev, newPet])
-    setCurrentPage("adoption")
-  }
-
-  const handleAddProduct = (productData: any) => {
-    const newProduct: Product = {
-      id: products.length + 1,
-      ...productData,
-      registrationDate: new Date().toISOString().split("T")[0],
-      registeredBy: currentUser?.email || "admin",
-      petType: productData.petType || "all", // Assign petType for new products
-    }
-    setProducts((prev) => [...prev, newProduct])
-    setCurrentPage("store")
-  }
-
-  const handleViewProduct = (product: Product) => {
-    setSelectedProductId(product.id)
-    setCurrentPage("product-detail")
-  }
-
-  const handleEditProduct = (product: Product) => {
-    setSelectedProductForEdit(product)
-    setCurrentPage("product-edit")
-  }
-
-  const handleSaveProduct = (updatedProduct: Product) => {
-    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p))
-  }
-
-  const addToInsuranceFavorites = (id: number) => {
-    setFavoriteInsurance((prev) => {
-      if (prev.includes(id)) return prev
-      return [...prev, id]
-    })
-  }
-
-  const removeFromInsuranceFavorites = (id: number) => {
-    setFavoriteInsurance((prev) => prev.filter((itemId) => itemId !== id))
-  }
-
-  const handleUpdateDiaryEntry = (updatedEntry: DiaryEntry) => {
-    setDiaryEntries((prev) =>
-      prev.map((entry) => (entry.id === updatedEntry.id ? updatedEntry : entry)),
-    )
-    setSelectedDiaryEntry(updatedEntry) // Update the selected entry to reflect changes immediately
-  }
-
-  const handleDeleteDiaryEntry = (entryId: number) => {
-    setDiaryEntries((prev) => prev.filter((entry) => entry.id !== entryId))
-    setSelectedDiaryEntry(null) // Close detail view after deletion
-  }
-
-  const handleDeleteCommunityPost = (postId: number) => {
-    setCommunityPosts((prev) => prev.filter((post) => post.id !== postId));
-    setSelectedPost(null); // Close detail view after deletion
-  }
-
-  // 바로구매 함수
-  const handleBuyNow = async (product: Product) => {
-    if (!isLoggedIn || !currentUser) {
-      alert('로그인이 필요합니다.')
-      return
-    }
-
-    try {
-      // 바로구매를 위한 주문 생성
-      const orderData = {
-        userId: currentUser.id,
-        totalPrice: product.price,
-        orderItems: [{
-          productId: product.id,
-          productName: product.name || product.brand + " " + product.category,
-          productImage: product.image || "/placeholder.svg",
-          quantity: 1,
-          price: product.price
-        }]
-      }
-      
-      console.log('바로구매 주문 데이터:', orderData);
-      
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderData)
-      })
-      
-      if (!response.ok) {
-        throw new Error('주문 생성에 실패했습니다.')
-      }
-      
-      const newOrder = await response.json()
-      
-      // 주문 목록 새로고침
-      await fetchUserOrders()
-      
-      alert('바로구매가 완료되었습니다!')
-      setCurrentPage("myPage")
-    } catch (error) {
-      console.error('바로구매 오류:', error)
-      alert('바로구매에 실패했습니다.')
-    }
-  }
-
   // Render current page
   const renderCurrentPage = () => {
+    if (isLoading) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      )
+    }
+
     switch (currentPage) {
       case "adoption":
         if (selectedPet) {
@@ -1001,6 +1116,7 @@ export default function PetServiceWebsite() {
                   date: new Date().toISOString().split("T")[0],
                 }
                 setAdoptionInquiries((prev) => [...prev, newInquiry])
+                toast.success("입양 문의가 등록되었습니다", { duration: 5000 })
               }}
               isLoggedIn={isLoggedIn}
               onShowLogin={() => setShowLoginModal(true)}
@@ -1024,7 +1140,7 @@ export default function PetServiceWebsite() {
             onClose={() => setCurrentPage("admin")}
             onAddPet={handleAddPet}
             isAdmin={isAdmin}
-            currentUserId={isLoggedIn ? "user123" : undefined}
+            currentUserId={isLoggedIn ? currentUser?.id.toString() : undefined}
           />
         )
 
@@ -1076,7 +1192,7 @@ export default function PetServiceWebsite() {
             onBack={() => setCurrentPage("admin")}
             onAddProduct={handleAddProduct}
             isAdmin={isAdmin}
-            currentUserId={isLoggedIn ? "user123" : undefined}
+            currentUserId={isLoggedIn ? currentUser?.id.toString() : undefined}
             products={products}
           />
         )
@@ -1112,13 +1228,13 @@ export default function PetServiceWebsite() {
               onBack={() => setSelectedDiaryEntry(null)}
               onUpdate={handleUpdateDiaryEntry}
               onDelete={handleDeleteDiaryEntry}
-              currentUserEmail={currentUser?.email} // Pass current user email
+              currentUserEmail={currentUser?.email}
             />
           )
         }
         return (
           <GrowthDiaryPage
-            entries={diaryEntries.filter(entry => entry.ownerEmail === currentUser?.email)}
+            entries={diaryEntries.filter((entry) => entry.ownerEmail === currentUser?.email)}
             onViewEntry={setSelectedDiaryEntry}
             onClose={() => setCurrentPage("home")}
             onAddEntry={(entryData) => {
@@ -1126,9 +1242,10 @@ export default function PetServiceWebsite() {
                 id: diaryEntries.length + 1,
                 ...entryData,
                 date: new Date().toISOString().split("T")[0],
-                ownerEmail: currentUser?.email, // 작성자 이메일 추가
+                ownerEmail: currentUser?.email,
               }
               setDiaryEntries((prev) => [...prev, newEntry])
+              toast.success("성장일기가 등록되었습니다", { duration: 5000 })
             }}
             isLoggedIn={isLoggedIn}
             currentUserId={currentUser?.email}
@@ -1136,7 +1253,7 @@ export default function PetServiceWebsite() {
           />
         )
 
-      case "growthDiaryWrite": // New case for writing a diary entry
+      case "growthDiaryWrite":
         return (
           <GrowthDiaryWritePage
             onBack={() => setCurrentPage("diary")}
@@ -1145,9 +1262,10 @@ export default function PetServiceWebsite() {
                 id: diaryEntries.length + 1,
                 ...entryData,
                 date: new Date().toISOString().split("T")[0],
-                ownerEmail: currentUser?.email, // 작성자 이메일 추가
+                ownerEmail: currentUser?.email,
               }
               setDiaryEntries((prev) => [...prev, newEntry])
+              toast.success("성장일기가 작성되었습니다", { duration: 5000 })
               setCurrentPage("diary")
             }}
           />
@@ -1164,9 +1282,10 @@ export default function PetServiceWebsite() {
               onUpdatePost={(updatedPost) => {
                 setCommunityPosts((prev) => prev.map((post) => (post.id === updatedPost.id ? updatedPost : post)))
                 setSelectedPost(updatedPost)
+                toast.success("게시물이 수정되었습니다", { duration: 5000 })
               }}
-              onDeletePost={handleDeleteCommunityPost} // Pass the delete handler
-              currentUserEmail={currentUser?.email} // Pass current user email
+              onDeletePost={handleDeleteCommunityPost}
+              currentUserEmail={currentUser?.email}
             />
           )
         }
@@ -1199,9 +1318,10 @@ export default function PetServiceWebsite() {
                 likes: 0,
                 comments: 0,
                 tags: [],
-                ownerEmail: currentUser?.email, // Assign owner email
+                ownerEmail: currentUser?.email,
               }
               setCommunityPosts((prev) => [newPost, ...prev])
+              toast.success("게시물이 작성되었습니다", { duration: 5000 })
               setCurrentPage("community")
             }}
           />
@@ -1222,14 +1342,14 @@ export default function PetServiceWebsite() {
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">로그인이 필요합니다</h3>
                   <p className="text-gray-600 mb-6">장바구니를 이용하려면 로그인해주세요.</p>
                   <div className="space-y-3">
-                    <Button 
-                      onClick={() => setShowLoginModal(true)} 
+                    <Button
+                      onClick={() => setShowLoginModal(true)}
                       className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
                     >
                       로그인하기
                     </Button>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={() => setCurrentPage("home")}
                       className="w-full"
                     >
@@ -1268,22 +1388,26 @@ export default function PetServiceWebsite() {
             onNavigateToCommunity={() => setCurrentPage("community")}
             onUpdateInquiryStatus={(id, status) => {
               setAdoptionInquiries((prev) =>
-                prev.map((inquiry) => (inquiry.id === id ? { ...inquiry, status } : inquiry)),
+                prev.map((inquiry) => (inquiry.id === id ? { ...inquiry, status } : inquiry))
               )
+              toast.success("입양 문의 상태가 업데이트되었습니다", { duration: 5000 })
             }}
             onDeleteComment={(id) => {
               setComments((prev) => prev.filter((comment) => comment.id !== id))
+              toast.success("댓글이 삭제되었습니다", { duration: 5000 })
             }}
             onDeletePost={(id) => {
               setCommunityPosts((prev) => prev.filter((post) => post.id !== id))
+              toast.success("게시물이 삭제되었습니다", { duration: 5000 })
             }}
             onEditProduct={handleEditProduct}
             onDeleteProduct={(productId) => {
-              setProducts((prev) => prev.filter((product) => product.id !== productId));
+              setProducts((prev) => prev.filter((product) => product.id !== productId))
+              toast.success("상품이 삭제되었습니다", { duration: 5000 })
             }}
             onUpdateOrderStatus={updatePaymentStatus}
             isAdmin={isAdmin}
-            onAdminLogout={handleLogout} // Pass the logout handler
+            onAdminLogout={handleLogout}
           />
         )
 
@@ -1291,9 +1415,9 @@ export default function PetServiceWebsite() {
         return (
           <MyPage
             currentUser={currentUser}
-            userPets={pets.filter((pet) => pet.ownerEmail === currentUser?.email)} // Filter pets by logged-in user
-            userAdoptionInquiries={adoptionInquiries.filter((inquiry) => inquiry.email === currentUser?.email)} // Filter inquiries by logged-in user
-            userOrders={orders} // Pass filtered orders for current user
+            userPets={pets.filter((pet) => pet.ownerEmail === currentUser?.email)}
+            userAdoptionInquiries={adoptionInquiries.filter((inquiry) => inquiry.email === currentUser?.email)}
+            userOrders={orders}
             onClose={() => setCurrentPage("home")}
           />
         )
@@ -1301,7 +1425,6 @@ export default function PetServiceWebsite() {
       default:
         return (
           <div className="min-h-screen bg-white">
-            {/* Hero Section */}
             <section className="bg-gradient-to-br from-yellow-50 to-orange-50 py-20">
               <div className="container mx-auto px-4">
                 <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -1331,11 +1454,9 @@ export default function PetServiceWebsite() {
               </div>
             </section>
 
-            {/* Services Section */}
             <section className="py-20 bg-gray-50">
               <div className="container mx-auto px-4">
                 <div className="grid md:grid-cols-2 gap-8 justify-center">
-                  {/* 입양 Card */}
                   <Card className="relative overflow-hidden bg-white shadow-lg hover:shadow-xl transition-shadow">
                     <div className="absolute top-4 right-4 bg-yellow-400 text-black px-3 py-1 rounded-full text-sm font-medium transform rotate-12">
                       UPDATE
@@ -1374,7 +1495,6 @@ export default function PetServiceWebsite() {
                     </CardContent>
                   </Card>
 
-                  {/* 스토어 Card */}
                   <Card className="bg-white shadow-lg hover:shadow-xl transition-shadow">
                     <CardHeader className="text-center pb-4">
                       <CardTitle className="text-2xl font-bold text-gray-900 border-b-4 border-green-400 inline-block pb-2">
@@ -1389,15 +1509,15 @@ export default function PetServiceWebsite() {
                           </div>
                           <p className="text-sm font-medium">펫용품 쇼핑</p>
                         </button>
-                        <button 
+                        <button
                           onClick={() => {
                             if (!isLoggedIn) {
-                              alert("장바구니를 이용하려면 로그인이 필요합니다.")
+                              toast.error("장바구니를 이용하려면 로그인이 필요합니다", { duration: 5000 })
                               setShowLoginModal(true)
                             } else {
                               setCurrentPage("cart")
                             }
-                          }} 
+                          }}
                           className="text-center space-y-2 w-full"
                         >
                           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto relative">
@@ -1423,20 +1543,7 @@ export default function PetServiceWebsite() {
 
   return (
     <div className="min-h-screen bg-white">
-      {/* OAuth 메시지 표시 */}
-      {oauthMessage && (
-        <div
-          className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-            oauthMessage.includes("성공") ? "bg-green-500 text-white" : "bg-red-500 text-white"
-          }`}
-        >
-          {oauthMessage}
-          <button onClick={() => setOauthMessage(null)} className="ml-2 text-white hover:text-gray-200">
-            ×
-          </button>
-        </div>
-      )}
-
+      <Toaster position="top-right" />
       <NavigationHeader
         currentPage={currentPage}
         onNavigate={setCurrentPage}
@@ -1444,14 +1551,13 @@ export default function PetServiceWebsite() {
         isAdmin={isAdmin}
         onLogin={() => setShowLoginModal(true)}
         onLogout={handleLogout}
-        onNavigateToMyPage={() => setCurrentPage("myPage")} // Link MyPage button
+        onNavigateToMyPage={() => setCurrentPage("myPage")}
       />
 
       {renderCurrentPage()}
 
       <Chatbot />
 
-      {/* Modals */}
       {showLoginModal && (
         <LoginModal
           isOpen={showLoginModal}
@@ -1481,6 +1587,7 @@ export default function PetServiceWebsite() {
           onClose={() => setShowPasswordRecovery(false)}
           onRecover={(email) => {
             console.log("비밀번호 복구:", email)
+            toast.success("비밀번호 복구 이메일이 전송되었습니다", { duration: 5000 })
             setShowPasswordRecovery(false)
           }}
           onSwitchToLogin={() => {

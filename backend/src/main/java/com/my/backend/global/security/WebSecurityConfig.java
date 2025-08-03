@@ -1,10 +1,14 @@
 package com.my.backend.global.security;
 
+import com.my.backend.account.oauth2.CustomOAuth2UserService;
+import com.my.backend.account.oauth2.OAuth2SuccessHandler;
 import com.my.backend.global.security.jwt.filter.JwtAuthFilter;
 import com.my.backend.global.security.jwt.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
@@ -12,6 +16,9 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -24,12 +31,12 @@ import static org.springframework.security.config.Customizer.withDefaults;
 
 @Configuration
 @EnableWebSecurity
+@RequiredArgsConstructor
+@Slf4j
 public class WebSecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
-
-    public WebSecurityConfig(JwtAuthFilter jwtAuthFilter) {
-        this.jwtAuthFilter = jwtAuthFilter;
-    }
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oauth2SuccessHandler;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -44,12 +51,12 @@ public class WebSecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(Arrays.asList("https://travelling.p-e.kr"));
-        configuration.setAllowedOriginPatterns(Arrays.asList("*"));
+        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:3000")); // 명시적으로 허용
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("*", "Access_Token"));
+        configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
         configuration.addExposedHeader("Access_Token");
+        configuration.addExposedHeader("Refresh_Token");
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -61,19 +68,28 @@ public class WebSecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/accounts/register").permitAll() // 명시적으로 등록 허용
+                        .requestMatchers("/api/accounts/**").permitAll()
                         .requestMatchers("/").permitAll()
                         .requestMatchers("/test").permitAll()
-                        .requestMatchers("/account/**").permitAll()
                         .requestMatchers("/file/**").permitAll()
                         .requestMatchers("/api/travel-plans/**").authenticated()
                         .requestMatchers("/api/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/post/**").permitAll()
                         .requestMatchers("/chat").authenticated()
+                        .requestMatchers("/login/oauth2/code/**").permitAll()
                         .anyRequest().authenticated())
                 .securityContext(context -> context.requireExplicitSave(false))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
+                        .successHandler(oauth2SuccessHandler)
+                        .failureHandler((request, response, exception) -> {
+                            log.error("OAuth2 authentication failed: {}", exception.getMessage());
+                            response.sendError(HttpStatus.UNAUTHORIZED.value(), "OAuth2 authentication failed");
+                        }));
 
         return httpSecurity.build();
     }

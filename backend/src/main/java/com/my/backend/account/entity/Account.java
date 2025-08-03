@@ -25,11 +25,10 @@ public class Account extends BaseEntity {
     @Column(nullable = true)
     private String name;
 
-
     @Column(nullable = true)
     private String email;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String password;
 
     @Column(nullable = false)
@@ -44,6 +43,11 @@ public class Account extends BaseEntity {
     @Column(nullable = true)
     private String petBreeds;
 
+    @Column(nullable = true)
+    private String provider;
+
+    @Column(nullable = true)
+    private String providerId;
 
     public Account(AccountRegisterRequestDto requestDto) {
         this.name = requestDto.getName();
@@ -53,5 +57,15 @@ public class Account extends BaseEntity {
         this.pet = requestDto.getPet();
         this.petAge = requestDto.getPetAge();
         this.petBreeds = requestDto.getPetBreeds();
+    }
+
+    // Google 로그인
+    public Account(String email, String name, String provider, String providerId) {
+        this.email = email;
+        this.name = name;
+        this.provider = provider;
+        this.providerId = providerId;
+        this.role = "USER";
+        this.password = "";
     }
 }
