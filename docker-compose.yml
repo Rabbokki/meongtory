@@ -1,3 +1,4 @@
+# docker-compose.yml
 services:
   db:
     image: postgres:15
@@ -34,6 +35,10 @@ services:
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
     depends_on:
       db:

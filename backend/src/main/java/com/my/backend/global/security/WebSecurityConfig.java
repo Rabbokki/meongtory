@@ -1,7 +1,5 @@
 package com.my.backend.global.security;
 
-import com.my.backend.account.oauth2.CustomOAuth2UserService;
-import com.my.backend.account.oauth2.OAuth2SuccessHandler;
 import com.my.backend.global.security.jwt.filter.JwtAuthFilter;
 import com.my.backend.global.security.jwt.util.JwtUtil;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +22,11 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import com.my.backend.account.oauth2.CustomOAuth2UserService;
+import com.my.backend.account.oauth2.OAuth2SuccessHandler;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import static org.springframework.security.config.Customizer.withDefaults;
@@ -51,7 +53,7 @@ public class WebSecurityConfig {
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:3000")); // 명시적으로 허용
+        configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:3000"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
@@ -67,29 +69,25 @@ public class WebSecurityConfig {
         httpSecurity
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
+                .formLogin(form -> form.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/accounts/register").permitAll() // 명시적으로 등록 허용
-                        .requestMatchers("/api/accounts/**").permitAll()
-                        .requestMatchers("/").permitAll()
-                        .requestMatchers("/test").permitAll()
-                        .requestMatchers("/file/**").permitAll()
-                        .requestMatchers("/api/travel-plans/**").authenticated()
-                        .requestMatchers("/api/**").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
-                        .requestMatchers("/post/**").permitAll()
-                        .requestMatchers("/chat").authenticated()
-                        .requestMatchers("/login/oauth2/code/**").permitAll()
+                        .requestMatchers("/api/accounts/register", "/api/accounts/login", "/api/accounts/me").permitAll()
+                        .requestMatchers("/login/**", "/oauth2/**").permitAll()
+                        .requestMatchers("/file/**", "/test", "/ws/**", "/post/**").permitAll()
+                        .requestMatchers("/api/travel-plans/**", "/chat").authenticated()
                         .anyRequest().authenticated())
-                .securityContext(context -> context.requireExplicitSave(false))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(auth -> auth.baseUri("/oauth2/authorization"))
+                        .redirectionEndpoint(redir -> redir.baseUri("/login/oauth2/code/*"))
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                         .successHandler(oauth2SuccessHandler)
                         .failureHandler((request, response, exception) -> {
-                            log.error("OAuth2 authentication failed: {}", exception.getMessage());
-                            response.sendError(HttpStatus.UNAUTHORIZED.value(), "OAuth2 authentication failed");
-                        }));
+                            String errorMessage = URLEncoder.encode("OAuth2 로그인 실패: " + exception.getMessage(), StandardCharsets.UTF_8);
+                            log.error("OAuth2 authentication failed: {}", exception.getMessage(), exception);
+                            response.sendRedirect("http://localhost:3000/?success=false&error=" + errorMessage);
+                        }))
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return httpSecurity.build();
     }

@@ -23,46 +23,64 @@ import java.util.Map;
 @Slf4j
 public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequest, OAuth2User> {
     private final AccountRepository accountRepository;
-    private final JwtUtil jwtUtil; // JwtUtil로 토큰 생성 처리
+    private final JwtUtil jwtUtil;
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
-        OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
-        OAuth2User oAuth2User = delegate.loadUser(userRequest);
+        try {
+            log.info("OAuth2 UserRequest: clientId={}, redirectUri={}, code={}",
+                    userRequest.getClientRegistration().getClientId(),
+                    userRequest.getClientRegistration().getRedirectUri(),
+                    userRequest.getAccessToken() != null ? "present" : "null");
 
-        String registrationId = userRequest.getClientRegistration().getRegistrationId();
-        String userNameAttributeName = userRequest.getClientRegistration()
-                .getProviderDetails().getUserInfoEndpoint().getUserNameAttributeName();
+            OAuth2UserService<OAuth2UserRequest, OAuth2User> delegate = new DefaultOAuth2UserService();
+            OAuth2User oAuth2User = delegate.loadUser(userRequest);
+            log.info("OAuth2 User Attributes: {}", oAuth2User.getAttributes());
 
-        OAuth2UserInfo oAuth2UserInfo = getOAuth2UserInfo(registrationId, oAuth2User.getAttributes());
+            String registrationId = userRequest.getClientRegistration().getRegistrationId();
+            log.info("Processing OAuth2 provider: {}", registrationId);
 
-        String email = oAuth2UserInfo.getEmail();
-        String name = oAuth2UserInfo.getName();
-        String provider = oAuth2UserInfo.getProvider();
-        String providerId = oAuth2UserInfo.getProviderId();
+            OAuth2UserInfo oAuth2UserInfo = getOAuth2UserInfo(registrationId, oAuth2User.getAttributes());
 
-        Account account = accountRepository.findByProviderAndProviderId(provider, providerId)
-                .orElseGet(() -> {
-                    Account newAccount = new Account(email, name, provider, providerId);
-                    return accountRepository.save(newAccount);
-                });
+            String email = oAuth2UserInfo.getEmail();
+            String name = oAuth2UserInfo.getName();
+            String provider = oAuth2UserInfo.getProvider();
+            String providerId = oAuth2UserInfo.getProviderId();
+            log.info("User Info - Email: {}, Name: {}, Provider: {}, ProviderId: {}", email, name, provider, providerId);
 
-        // OAuth2 로그인 후 토큰 생성
-        TokenDto tokenDto = jwtUtil.createAllToken(account.getEmail(), account.getRole());
-        RefreshToken refreshToken = RefreshToken.builder()
-                .accountEmail(account.getEmail())
-                .refreshToken(tokenDto.getRefreshToken())
-                .build();
-        refreshTokenRepository.save(refreshToken);
-        log.info("OAuth2 로그인 성공: {}", account.getEmail());
+            Account account = accountRepository.findByProviderAndProviderId(provider, providerId)
+                    .orElseGet(() -> {
+                        String finalEmail = email != null ? email : provider + "_" + providerId + "@kakao.com";
+                        Account newAccount = new Account(finalEmail, name, provider, providerId);
+                        return accountRepository.save(newAccount);
+                    });
 
-        return new CustomUserDetails(account, oAuth2User.getAttributes());
+            TokenDto tokenDto = jwtUtil.createAllToken(account.getEmail(), account.getRole());
+            RefreshToken refreshToken = RefreshToken.builder()
+                    .accountEmail(account.getEmail())
+                    .refreshToken(tokenDto.getRefreshToken())
+                    .build();
+            refreshTokenRepository.save(refreshToken);
+            log.info("OAuth2 로그인 성공: {}", account.getEmail());
+
+            return new CustomUserDetails(account, oAuth2User.getAttributes());
+        } catch (OAuth2AuthenticationException e) {
+            log.error("OAuth2 Authentication failed: {}", e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Unexpected error in OAuth2 processing: {}", e.getMessage(), e);
+            throw new OAuth2AuthenticationException("OAuth2 처리 중 오류: " + e.getMessage());
+        }
     }
 
     private OAuth2UserInfo getOAuth2UserInfo(String registrationId, Map<String, Object> attributes) {
         if ("google".equals(registrationId)) {
             return new GoogleUserDetails(attributes);
+        } else if ("naver".equals(registrationId)) {
+            return new NaverUserDetails(attributes);
+        } else if ("kakao".equals(registrationId)) {
+            return new KakaoUserDetails(attributes);
         } else {
             log.error("지원하지 않는 OAuth2 제공자: {}", registrationId);
             throw new OAuth2AuthenticationException("지원하지 않는 OAuth2 제공자입니다: " + registrationId);

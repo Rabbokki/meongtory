@@ -3,7 +3,6 @@ package com.my.backend.account.service;
 import com.my.backend.account.dto.AccountRegisterRequestDto;
 import com.my.backend.account.dto.AccountResponseDto;
 import com.my.backend.account.dto.LoginRequestDto;
-import com.my.backend.account.dto.UserInfoDto;
 import com.my.backend.account.entity.Account;
 import com.my.backend.account.entity.RefreshToken;
 import com.my.backend.account.repository.AccountRepository;
