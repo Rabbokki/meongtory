@@ -12,17 +12,11 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-<<<<<<< HEAD
         source: '/api/:path*',
-        destination: 'http://localhost:8081/api/:path*',
+        destination: 'http://localhost:8080/api/:path*',
       },
     ];
-=======
-        source: '/api/diary/:path*',
-        destination: 'http://localhost:8081/api/diary/:path*',
-      },
-    ]
->>>>>>> feature/diary
+
   },
 }
 

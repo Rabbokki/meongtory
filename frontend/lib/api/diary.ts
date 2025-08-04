@@ -14,9 +14,10 @@ export async function fetchDiaries(userId?: number) {
     throw new Error(`Failed to fetch diaries: ${res.status}`);
   }
 
-  return res.json() as Promise<DiaryEntry[]>;
+  const json = await res.json();
+  console.log('Fetched diaries:', json); // 디버깅용 콘솔
+  return json; // json.data 대신 json 반환
 }
-
 
 export async function createDiary(data: {
   userId: number;
@@ -38,7 +39,6 @@ export async function createDiary(data: {
 
   return res.json();
 }
-
 
 export async function updateDiary(id: number, data: any) {
   const res = await fetch(`/api/diary/${id}`, {

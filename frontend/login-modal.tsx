@@ -31,7 +31,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
       axios
-        .get("http://localhost:8080/api/accounts/me", {
+        .get("/api/accounts/me", {
           headers: { Access_Token: accessToken },
         })
         .then((response) => {
@@ -69,7 +69,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
 
     try {
       const response = await axios.post(
-        "http://localhost:8080/api/accounts/login",
+        "/api/accounts/login",
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
