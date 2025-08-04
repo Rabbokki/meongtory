@@ -85,7 +85,7 @@ public class WebSecurityConfig {
                         .failureHandler((request, response, exception) -> {
                             String errorMessage = URLEncoder.encode("OAuth2 로그인 실패: " + exception.getMessage(), StandardCharsets.UTF_8);
                             log.error("OAuth2 authentication failed: {}", exception.getMessage(), exception);
-                            response.sendRedirect("http://localhost:3000/?success=false&error=" + errorMessage);
+                            response.sendRedirect("http://localhost:3001/?success=false&error=" + errorMessage);
                         }))
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
