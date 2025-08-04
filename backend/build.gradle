@@ -37,6 +37,9 @@ dependencies {
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     //env용
     implementation 'io.github.cdimascio:java-dotenv:5.2.2'
+    // AWS S3 SDK
+    implementation 'software.amazon.awssdk:s3:2.24.12'
+    implementation 'software.amazon.awssdk:sts:2.24.12'
 }
 
 tasks.named('test') {

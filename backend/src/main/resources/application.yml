@@ -10,3 +10,11 @@ spring:
     show-sql: true
 server:
   port: ${SERVER_PORT}
+
+# AWS S3 Configuration
+aws:
+  access-key-id: ${AWS_ACCESS_KEY_ID}
+  secret-access-key: ${AWS_SECRET_ACCESS_KEY}
+  region: ${AWS_REGION}
+  s3:
+    bucket-name: ${AWS_S3_BUCKET_NAME}
