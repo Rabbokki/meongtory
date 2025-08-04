@@ -118,7 +118,12 @@ interface DiaryEntry {
   height?: number
   mood: string
   activities: string[]
+<<<<<<< HEAD
   ownerEmail?: string
+=======
+  ownerEmail?: string // Added for filtering
+  audioUrl?: string // Added for voice diary
+>>>>>>> feature/diary
 }
 
 interface CommunityPost {
@@ -1262,7 +1267,12 @@ export default function PetServiceWebsite() {
                 id: diaryEntries.length + 1,
                 ...entryData,
                 date: new Date().toISOString().split("T")[0],
+<<<<<<< HEAD
                 ownerEmail: currentUser?.email,
+=======
+                ownerEmail: currentUser?.email, // 작성자 이메일 추가
+                audioUrl: entryData.audioUrl, // 음성 URL 추가
+>>>>>>> feature/diary
               }
               setDiaryEntries((prev) => [...prev, newEntry])
               toast.success("성장일기가 작성되었습니다", { duration: 5000 })
