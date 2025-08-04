@@ -1,79 +1,114 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { X, Eye, EyeOff } from "lucide-react"
-import { handleOAuthLogin } from "@/lib/oauth"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { X, Eye, EyeOff } from "lucide-react";
+import axios from "axios";
+import LogoutButton from "./components/ui/LogoutButton";
 
 interface LoginModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onLogin: (email: string, password: string) => void
-  onSwitchToSignup: () => void
+  isOpen: boolean;
+  onClose: () => void;
+  onSwitchToSignup: () => void;
 }
 
-export default function LoginModal({ isOpen, onClose, onLogin, onSwitchToSignup }: LoginModalProps) {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProps) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem("accessToken"));
+  const [userEmail, setUserEmail] = useState("");
+
+  // 페이지 로드 시 localStorage에서 토큰 확인
+  useEffect(() => {
+    const accessToken = localStorage.getItem("accessToken");
+    if (accessToken) {
+      // 토큰이 유효한지 백엔드에 확인 (선택적)
+      setIsLoggedIn(true);
+      // userEmail은 localStorage에 저장된 이메일이 없으므로 로그인 시 설정
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
     if (!email || !password) {
-      setError("이메일과 비밀번호를 입력해주세요.")
-      return
+      setError("이메일과 비밀번호를 입력해주세요.");
+      return;
     }
 
-    setIsLoading(true)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("올바른 이메일 형식을 입력해주세요.");
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
-      // 간단한 로그인 시뮬레이션
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await axios.post("http://localhost:8080/api/accounts/login", {
+        email,
+        password,
+      }, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      // 관리자 계정 확인
-      if (email === "admin" && password === "admin123") {
-        onLogin(email, password)
-      } else if (email.includes("@") && password.length >= 4) {
-        onLogin(email, password)
+      const { data } = response.data;
+      const { accessToken, refreshToken } = data;
+
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
+      setIsLoggedIn(true);
+      setUserEmail(email);
+      onClose();
+    } catch (err: any) {
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "로그인 중 오류가 발생했습니다.");
       } else {
-        setError("이메일 또는 비밀번호가 올바르지 않습니다.")
-        setIsLoading(false)
-        return
+        setError("서버와 연결할 수 없습니다.");
       }
-    } catch (err) {
-      setError("로그인 중 오류가 발생했습니다.")
-      setIsLoading(false)
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setUserEmail("");
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+  };
+
+  const handleTestLogin = () => {
+    setEmail("user@test.com");
+    setPassword("Test1234!");
+  };
+
+  if (!isOpen && !isLoggedIn) {
+    return (
+      <div className="p-4">
+        <Button onClick={() => onClose()}>로그인</Button>
+      </div>
+    );
   }
 
-  const handleOAuthLoginClick = async (provider: "google" | "kakao" | "naver") => {
-    try {
-      await handleOAuthLogin(provider)
-    } catch (error) {
-      setError(`${provider} 로그인 중 오류가 발생했습니다.`)
-    }
+  if (isLoggedIn) {
+    return (
+      <div className="p-4">
+        <p>환영합니다, {userEmail}!</p>
+        <LogoutButton onLogout={handleLogout} />
+      </div>
+    );
   }
-
-  const handleTestLogin = (type: "admin" | "user") => {
-    if (type === "admin") {
-      setEmail("admin") // Changed to 'admin' as requested
-      setPassword("admin123")
-    } else {
-      setEmail("user@test.com")
-      setPassword("user123")
-    }
-  }
-
-  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -85,11 +120,10 @@ export default function LoginModal({ isOpen, onClose, onLogin, onSwitchToSignup 
           <CardTitle className="text-2xl font-bold text-center">로그인</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* OAuth 로그인 버튼들 */}
           <div className="space-y-3">
             <Button
               type="button"
-              onClick={() => handleOAuthLoginClick("google")}
+              onClick={() => window.location.href = "http://localhost:8080/oauth2/authorization/google"}
               className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -112,31 +146,6 @@ export default function LoginModal({ isOpen, onClose, onLogin, onSwitchToSignup 
               </svg>
               Google로 로그인
             </Button>
-
-            <Button
-              type="button"
-              onClick={() => handleOAuthLoginClick("kakao")}
-              className="w-full bg-yellow-400 text-black hover:bg-yellow-500"
-            >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                <path
-                  fill="currentColor"
-                  d="M12 3c5.799 0 10.5 3.664 10.5 8.185 0 4.52-4.701 8.184-10.5 8.184a13.5 13.5 0 0 1-1.727-.11l-4.408 2.883c-.501.265-.678.236-.472-.413l.892-3.678c-2.88-1.46-4.785-3.99-4.785-6.866C1.5 6.665 6.201 3 12 3z"
-                />
-              </svg>
-              카카오로 로그인
-            </Button>
-
-            <Button
-              type="button"
-              onClick={() => handleOAuthLoginClick("naver")}
-              className="w-full bg-green-500 text-white hover:bg-green-600"
-            >
-              <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727v12.845z" />
-              </svg>
-              네이버로 로그인
-            </Button>
           </div>
 
           <div className="relative">
@@ -153,7 +162,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, onSwitchToSignup 
               <Label htmlFor="email">이메일</Label>
               <Input
                 id="email"
-                type="text" // Changed to text to allow 'admin' as email
+                type="email"
                 placeholder="이메일을 입력하세요"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -167,7 +176,7 @@ export default function LoginModal({ isOpen, onClose, onLogin, onSwitchToSignup 
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="비밀번호를 입력하세요"
+                  placeholder="비밀번호를 입력하세요 (최소 8자, 영문/숫자/특수문자 포함)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -189,33 +198,21 @@ export default function LoginModal({ isOpen, onClose, onLogin, onSwitchToSignup 
             </Button>
           </form>
 
-          {/* 테스트 계정 버튼들 */}
           <div className="space-y-2 pt-4 border-t">
             <p className="text-sm text-gray-600 text-center">테스트 계정으로 로그인:</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => handleTestLogin("admin")}
-                className="text-xs bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
-              >
-                관리자 계정
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => handleTestLogin("user")}
+                onClick={handleTestLogin}
                 className="text-xs"
               >
-                일반 사용자
+                테스트 사용자
               </Button>
             </div>
             <p className="text-xs text-gray-500 text-center">
-              관리자: admin / admin123
-              <br />
-              일반사용자: user@test.com / user123
+              테스트 사용자: user@test.com / Test1234!
             </p>
           </div>
 
@@ -230,5 +227,5 @@ export default function LoginModal({ isOpen, onClose, onLogin, onSwitchToSignup 
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

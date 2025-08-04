@@ -58,7 +58,7 @@ interface OrderItem {
   quantity: number
   orderDate: string
   status: "completed" | "pending" | "cancelled"
-  image: string
+  ImageUrl: string
 }
 
 interface MyPageProps {
@@ -214,6 +214,7 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                       <TableRow>
                         <TableHead className="w-[100px]">상품</TableHead>
                         <TableHead>상품명</TableHead>
+                        <TableHead>상품ID</TableHead>
                         <TableHead>수량</TableHead>
                         <TableHead>가격</TableHead>
                         <TableHead>주문일</TableHead>
@@ -221,11 +222,11 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {userOrders.map((order) => (
-                        <TableRow key={order.id}>
+                      {userOrders.map((order, index) => (
+                        <TableRow key={`${order.productId}-${order.orderDate}-${index}`}>
                           <TableCell>
                             <Image
-                              src={order.image || "/placeholder.svg"}
+                              src={order.ImageUrl || "/placeholder.svg"}
                               alt={order.productName}
                               width={60}
                               height={60}
@@ -233,9 +234,21 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                             />
                           </TableCell>
                           <TableCell className="font-medium">{order.productName}</TableCell>
+                          <TableCell>{order.productId || "N/A"}</TableCell>
                           <TableCell>{order.quantity}</TableCell>
-                          <TableCell>{order.price.toLocaleString()}원</TableCell>
-                          <TableCell>{format(new Date(order.orderDate), "yyyy-MM-dd")}</TableCell>
+                          <TableCell>{(order.price || 0).toLocaleString()}원</TableCell>
+                          <TableCell>
+                            {order.orderDate ? 
+                              (() => {
+                                try {
+                                  return format(new Date(order.orderDate), "yyyy-MM-dd")
+                                } catch {
+                                  return "날짜 없음"
+                                }
+                              })() 
+                              : "날짜 없음"
+                            }
+                          </TableCell>
                           <TableCell className="text-right">
                             <Badge
                               className={
@@ -257,7 +270,17 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
               </Card>
             ) : (
               <Card className="p-6 text-center text-gray-500">
-                <p>주문 내역이 없습니다.</p>
+                <div className="space-y-4">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">주문한 내역이 없습니다</h3>
+                    <p className="text-gray-500">아직 주문한 상품이 없습니다. 스토어에서 상품을 구매해보세요!</p>
+                  </div>
+                </div>
               </Card>
             )}
           </TabsContent>

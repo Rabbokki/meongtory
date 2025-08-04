@@ -18,13 +18,10 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react"
-import AnimalEditModal from "./animal-edit-modal"
-import { petApi, handleApiError } from "./lib/api"
 
 interface Product {
   id: number
   name: string
-  brand: string
   price: number
   image: string
   category: string
@@ -92,6 +89,24 @@ interface Comment {
   isReported: boolean
 }
 
+interface Order {
+  orderId: number
+  userId: number
+  totalPrice: number
+  paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED"
+  orderedAt: string
+  orderItems?: OrderItem[]
+}
+
+interface OrderItem {
+  id: number
+  productId: number
+  productName: string
+  price: number
+  quantity: number
+  ImageUrl: string
+}
+
 interface AdminPageProps {
   onClose: () => void // This prop is now used for navigating back to home, but not for logout
   products: Product[]
@@ -105,17 +120,19 @@ interface AdminPageProps {
   onUpdateInquiryStatus: (id: number, status: "대기중" | "연락완료" | "승인" | "거절") => void
   onDeleteComment: (id: number) => void
   onDeletePost: (id: number) => void
-  onUpdatePet: (pet: Pet) => void
+  onEditProduct: (product: Product) => void
+  onDeleteProduct: (productId: number) => void
+  onUpdateOrderStatus: (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => void
   isAdmin: boolean
   onAdminLogout: () => void // New prop for admin logout
 }
 
 export default function AdminPage({
   onClose,
-  products,
-  pets: initialPets,
+  products: initialProducts,
+  pets,
   communityPosts,
-  adoptionInquiries: initialAdoptionInquiries,
+  adoptionInquiries,
   comments,
   onNavigateToStoreRegistration,
   onNavigateToAnimalRegistration,
@@ -123,17 +140,88 @@ export default function AdminPage({
   onUpdateInquiryStatus,
   onDeleteComment,
   onDeletePost,
-  onUpdatePet,
+  onEditProduct,
+  onDeleteProduct,
+  onUpdateOrderStatus,
   isAdmin,
   onAdminLogout, // Destructure new prop
 }: AdminPageProps) {
   const [activeTab, setActiveTab] = useState("dashboard")
-  const [showEditModal, setShowEditModal] = useState(false)
-  const [selectedPetForEdit, setSelectedPetForEdit] = useState<Pet | null>(null)
-  const [pets, setPets] = useState<Pet[]>(initialPets || [])
-  const [loading, setLoading] = useState(false)
-  const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>(initialAdoptionInquiries || [])
-  const [inquiriesLoading, setInquiriesLoading] = useState(false)
+  const [products, setProducts] = useState<Product[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+
+  // 상품 목록을 백엔드에서 가져오기
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/products');
+        if (!response.ok) {
+          throw new Error('상품 데이터를 가져오는 데 실패했습니다.');
+        }
+        const data: Product[] = await response.json();
+        
+        // 최신순으로 정렬 (registrationDate 기준 내림차순)
+        const sortedProducts = data.sort((a, b) => {
+          const dateA = new Date(a.registrationDate).getTime();
+          const dateB = new Date(b.registrationDate).getTime();
+          return dateB - dateA; // 내림차순 (최신순)
+        });
+        
+        setProducts(sortedProducts);
+      } catch (error) {
+        console.error("Error fetching products:", error);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  // 주문 목록을 백엔드에서 가져오기
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        console.log('주문 데이터 가져오기 시작...');
+        const response = await fetch('/api/orders');
+        console.log('주문 API 응답:', response);
+        
+        if (!response.ok) {
+          throw new Error('주문 데이터를 가져오는 데 실패했습니다.');
+        }
+        
+        const data: any[] = await response.json();
+        console.log('받은 주문 데이터:', data);
+        
+        // 데이터를 Order 형태로 변환
+        const orders: Order[] = data.map((order: any) => {
+          console.log('처리 중인 주문:', order);
+          console.log('주문의 orderItems:', order.orderItems);
+          
+          return {
+            orderId: order.orderId,
+            userId: order.userId,
+            totalPrice: order.totalPrice,
+            paymentStatus: order.paymentStatus,
+            orderedAt: order.orderedAt,
+            orderItems: order.orderItems || []
+          };
+        });
+        
+        // 최신순으로 정렬 (orderedAt 기준 내림차순)
+        const sortedOrders = orders.sort((a, b) => {
+          const dateA = new Date(a.orderedAt).getTime();
+          const dateB = new Date(b.orderedAt).getTime();
+          return dateB - dateA; // 내림차순 (최신순)
+        });
+        
+        console.log('변환된 주문 데이터:', sortedOrders);
+        setOrders(sortedOrders);
+      } catch (error) {
+        console.error("Error fetching orders:", error);
+      }
+    };
+
+    fetchOrders();
+  }, []);
 
   if (!isAdmin) {
     return (
@@ -164,76 +252,70 @@ export default function AdminPage({
     }
   }
 
-  const handleEditPet = (pet: Pet) => {
-    setSelectedPetForEdit(pet)
-    setShowEditModal(true)
-  }
+  const handleEditProduct = (product: Product) => {
+    // 상품 수정 페이지로 이동
+    console.log('상품 수정:', product);
+    onEditProduct(product);
+  };
 
-  const handleCloseEditModal = () => {
-    setShowEditModal(false)
-    setSelectedPetForEdit(null)
-  }
-
-  const handleUpdatePet = (updatedPet: Pet) => {
-    onUpdatePet(updatedPet)
-    handleCloseEditModal()
-  }
-
-  const handleDeletePet = async (petId: number, petName: string) => {
-    if (confirm(`${petName}을(를) 삭제하시겠습니까?`)) {
+  const handleDeleteProduct = async (productId: number) => {
+    if (window.confirm('정말로 이 상품을 삭제하시겠습니까?')) {
       try {
-        await petApi.deletePet(petId)
-        setPets(prev => prev.filter(pet => pet.id !== petId))
-        alert(`${petName}이(가) 성공적으로 삭제되었습니다.`)
+        console.log('상품 삭제 요청:', productId);
+        
+        const response = await fetch(`/api/products/${productId}`, {
+          method: 'DELETE',
+        });
+
+        const result = await response.json();
+        console.log('삭제 응답:', result);
+
+        if (!response.ok) {
+          throw new Error(result.error || '상품 삭제에 실패했습니다.');
+        }
+
+        // 상품 목록에서 제거
+        setProducts(prev => prev.filter(p => p.id !== productId));
+        alert('상품이 성공적으로 삭제되었습니다.');
       } catch (error) {
-        console.error("동물 삭제에 실패했습니다:", error)
-        alert("동물 삭제에 실패했습니다.")
+        console.error('상품 삭제 오류:', error);
+        alert('상품 삭제 중 오류가 발생했습니다: ' + (error as Error).message);
       }
     }
-  }
+  };
 
-  // API 데이터를 프론트엔드 형식으로 변환
-  const convertApiPetToAdminPet = (apiPet: any): Pet => {
-    return {
-      id: apiPet.petId,
-      name: apiPet.name,
-      breed: apiPet.breed,
-      age: `${apiPet.age}살`,
-      gender: apiPet.gender === 'MALE' ? '수컷' : '암컷',
-      size: apiPet.weight ? `${apiPet.weight}kg` : '',
-      personality: apiPet.personality ? apiPet.personality.split(',').map((p: string) => p.trim()) : [],
-      healthStatus: apiPet.medicalHistory || '',
-      description: apiPet.description || '',
-      images: apiPet.imageUrl ? [apiPet.imageUrl] : [],
-      location: apiPet.location || '',
-      contact: '',
-      adoptionFee: 0,
-      isNeutered: apiPet.neutered || false,
-      isVaccinated: apiPet.vaccinated || false,
-      specialNeeds: apiPet.rescueStory || '',
-      dateRegistered: new Date().toISOString().split('T')[0],
-      adoptionStatus: apiPet.adopted ? 'adopted' : 'available'
-    }
-  }
-
-  // 펫 데이터 가져오기
-  const fetchPets = async () => {
-    setLoading(true)
+  const handleUpdateOrderStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
     try {
-      const apiPets = await petApi.getPets()
-      const convertedPets = apiPets.map(convertApiPetToAdminPet)
-      setPets(convertedPets)
+      console.log(`주문 상태 변경 요청: 주문ID ${orderId}, 상태 ${status}`);
+      
+      const response = await fetch(`/api/orders/${orderId}/status?status=${status}`, {
+        method: 'PUT'
+      });
+      
+      console.log('상태 변경 응답:', response);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('상태 변경 오류 응답:', errorText);
+        throw new Error('주문 상태 업데이트에 실패했습니다.');
+      }
+      
+      const updatedOrder = await response.json();
+      console.log('업데이트된 주문:', updatedOrder);
+      
+      // 현재 주문 목록에서 해당 주문만 업데이트
+      setOrders(prev => prev.map(order => 
+        order.orderId === orderId 
+          ? { ...order, paymentStatus: status }
+          : order
+      ));
+      
+      alert(`주문 상태가 ${status === 'COMPLETED' ? '완료' : status === 'PENDING' ? '대기중' : '취소'}로 변경되었습니다.`);
     } catch (error) {
-      console.error("펫 데이터를 가져오는데 실패했습니다:", error)
-    } finally {
-      setLoading(false)
+      console.error('주문 상태 업데이트 오류:', error);
+      alert('주문 상태 업데이트에 실패했습니다.');
     }
-  }
-
-  // 컴포넌트 마운트 시 데이터 가져오기
-  useEffect(() => {
-    fetchPets()
-  }, [])
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -247,11 +329,12 @@ export default function AdminPage({
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             <TabsTrigger value="products">상품관리</TabsTrigger>
             <TabsTrigger value="pets">입양관리</TabsTrigger>
             <TabsTrigger value="inquiries">입양문의</TabsTrigger>
+            <TabsTrigger value="orders">주문내역</TabsTrigger>
           </TabsList>
 
           {/* Dashboard Tab */}
@@ -357,16 +440,24 @@ export default function AdminPage({
                         />
                         <div>
                           <h3 className="font-semibold">{product.name}</h3>
-                          <p className="text-sm text-gray-600">{product.brand}</p>
+                          <p className="text-sm text-gray-600">{product.category}</p>
                           <p className="text-lg font-bold text-yellow-600">{product.price.toLocaleString()}원</p>
                           <p className="text-sm text-gray-500">재고: {product.stock}개</p>
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleEditProduct(product)}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button size="sm" variant="outline">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleDeleteProduct(product.id)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -387,22 +478,13 @@ export default function AdminPage({
             </div>
 
             <div className="grid gap-4">
-              {loading ? (
-                <div className="text-center py-8">
-                  <p>데이터를 불러오는 중...</p>
-                </div>
-              ) : pets.length === 0 ? (
-                <div className="text-center py-8">
-                  <p>등록된 동물이 없습니다.</p>
-                </div>
-              ) : (
-                pets.map((pet) => (
+              {pets.map((pet) => (
                 <Card key={pet.id}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <img
-                          src={pet.images?.[0] || "/placeholder.svg"}
+                          src={pet.images[0] || "/placeholder.svg"}
                           alt={pet.name}
                           className="w-16 h-16 object-cover rounded-lg"
                         />
@@ -422,26 +504,17 @@ export default function AdminPage({
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                                                  <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleEditPet(pet)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleDeletePet(pet.id, pet.name)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <Button size="sm" variant="outline">
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button size="sm" variant="outline">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
+              ))}
             </div>
           </TabsContent>
 
@@ -511,16 +584,134 @@ export default function AdminPage({
               ))}
             </div>
           </TabsContent>
+
+          {/* Orders Tab */}
+          <TabsContent value="orders" className="space-y-6">
+            <h2 className="text-2xl font-bold">주문 내역 관리</h2>
+
+            <div className="grid gap-4">
+              {orders.length > 0 ? (
+                orders.map((order) => (
+                  <Card key={order.orderId}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-3">
+                            <h3 className="font-semibold">주문 #{order.orderId}</h3>
+                            <Badge 
+                              className={
+                                order.paymentStatus === "COMPLETED"
+                                  ? "bg-green-100 text-green-800"
+                                  : order.paymentStatus === "PENDING"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : "bg-red-100 text-red-800"
+                              }
+                            >
+                              {order.paymentStatus === "COMPLETED" ? "완료" : 
+                               order.paymentStatus === "PENDING" ? "대기중" : "취소됨"}
+                            </Badge>
+                          </div>
+                          
+                          <div className="space-y-2 mb-4">
+                            <p className="text-sm text-gray-600">사용자 ID: {order.userId}</p>
+                            <p className="text-sm text-gray-600">총 금액: {order.totalPrice.toLocaleString()}원</p>
+                            <p className="text-sm text-gray-600">
+                              주문일: {order.orderedAt ? 
+                                (() => {
+                                  try {
+                                    return new Date(order.orderedAt).toLocaleDateString()
+                                  } catch {
+                                    return "날짜 없음"
+                                  }
+                                })() 
+                                : "날짜 없음"
+                              }
+                            </p>
+                          </div>
+
+                          {/* 주문 상품 목록 */}
+                          {order.orderItems && order.orderItems.length > 0 ? (
+                            <div className="space-y-2">
+                              <h4 className="font-medium text-sm">주문 상품:</h4>
+                              {order.orderItems.map((item) => {
+                                console.log('주문 아이템:', item);
+                                console.log('주문 아이템의 ImageUrl:', item.ImageUrl);
+                                
+                                return (
+                                  <div key={item.id} className="flex items-center space-x-3 p-2 bg-gray-50 rounded">
+                                    <img
+                                      src={item.ImageUrl || "/placeholder.svg"}
+                                      alt={item.productName || "상품"}
+                                      className="w-8 h-8 object-cover rounded"
+                                    />
+                                    <div className="flex-1">
+                                      <p className="text-sm font-medium">{item.productName || "상품명 없음"}</p>
+                                      <p className="text-xs text-gray-500">
+                                        상품 ID: {item.productId || "N/A"} | {(item.price || 0).toLocaleString()}원 × {item.quantity || 1}개
+                                      </p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-500">
+                              상품 정보가 없습니다.
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="flex flex-col space-y-2 ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUpdateOrderStatus(order.orderId, "PENDING")}
+                            disabled={order.paymentStatus === "PENDING"}
+                          >
+                            대기중
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUpdateOrderStatus(order.orderId, "COMPLETED")}
+                            disabled={order.paymentStatus === "COMPLETED"}
+                          >
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            승인
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleUpdateOrderStatus(order.orderId, "CANCELLED")}
+                            disabled={order.paymentStatus === "CANCELLED"}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            거절
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <Card className="p-6 text-center text-gray-500">
+                  <div className="space-y-4">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">주문 내역이 없습니다</h3>
+                      <p className="text-gray-500">아직 주문이 없습니다.</p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
         </Tabs>
       </div>
-      
-      {/* 수정 모달 */}
-      <AnimalEditModal
-        isOpen={showEditModal}
-        onClose={handleCloseEditModal}
-        selectedPet={selectedPetForEdit}
-        onUpdatePet={handleUpdatePet}
-      />
     </div>
   )
 }

@@ -1,76 +1,100 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { X, Eye, EyeOff } from "lucide-react"
+import type React from "react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { X, Eye, EyeOff } from "lucide-react";
+import axios from "axios";
 
 interface SignupModalProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
   onSignup: (userData: {
-    name: string
-    email: string
-    password: string
-    petType?: string
-    petAge?: string
-    petBreed?: string
-  }) => void
-  onSwitchToLogin: () => void
+    name: string;
+    email: string;
+    password: string;
+    petType?: string;
+    petAge?: string;
+    petBreed?: string;
+  }) => void;
+  onSwitchToLogin: () => void;
 }
 
 export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin }: SignupModalProps) {
-  const [name, setName] = useState("")
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [petType, setPetType] = useState<string | undefined>(undefined)
-  const [petAge, setPetAge] = useState("")
-  const [petBreed, setPetBreed] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [petType, setPetType] = useState<string | undefined>(undefined);
+  const [petAge, setPetAge] = useState("");
+  const [petBreed, setPetBreed] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
     if (!name || !email || !password || !confirmPassword) {
-      setError("모든 필수 정보를 입력해주세요.")
-      return
+      setError("모든 필수 정보를 입력해주세요.");
+      return;
     }
 
     if (password !== confirmPassword) {
-      setError("비밀번호가 일치하지 않습니다.")
-      return
+      setError("비밀번호가 일치하지 않습니다.");
+      return;
     }
 
-    if (password.length < 4) {
-      setError("비밀번호는 최소 4자 이상이어야 합니다.")
-      return
+    const passwordRegex = /^(?=.*[A-Za-z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
+    if (!passwordRegex.test(password)) {
+      setError("비밀번호는 최소 8자 이상이며, 영문, 숫자, 특수문자를 포함해야 합니다.");
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
 
     try {
-      // 간단한 회원가입 시뮬레이션
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await axios.post("http://localhost:8080/api/accounts/register", {
+        name,
+        email,
+        password,
+        pet: petType || null, // "강아지" 또는 "고양이" 전송
+        petAge: petAge || null,
+        petBreeds: petBreed || null,
+      }, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-      onSignup({ name, email, password, petType, petAge, petBreed })
-    } catch (err) {
-      setError("회원가입 중 오류가 발생했습니다.")
+      onSignup({
+        name,
+        email,
+        password,
+        petType,
+        petAge,
+        petBreed,
+      });
+
+      onClose();
+    } catch (err: any) {
+      if (err.response && err.response.data) {
+        setError(err.response.data.message || "회원가입 중 오류가 발생했습니다.");
+      } else {
+        setError("서버와 연결할 수 없습니다.");
+      }
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -113,7 +137,7 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
                 <Input
                   id="signup-password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="비밀번호를 입력하세요 (최소 4자)"
+                  placeholder="비밀번호를 입력하세요 (최소 8자, 영문/숫자/특수문자 포함)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
@@ -149,7 +173,6 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
               </div>
             </div>
 
-            {/* 반려동물 정보 */}
             <div className="space-y-2">
               <Label htmlFor="pet-type">반려동물 종류 (선택 사항)</Label>
               <Select onValueChange={setPetType} value={petType}>
@@ -163,7 +186,6 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
               </Select>
             </div>
 
-            {/* 반려동물 나이 및 품종 (항상 표시) */}
             <div className="space-y-2">
               <Label htmlFor="pet-age">반려동물 나이 (선택 사항)</Label>
               <Input
@@ -203,5 +225,5 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

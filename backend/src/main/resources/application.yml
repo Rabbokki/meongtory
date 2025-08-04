@@ -1,15 +1,35 @@
 spring:
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
   datasource:
-    url: ${SPRING_DATASOURCE_URL}
-    username: ${SPRING_DATASOURCE_USERNAME}
-    password: ${SPRING_DATASOURCE_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/meong}
+    username: ${SPRING_DATASOURCE_USERNAME:jjj}
+    password: ${SPRING_DATASOURCE_PASSWORD:1q2w3e4r!}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
-server:
-  port: ${SERVER_PORT}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/google"
+            scope:
+              - email
+              - profile
+  port: ${SERVER_PORT:8080}
 
 # AWS S3 Configuration
 aws:
@@ -18,3 +38,17 @@ aws:
   region: ${AWS_REGION}
   s3:
     bucket-name: ${AWS_S3_BUCKET_NAME}
+
+jwt:
+  secret:
+    key: ${JWT_SECRET_KEY}
+
+logging:
+  level:
+    org.springframework: INFO
+    org.springframework.boot: INFO
+    org.springframework.security: DEBUG
+    org.apache.tomcat: INFO
+    com.zaxxer.hikari: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
