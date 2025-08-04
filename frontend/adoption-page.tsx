@@ -1,29 +1,34 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChevronDown, Plus } from "lucide-react"
+import { petApi, handleApiError } from "./lib/api"
 
 interface Pet {
   id: number
   name: string
-  type: string
   breed: string
   age: string
-  gender: "male" | "female"
-  neutered: boolean
+  gender: string
+  size: string
+  personality: string[]
+  healthStatus: string
+  description: string
+  images: string[]
   location: string
-  image: string
-  status: string
-  description?: string
-  weight?: string
-  personality?: string[]
-  medicalHistory?: string
-  rescueStory?: string
+  contact: string
+  adoptionFee: number
+  isNeutered: boolean
+  isVaccinated: boolean
+  specialNeeds?: string
+  dateRegistered: string
+  adoptionStatus: "available" | "pending" | "adopted"
+  ownerEmail?: string
 }
 
 interface AdoptionPageProps {
@@ -40,7 +45,7 @@ export default function AdoptionPage({
   isAdmin = false,
   isLoggedIn = false,
   onNavigateToAnimalRegistration,
-  pets = [],
+  pets: initialPets = [],
   onViewPet,
 }: AdoptionPageProps) {
   const [activeFilters, setActiveFilters] = useState<string[]>(["보호"])
@@ -50,10 +55,12 @@ export default function AdoptionPage({
   const [selectedAge, setSelectedAge] = useState("전체")
   const [selectedGender, setSelectedGender] = useState("전체")
   const [selectedNeutering, setSelectedNeutering] = useState("전체")
+  const [pets, setPets] = useState<Pet[]>(initialPets)
+  const [loading, setLoading] = useState(false)
 
   // Filter pets based on selected criteria
   const filteredPets = pets.filter((pet) => {
-    if (selectedStatus !== "전체" && pet.status !== selectedStatus) return false
+    if (selectedStatus !== "전체" && pet.adoptionStatus !== selectedStatus) return false
     if (selectedAge !== "전체") {
       const ageNum = Number.parseInt(pet.age)
       switch (selectedAge) {
@@ -72,12 +79,12 @@ export default function AdoptionPage({
       }
     }
     if (selectedGender !== "전체") {
-      const genderMap = { 수컷: "male", 암컷: "female" }
+      const genderMap = { 수컷: "수컷", 암컷: "암컷" }
       if (pet.gender !== genderMap[selectedGender as keyof typeof genderMap]) return false
     }
     if (selectedNeutering !== "전체") {
       const neuteredMap = { 완료: true, 미완료: false }
-      if (pet.neutered !== neuteredMap[selectedNeutering as keyof typeof neuteredMap]) return false
+      if (pet.isNeutered !== neuteredMap[selectedNeutering as keyof typeof neuteredMap]) return false
     }
     return true
   })
@@ -99,6 +106,66 @@ export default function AdoptionPage({
       onViewPet(pet)
     }
   }
+
+  // API 데이터를 프론트엔드 형식으로 변환
+  const convertApiPetToAdoptionPet = (apiPet: any): Pet => {
+    // personality 안전한 파싱
+    let personality: string[] = []
+    if (apiPet.personality) {
+      try {
+        // JSON 형식인지 확인
+        if (apiPet.personality.startsWith('[') && apiPet.personality.endsWith(']')) {
+          personality = JSON.parse(apiPet.personality)
+        } else {
+          // 쉼표로 구분된 문자열인 경우
+          personality = apiPet.personality.split(',').map((item: string) => item.trim())
+        }
+      } catch (error) {
+        console.warn('personality 파싱 실패, 기본값 사용:', apiPet.personality)
+        personality = ['온순함', '친화적']
+      }
+    }
+
+    return {
+      id: apiPet.petId,
+      name: apiPet.name,
+      breed: apiPet.breed,
+      age: `${apiPet.age}살`,
+      gender: apiPet.gender === 'MALE' ? '수컷' : '암컷',
+      size: apiPet.weight ? `${apiPet.weight}kg` : '',
+      personality: personality,
+      healthStatus: apiPet.medicalHistory || '',
+      description: apiPet.description || '',
+      images: apiPet.imageUrl ? [apiPet.imageUrl] : [],
+      location: apiPet.location || '',
+      contact: '',
+      adoptionFee: 0,
+      isNeutered: apiPet.neutered || false,
+      isVaccinated: apiPet.vaccinated || false,
+      specialNeeds: apiPet.rescueStory || '',
+      dateRegistered: new Date().toISOString().split('T')[0],
+      adoptionStatus: apiPet.adopted ? 'adopted' : 'available'
+    }
+  }
+
+  // 펫 데이터 가져오기
+  const fetchPets = async () => {
+    setLoading(true)
+    try {
+      const apiPets = await petApi.getPets()
+      const convertedPets = apiPets.map(convertApiPetToAdoptionPet)
+      setPets(convertedPets)
+    } catch (error) {
+      console.error("펫 데이터를 가져오는데 실패했습니다:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 컴포넌트 마운트 시 데이터 가져오기
+  useEffect(() => {
+    fetchPets()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -192,7 +259,12 @@ export default function AdoptionPage({
         </div>
 
         {/* Pet Grid */}
-        {displayedPets.length > 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+            <p className="text-gray-600">동물 목록을 불러오는 중...</p>
+          </div>
+        ) : displayedPets.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {displayedPets.map((pet) => (
               <Card
@@ -202,27 +274,27 @@ export default function AdoptionPage({
               >
                 <div className="relative">
                   <Image
-                    src={pet.image || "/placeholder.svg?height=200&width=300&query=cute pet"}
-                    alt={`${pet.type} ${pet.breed}`}
+                    src={pet.images?.[0] || "/placeholder.svg?height=200&width=300&query=cute pet"}
+                    alt={`${pet.breed}`}
                     width={300}
                     height={200}
                     className="w-full h-48 object-cover"
                   />
                   <Badge className="absolute top-3 left-3 bg-yellow-400 text-black hover:bg-yellow-500">
-                    {pet.status}
+                    {pet.adoptionStatus === "available" ? "보호중" : pet.adoptionStatus === "pending" ? "입양대기" : "입양완료"}
                   </Badge>
                 </div>
                 <CardContent className="p-4">
                   <div className="space-y-2">
                     <h3 className="font-semibold text-lg">
-                      [{pet.type}] {pet.breed} {pet.age}
+                      {pet.breed} {pet.age}
                     </h3>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className={pet.gender === "male" ? "text-blue-500" : "text-pink-500"}>
-                        {pet.gender === "male" ? "♂" : "♀"} {pet.gender === "male" ? "남아" : "여아"}
+                      <span className={pet.gender === "수컷" ? "text-blue-500" : "text-pink-500"}>
+                        {pet.gender === "수컷" ? "♂" : "♀"} {pet.gender === "수컷" ? "남아" : "여아"}
                       </span>
                       <span>•</span>
-                      <span>{pet.neutered ? "중성화 완료" : "중성화 미완료"}</span>
+                      <span>{pet.isNeutered ? "중성화 완료" : "중성화 미완료"}</span>
                     </div>
                     <p className="text-sm text-gray-500">지역 : {pet.location}</p>
                   </div>

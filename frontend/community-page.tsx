@@ -131,7 +131,7 @@ export default function CommunityPage({
                       {post.images && post.images.length > 0 && (
                         <div className="ml-4 flex-shrink-0">
                           <Image
-                            src={post.images[0] || "/placeholder.svg"}
+                            src={post.images?.[0] || "/placeholder.svg"}
                             alt={post.title}
                             width={120}
                             height={90}

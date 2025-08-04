@@ -178,7 +178,7 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                   <Card key={pet.id}>
                     <CardContent className="p-6 flex items-center space-x-4">
                       <Image
-                        src={pet.images[0] || "/placeholder.svg?height=100&width=100"}
+                        src={pet.images?.[0] || "/placeholder.svg?height=100&width=100"}
                         alt={pet.name}
                         width={100}
                         height={100}

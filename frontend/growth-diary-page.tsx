@@ -242,7 +242,7 @@ export default function GrowthDiaryPage({
                     {entry.images && entry.images.length > 0 && (
                       <div className="flex-shrink-0 w-full md:w-1/3 lg:w-1/4 relative">
                         <Image
-                          src={entry.images[0] || "/placeholder.svg"}
+                          src={entry.images?.[0] || "/placeholder.svg"}
                           alt={entry.title}
                           width={300}
                           height={200}

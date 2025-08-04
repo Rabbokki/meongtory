@@ -31,6 +31,7 @@ import PetNamingService from "./pet-naming-service"
 import InsuranceFavoritesPage from "./insurance-favorites-page"
 import GrowthDiaryWritePage from "./growth-diary-write-page" // New import
 
+
 // Types
 interface Pet {
   id: number
@@ -255,10 +256,13 @@ function NavigationHeader({
                 </Button>
               </>
             ) : (
-              <Button onClick={onLogin} variant="outline" size="sm" className="text-sm bg-transparent">
-                <User className="w-4 h-4 mr-1" />
-                로그인
-              </Button>
+              <>
+
+                <Button onClick={onLogin} variant="outline" size="sm" className="text-sm bg-transparent">
+                  <User className="w-4 h-4 mr-1" />
+                  로그인
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -865,10 +869,15 @@ export default function PetServiceWebsite() {
             onDeletePost={(id) => {
               setCommunityPosts((prev) => prev.filter((post) => post.id !== id))
             }}
+            onUpdatePet={(updatedPet) => {
+              setPets((prev) => prev.map((pet) => (pet.id === updatedPet.id ? updatedPet : pet)))
+            }}
             isAdmin={isAdmin}
             onAdminLogout={handleLogout} // Pass the logout handler
           />
         )
+
+
 
       case "myPage":
         return (

@@ -10,19 +10,23 @@ import { ArrowLeft, Heart, Share2, MapPin, Calendar, Weight, Stethoscope, User }
 interface Pet {
   id: number
   name: string
-  type: string
   breed: string
   age: string
-  gender: "male" | "female"
-  neutered: boolean
+  gender: string
+  size: string
+  personality: string[]
+  healthStatus: string
+  description: string
+  images: string[]
   location: string
-  image: string
-  status: string
-  description?: string
-  weight?: string
-  personality?: string[]
-  medicalHistory?: string
-  rescueStory?: string
+  contact: string
+  adoptionFee: number
+  isNeutered: boolean
+  isVaccinated: boolean
+  specialNeeds?: string
+  dateRegistered: string
+  adoptionStatus: "available" | "pending" | "adopted"
+  ownerEmail?: string
 }
 
 interface AdoptionDetailPageProps {
@@ -71,13 +75,15 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
           <div className="space-y-4">
             <div className="relative">
               <Image
-                src={pet.image || "/placeholder.svg?height=400&width=600&query=cute pet"}
-                alt={`${pet.type} ${pet.breed}`}
+                src={pet.images?.[0] || "/placeholder.svg?height=400&width=600&query=cute pet"}
+                alt={`${pet.breed}`}
                 width={600}
                 height={400}
                 className="w-full h-96 object-cover rounded-lg"
               />
-              <Badge className="absolute top-4 left-4 bg-yellow-400 text-black hover:bg-yellow-500">{pet.status}</Badge>
+              <Badge className="absolute top-4 left-4 bg-yellow-400 text-black hover:bg-yellow-500">
+                {pet.adoptionStatus === "available" ? "보호중" : pet.adoptionStatus === "pending" ? "입양대기" : "입양완료"}
+              </Badge>
             </div>
 
             {/* Action Buttons */}
@@ -99,7 +105,7 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
             <Card>
               <CardHeader>
                 <CardTitle className="text-2xl">
-                  {pet.name} ({pet.type})
+                  {pet.name} ({pet.breed})
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -115,24 +121,17 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
                     <span className="font-medium">{pet.age}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`w-4 h-4 ${pet.gender === "male" ? "text-blue-500" : "text-pink-500"}`}>
-                      {pet.gender === "male" ? "♂" : "♀"}
+                    <span className={`w-4 h-4 ${pet.gender === "수컷" ? "text-blue-500" : "text-pink-500"}`}>
+                      {pet.gender === "수컷" ? "♂" : "♀"}
                     </span>
                     <span className="text-sm text-gray-600">성별</span>
-                    <span className="font-medium">{pet.gender === "male" ? "남아" : "여아"}</span>
+                    <span className="font-medium">{pet.gender === "수컷" ? "남아" : "여아"}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Stethoscope className="w-4 h-4 text-gray-500" />
                     <span className="text-sm text-gray-600">중성화</span>
-                    <span className="font-medium">{pet.neutered ? "완료" : "미완료"}</span>
+                    <span className="font-medium">{pet.isNeutered ? "완료" : "미완료"}</span>
                   </div>
-                  {pet.weight && (
-                    <div className="flex items-center gap-2">
-                      <Weight className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm text-gray-600">체중</span>
-                      <span className="font-medium">{pet.weight}</span>
-                    </div>
-                  )}
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-500" />
                     <span className="text-sm text-gray-600">지역</span>
@@ -160,14 +159,14 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
               </Card>
             )}
 
-            {/* Medical History */}
-            {pet.medicalHistory && (
+            {/* Health Status */}
+            {pet.healthStatus && (
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">건강 상태</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700">{pet.medicalHistory}</p>
+                  <p className="text-gray-700">{pet.healthStatus}</p>
                 </CardContent>
               </Card>
             )}
@@ -184,18 +183,18 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
               </Card>
             )}
 
-            {/* Rescue Story */}
-            {pet.rescueStory && (
+            {/* Special Needs */}
+            {pet.specialNeeds && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">구조 이야기</CardTitle>
+                  <CardTitle className="text-lg">특별 관리사항</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <p className="text-gray-700">
-                      {showFullStory ? pet.rescueStory : `${pet.rescueStory.slice(0, 150)}...`}
+                      {showFullStory ? pet.specialNeeds : `${pet.specialNeeds.slice(0, 150)}...`}
                     </p>
-                    {pet.rescueStory.length > 150 && (
+                    {pet.specialNeeds.length > 150 && (
                       <Button
                         variant="ghost"
                         size="sm"

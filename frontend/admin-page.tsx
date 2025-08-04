@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,6 +18,8 @@ import {
   CheckCircle,
   XCircle,
 } from "lucide-react"
+import AnimalEditModal from "./animal-edit-modal"
+import { petApi, handleApiError } from "./lib/api"
 
 interface Product {
   id: number
@@ -103,6 +105,7 @@ interface AdminPageProps {
   onUpdateInquiryStatus: (id: number, status: "대기중" | "연락완료" | "승인" | "거절") => void
   onDeleteComment: (id: number) => void
   onDeletePost: (id: number) => void
+  onUpdatePet: (pet: Pet) => void
   isAdmin: boolean
   onAdminLogout: () => void // New prop for admin logout
 }
@@ -110,9 +113,9 @@ interface AdminPageProps {
 export default function AdminPage({
   onClose,
   products,
-  pets,
+  pets: initialPets,
   communityPosts,
-  adoptionInquiries,
+  adoptionInquiries: initialAdoptionInquiries,
   comments,
   onNavigateToStoreRegistration,
   onNavigateToAnimalRegistration,
@@ -120,10 +123,17 @@ export default function AdminPage({
   onUpdateInquiryStatus,
   onDeleteComment,
   onDeletePost,
+  onUpdatePet,
   isAdmin,
   onAdminLogout, // Destructure new prop
 }: AdminPageProps) {
   const [activeTab, setActiveTab] = useState("dashboard")
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedPetForEdit, setSelectedPetForEdit] = useState<Pet | null>(null)
+  const [pets, setPets] = useState<Pet[]>(initialPets || [])
+  const [loading, setLoading] = useState(false)
+  const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>(initialAdoptionInquiries || [])
+  const [inquiriesLoading, setInquiriesLoading] = useState(false)
 
   if (!isAdmin) {
     return (
@@ -153,6 +163,77 @@ export default function AdminPage({
         return "bg-gray-100 text-gray-800"
     }
   }
+
+  const handleEditPet = (pet: Pet) => {
+    setSelectedPetForEdit(pet)
+    setShowEditModal(true)
+  }
+
+  const handleCloseEditModal = () => {
+    setShowEditModal(false)
+    setSelectedPetForEdit(null)
+  }
+
+  const handleUpdatePet = (updatedPet: Pet) => {
+    onUpdatePet(updatedPet)
+    handleCloseEditModal()
+  }
+
+  const handleDeletePet = async (petId: number, petName: string) => {
+    if (confirm(`${petName}을(를) 삭제하시겠습니까?`)) {
+      try {
+        await petApi.deletePet(petId)
+        setPets(prev => prev.filter(pet => pet.id !== petId))
+        alert(`${petName}이(가) 성공적으로 삭제되었습니다.`)
+      } catch (error) {
+        console.error("동물 삭제에 실패했습니다:", error)
+        alert("동물 삭제에 실패했습니다.")
+      }
+    }
+  }
+
+  // API 데이터를 프론트엔드 형식으로 변환
+  const convertApiPetToAdminPet = (apiPet: any): Pet => {
+    return {
+      id: apiPet.petId,
+      name: apiPet.name,
+      breed: apiPet.breed,
+      age: `${apiPet.age}살`,
+      gender: apiPet.gender === 'MALE' ? '수컷' : '암컷',
+      size: apiPet.weight ? `${apiPet.weight}kg` : '',
+      personality: apiPet.personality ? apiPet.personality.split(',').map((p: string) => p.trim()) : [],
+      healthStatus: apiPet.medicalHistory || '',
+      description: apiPet.description || '',
+      images: apiPet.imageUrl ? [apiPet.imageUrl] : [],
+      location: apiPet.location || '',
+      contact: '',
+      adoptionFee: 0,
+      isNeutered: apiPet.neutered || false,
+      isVaccinated: apiPet.vaccinated || false,
+      specialNeeds: apiPet.rescueStory || '',
+      dateRegistered: new Date().toISOString().split('T')[0],
+      adoptionStatus: apiPet.adopted ? 'adopted' : 'available'
+    }
+  }
+
+  // 펫 데이터 가져오기
+  const fetchPets = async () => {
+    setLoading(true)
+    try {
+      const apiPets = await petApi.getPets()
+      const convertedPets = apiPets.map(convertApiPetToAdminPet)
+      setPets(convertedPets)
+    } catch (error) {
+      console.error("펫 데이터를 가져오는데 실패했습니다:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 컴포넌트 마운트 시 데이터 가져오기
+  useEffect(() => {
+    fetchPets()
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -306,13 +387,22 @@ export default function AdminPage({
             </div>
 
             <div className="grid gap-4">
-              {pets.map((pet) => (
+              {loading ? (
+                <div className="text-center py-8">
+                  <p>데이터를 불러오는 중...</p>
+                </div>
+              ) : pets.length === 0 ? (
+                <div className="text-center py-8">
+                  <p>등록된 동물이 없습니다.</p>
+                </div>
+              ) : (
+                pets.map((pet) => (
                 <Card key={pet.id}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
                         <img
-                          src={pet.images[0] || "/placeholder.svg"}
+                          src={pet.images?.[0] || "/placeholder.svg"}
                           alt={pet.name}
                           className="w-16 h-16 object-cover rounded-lg"
                         />
@@ -332,17 +422,26 @@ export default function AdminPage({
                         </div>
                       </div>
                       <div className="flex space-x-2">
-                        <Button size="sm" variant="outline">
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button size="sm" variant="outline">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                                                  <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleEditPet(pet)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleDeletePet(pet.id, pet.name)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              ))
+            )}
             </div>
           </TabsContent>
 
@@ -414,6 +513,14 @@ export default function AdminPage({
           </TabsContent>
         </Tabs>
       </div>
+      
+      {/* 수정 모달 */}
+      <AnimalEditModal
+        isOpen={showEditModal}
+        onClose={handleCloseEditModal}
+        selectedPet={selectedPetForEdit}
+        onUpdatePet={handleUpdatePet}
+      />
     </div>
   )
 }
