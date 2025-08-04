@@ -29,10 +29,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String email = userDetails.getUsername();
         log.info("OAuth2 로그인 성공: {}", email);
 
-        // JWT 토큰 생성
-        TokenDto tokenDto = jwtUtil.createAllToken(email, "USER");
-
-        // 프론트엔드 URL로 리디렉션
+        TokenDto tokenDto = jwtUtil.createAllToken(email, userDetails.getAccount().getRole());
         String targetUrl = String.format(
                 "http://localhost:3000/?success=true&accessToken=%s&refreshToken=%s",
                 URLEncoder.encode(tokenDto.getAccessToken(), StandardCharsets.UTF_8),
