@@ -1,13 +1,12 @@
 // lib/api/diary.ts
+import type { DiaryEntry } from "../../diary";
 
 export async function fetchDiaries(userId?: number) {
   const url = userId 
     ? `/api/diary/user/${userId}`
     : `/api/diary`;
     
-  const res = await fetch(url, {
-    method: "GET",
-  });
+  const res = await fetch(url, { method: "GET" });
 
   if (!res.ok) {
     const text = await res.text();
@@ -15,10 +14,16 @@ export async function fetchDiaries(userId?: number) {
     throw new Error(`Failed to fetch diaries: ${res.status}`);
   }
 
-  return res.json();
+  return res.json() as Promise<DiaryEntry[]>;
 }
 
-export async function createDiary(data: any) {
+
+export async function createDiary(data: {
+  userId: number;
+  text: string;
+  audioUrl?: string;
+  imageUrl?: string;
+}) {
   const res = await fetch(`/api/diary`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -33,6 +38,7 @@ export async function createDiary(data: any) {
 
   return res.json();
 }
+
 
 export async function updateDiary(id: number, data: any) {
   const res = await fetch(`/api/diary/${id}`, {

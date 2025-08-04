@@ -6,7 +6,9 @@ import com.my.backend.diary.dto.DiaryUpdateDto;
 import com.my.backend.diary.entity.Diary;
 import com.my.backend.diary.repository.DiaryRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -40,7 +42,7 @@ public class DiaryService {
 
     public DiaryResponseDto updateDiary(Long id, DiaryUpdateDto dto) {
         Diary diary = diaryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Diary not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
 
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
@@ -50,7 +52,7 @@ public class DiaryService {
 
     public void deleteDiary(Long id) {
         Diary diary = diaryRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Diary not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
 
         diaryRepository.delete(diary);
     }

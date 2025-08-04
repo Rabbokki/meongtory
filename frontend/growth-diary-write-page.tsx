@@ -48,16 +48,14 @@ export default function GrowthDiaryWritePage({
     }
   
     try {
-      await createDiary({
-        title,
-        content,
-        images,
-        milestones: milestones.split(",").map(m => m.trim()).filter(Boolean),
-        activities: activities.split(",").map(a => a.trim()).filter(Boolean),
-        tags: tags.split(",").map(t => t.trim()).filter(Boolean),
-        audioUrl,
-        userId: currentUserId,
-      });
+     await createDiary({
+  userId: currentUserId,
+  text: content,  // 프론트는 content, 백엔드는 text
+  imageUrl: images[0],  // 첫 번째 이미지만 보내기
+  audioUrl: audioUrl || undefined,
+});
+
+
       alert("작성 완료!");
       onBack();
     } catch (err) {

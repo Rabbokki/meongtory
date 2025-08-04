@@ -23,9 +23,14 @@ public class DiaryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<DiaryResponseDto>> getAllDiaries() {
-        return ResponseEntity.ok(diaryService.getAllDiaries());
+    public ResponseEntity<List<DiaryResponseDto>> getDiaries(@RequestParam(required = false) Long userId) {
+        if (userId != null) {
+            return ResponseEntity.ok(diaryService.getUserDiaries(userId));
+        } else {
+            return ResponseEntity.ok(diaryService.getAllDiaries());
+        }
     }
+
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<DiaryResponseDto>> getUserDiaries(@PathVariable Long userId) {
