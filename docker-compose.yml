@@ -43,13 +43,14 @@
          - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
          - AWS_S3_REGION=${AWS_S3_REGION}  # 수정: AWS_REGION -> AWS_S3_REGION
          - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+         - AI_SERVICE_URL=${AI_SERVICE_URL}
        depends_on:
          db:
            condition: service_healthy
+         ai
        networks:
          - meongtory-network
        restart: on-failure
-
    volumes:
      postgres_data:
 
