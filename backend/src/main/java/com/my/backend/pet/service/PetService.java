@@ -49,6 +49,25 @@ public class PetService {
     @Transactional
     public Pet createPet(Pet pet) {
         log.info("Creating new pet: {}", pet.getName());
+        
+        // 이미지가 Base64 형태로 전달된 경우 S3에 업로드
+        if (pet.getImageUrl() != null && pet.getImageUrl().startsWith("data:")) {
+            log.info("Base64 이미지 감지됨 - S3 업로드 시작");
+            try {
+                // Base64 이미지를 S3에 업로드하고 URL 반환
+                String s3ImageUrl = s3Service.uploadBase64Image(pet.getImageUrl());
+                pet.setImageUrl(s3ImageUrl);
+                log.info("S3 업로드 완료: {}", s3ImageUrl);
+            } catch (Exception e) {
+                log.error("S3 업로드 실패: {}", e.getMessage());
+                e.printStackTrace();
+                // S3 업로드 실패 시 기본 이미지 사용
+                pet.setImageUrl("/placeholder.svg?height=300&width=300");
+            }
+        } else {
+            log.info("Base64 이미지가 아님 - S3 업로드 건너뜀");
+        }
+        
         return petRepository.save(pet);
     }
     
@@ -58,13 +77,15 @@ public class PetService {
         Pet pet = petRepository.findById(petId)
                 .orElseThrow(() -> new RuntimeException("Pet not found with id: " + petId));
         
+        // 기존 이미지 URL 저장
+        String oldImageUrl = pet.getImageUrl();
+        
         pet.setName(petDetails.getName());
         pet.setBreed(petDetails.getBreed());
         pet.setAge(petDetails.getAge());
         pet.setGender(petDetails.getGender());
         pet.setVaccinated(petDetails.getVaccinated());
         pet.setDescription(petDetails.getDescription());
-        pet.setImageUrl(petDetails.getImageUrl());
         pet.setAdopted(petDetails.getAdopted());
         pet.setWeight(petDetails.getWeight());
         pet.setLocation(petDetails.getLocation());
@@ -78,6 +99,37 @@ public class PetService {
         pet.setStatus(petDetails.getStatus());
         pet.setType(petDetails.getType());
         pet.setNeutered(petDetails.getNeutered());
+        
+        // 이미지가 Base64 형태로 전달된 경우 S3에 업로드
+        if (petDetails.getImageUrl() != null && petDetails.getImageUrl().startsWith("data:")) {
+            log.info("Base64 이미지 감지됨 - S3 업로드 시작");
+            try {
+                // Base64 이미지를 S3에 업로드하고 URL 반환
+                String s3ImageUrl = s3Service.uploadBase64Image(petDetails.getImageUrl());
+                pet.setImageUrl(s3ImageUrl);
+                log.info("S3 업로드 완료: {}", s3ImageUrl);
+                
+                // 기존 S3 이미지가 있으면 삭제
+                if (oldImageUrl != null && oldImageUrl.startsWith("https://")) {
+                    try {
+                        String fileName = oldImageUrl.substring(oldImageUrl.lastIndexOf("/") + 1);
+                        s3Service.deleteFile(fileName);
+                        log.info("기존 S3 이미지 삭제 완료: {}", fileName);
+                    } catch (Exception e) {
+                        log.error("기존 S3 이미지 삭제 실패: {}", e.getMessage());
+                    }
+                }
+            } catch (Exception e) {
+                log.error("S3 업로드 실패: {}", e.getMessage());
+                e.printStackTrace();
+                // S3 업로드 실패 시 기존 이미지 유지
+                pet.setImageUrl(oldImageUrl);
+            }
+        } else {
+            // Base64가 아닌 경우 그대로 설정
+            pet.setImageUrl(petDetails.getImageUrl());
+            log.info("Base64 이미지가 아님 - S3 업로드 건너뜀");
+        }
         
         log.info("Updated pet: {}", pet.getName());
         return petRepository.save(pet);
