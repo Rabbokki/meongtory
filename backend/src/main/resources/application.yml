@@ -78,6 +78,9 @@ jwt:
   secret:
     key: ${JWT_SECRET_KEY}
 
+ai:
+  service:
+    url: ${AI_SERVICE_URL:http://localhost:9000}
 logging:
   level:
     org.springframework: INFO

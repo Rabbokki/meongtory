@@ -67,6 +67,8 @@ model_checkpoints/
 runs/
 logs/
 application.yml*.tar.gz
+application.yml
+CLAUDE.md
 
 # 큰 파일들 (GitHub 100MB 제한)
 *.dmg
