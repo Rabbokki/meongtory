@@ -39,7 +39,7 @@ public class Pet {
     private String description;
     
     @Column(name = "image_url")
-    private String imageUrl; // S3 URL 저장
+    private String imageUrl; // 이미지 URL 저장
     
     @Column(name = "adopted")
     private Boolean adopted = false;

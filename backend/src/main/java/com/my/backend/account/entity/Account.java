@@ -53,7 +53,7 @@ public class Account extends BaseEntity {
         this.name = requestDto.getName();
         this.email = requestDto.getEmail();
         this.password = requestDto.getPassword();
-        this.role = "USER";
+        this.role = requestDto.getRole() != null ? requestDto.getRole() : "USER";
         this.pet = requestDto.getPet();
         this.petAge = requestDto.getPetAge();
         this.petBreeds = requestDto.getPetBreeds();

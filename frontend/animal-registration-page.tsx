@@ -12,7 +12,7 @@ import { Search, Plus, FileText, Sparkles, Upload, X } from "lucide-react"
 import { format } from "date-fns"
 import { ko } from "date-fns/locale"
 import { ArrowLeft } from "lucide-react"
-import { petApi, Pet as ApiPet, handleApiError } from "./lib/api"
+import { petApi, s3Api, Pet as ApiPet, handleApiError } from "./lib/api"
 import AnimalEditModal from "./animal-edit-modal"
 
 interface AnimalRecord {

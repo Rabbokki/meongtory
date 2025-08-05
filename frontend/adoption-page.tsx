@@ -60,6 +60,9 @@ export default function AdoptionPage({
 
   // Filter pets based on selected criteria
   const filteredPets = pets.filter((pet) => {
+    // 입양 완료된 동물은 제외
+    if (pet.adoptionStatus === "adopted") return false
+    
     if (selectedStatus !== "전체" && pet.adoptionStatus !== selectedStatus) return false
     if (selectedAge !== "전체") {
       const ageNum = Number.parseInt(pet.age)
@@ -193,7 +196,7 @@ export default function AdoptionPage({
               <DropdownMenuContent className="relative z-[999]">
                 <DropdownMenuItem onClick={() => setSelectedStatus("전체")}>전체</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setSelectedStatus("보호중")}>보호중</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSelectedStatus("입양완료")}>입양완료</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSelectedStatus("입양대기")}>입양대기</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -275,10 +278,10 @@ export default function AdoptionPage({
                 <div className="relative">
                   <Image
                     src={pet.images?.[0] || "/placeholder.svg?height=200&width=300&query=cute pet"}
-                    alt={`${pet.breed}`}
-                    width={300}
-                    height={200}
-                    className="w-full h-48 object-cover"
+                    alt={`${pet.name}`}
+                    width={400}
+                    height={300}
+                    className="w-full h-64 object-cover"
                   />
                   <Badge className="absolute top-3 left-3 bg-yellow-400 text-black hover:bg-yellow-500">
                     {pet.adoptionStatus === "available" ? "보호중" : pet.adoptionStatus === "pending" ? "입양대기" : "입양완료"}
@@ -287,7 +290,7 @@ export default function AdoptionPage({
                 <CardContent className="p-4">
                   <div className="space-y-2">
                     <h3 className="font-semibold text-lg">
-                      {pet.breed} {pet.age}
+                      {pet.name} {pet.age}
                     </h3>
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <span className={pet.gender === "수컷" ? "text-blue-500" : "text-pink-500"}>

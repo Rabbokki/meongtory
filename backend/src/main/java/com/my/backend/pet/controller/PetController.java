@@ -91,7 +91,7 @@ public class PetController {
         }
     }
     
-    // 펫 이미지 URL 업데이트 (S3 URL)
+    // 펫 이미지 URL 업데이트
     @PatchMapping("/{petId}/image-url")
     public ResponseEntity<Pet> updatePetImageUrl(
             @PathVariable Long petId,

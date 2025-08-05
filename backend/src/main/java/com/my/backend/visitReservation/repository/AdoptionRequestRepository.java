@@ -2,48 +2,46 @@ package com.my.backend.visitReservation.repository;
 
 import com.my.backend.visitReservation.entity.AdoptionRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 
 @Repository
 public interface AdoptionRequestRepository extends JpaRepository<AdoptionRequest, Long> {
-    
-    // 사용자별 입양 요청 조회
+
+    // 사용자별 입양신청 조회
     List<AdoptionRequest> findByUserIdOrderByCreatedAtDesc(Long userId);
-    
-    // 펫별 입양 요청 조회
-    List<AdoptionRequest> findByPetIdOrderByCreatedAtDesc(Long petId);
-    
-    // 상태별 입양 요청 조회
-    List<AdoptionRequest> findByStatus(AdoptionRequest.Status status);
-    
-    // 사용자와 펫으로 입양 요청 조회
-    Optional<AdoptionRequest> findByUserIdAndPetId(Long userId, Long petId);
-    
-    // 사용자별 특정 상태의 입양 요청 조회
-    List<AdoptionRequest> findByUserIdAndStatus(Long userId, AdoptionRequest.Status status);
-    
-    // 펫별 특정 상태의 입양 요청 조회
-    List<AdoptionRequest> findByPetIdAndStatus(Long petId, AdoptionRequest.Status status);
-    
-    // 필터링된 입양 요청 목록 조회 (무한 스크롤용)
-    @Query("SELECT ar FROM AdoptionRequest ar WHERE " +
-           "(:userId IS NULL OR ar.userId = :userId) AND " +
-           "(:petId IS NULL OR ar.petId = :petId) AND " +
-           "(:status IS NULL OR ar.status = :status) " +
+
+    // 펫별 입양신청 조회
+    @Query("SELECT ar FROM AdoptionRequest ar WHERE ar.pet.petId = :petId ORDER BY ar.createdAt DESC")
+    List<AdoptionRequest> findByPetIdOrderByCreatedAtDesc(@Param("petId") Long petId);
+
+    // 상태별 입양신청 조회
+    List<AdoptionRequest> findByStatusOrderByCreatedAtDesc(AdoptionRequest.AdoptionStatus status);
+
+    // 사용자와 펫으로 중복 신청 확인
+    @Query("SELECT COUNT(ar) > 0 FROM AdoptionRequest ar WHERE ar.user.id = :userId AND ar.pet.petId = :petId")
+    boolean existsByUserIdAndPetId(@Param("userId") Long userId, @Param("petId") Long petId);
+
+    // 관리자용 전체 조회 (페이징 지원)
+    @Query("SELECT ar FROM AdoptionRequest ar " +
+           "JOIN FETCH ar.pet p " +
+           "JOIN FETCH ar.user u " +
            "ORDER BY ar.createdAt DESC")
-    List<AdoptionRequest> findAdoptionRequestsWithFilters(
-        @Param("userId") Long userId,
-        @Param("petId") Long petId,
-        @Param("status") AdoptionRequest.Status status
-    );
-    
-    // 사용자별 입양 요청 목록 (무한 스크롤용)
-    @Query("SELECT ar FROM AdoptionRequest ar WHERE ar.userId = :userId " +
-           "ORDER BY ar.createdAt DESC")
-    List<AdoptionRequest> findAdoptionRequestsByUserId(@Param("userId") Long userId);
+    List<AdoptionRequest> findAllWithPetAndUser();
+
+    // 특정 사용자의 특정 상태 신청 조회
+    List<AdoptionRequest> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, AdoptionRequest.AdoptionStatus status);
+
+    // 특정 펫의 특정 상태 신청 조회
+    @Query("SELECT ar FROM AdoptionRequest ar WHERE ar.pet.petId = :petId AND ar.status = :status ORDER BY ar.createdAt DESC")
+    List<AdoptionRequest> findByPetIdAndStatusOrderByCreatedAtDesc(@Param("petId") Long petId, @Param("status") AdoptionRequest.AdoptionStatus status);
+
+    // 특정 펫의 모든 입양신청 삭제
+    @Modifying
+    @Query("DELETE FROM AdoptionRequest ar WHERE ar.pet.petId = :petId")
+    int deleteByPetId(@Param("petId") Long petId);
 } 

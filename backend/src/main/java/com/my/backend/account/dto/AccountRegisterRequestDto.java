@@ -25,6 +25,8 @@ public class AccountRegisterRequestDto {
     )
     private String password;
 
+    private String role; // ADMIN 또는 USER
+
     private PetType pet;
     private String petAge;
     private String petBreeds;

@@ -33,7 +33,9 @@ import GrowthDiaryWritePage from "./growth-diary-write-page"
 import axios from "axios"
 import { Toaster, toast } from "react-hot-toast"
 
+
 // Types
+
 interface Pet {
   id: number
   name: string
@@ -177,9 +179,20 @@ interface Order {
   orderedAt: string
 }
 
-// Axios Interceptor for Debugging
+// Axios Interceptor for Debugging and Token Management
 axios.interceptors.request.use(
   (config) => {
+    // 자동으로 토큰 추가
+    const accessToken = localStorage.getItem("accessToken")
+    const refreshToken = localStorage.getItem("refreshToken")
+    
+    if (accessToken) {
+      config.headers["Access_Token"] = accessToken
+    }
+    if (refreshToken) {
+      config.headers["Refresh_Token"] = refreshToken
+    }
+    
     console.log("Request:", config.method, config.url, config.headers)
     return config
   },
@@ -195,7 +208,16 @@ axios.interceptors.response.use(
     return response
   },
   (error) => {
-    console.error("Response Error:", error.response?.status, error.response?.data)
+    if (error.response) {
+      // 서버가 응답을 반환했지만 에러 상태 코드인 경우
+      console.error("Response Error:", error.response.status, error.response.data)
+    } else if (error.request) {
+      // 요청이 전송되었지만 응답을 받지 못한 경우
+      console.error("Network Error:", "서버에 연결할 수 없습니다")
+    } else {
+      // 요청 설정 중 오류가 발생한 경우
+      console.error("Request Error:", error.message)
+    }
     return Promise.reject(error)
   }
 )
@@ -287,12 +309,32 @@ function NavigationHeader({
                 마이페이지
               </button>
             )}
+            {isAdmin && (
+              <button
+                onClick={() => onNavigate("admin")}
+                className={`text-sm font-medium transition-colors ${
+                  currentPage === "admin" ? "text-red-600" : "text-red-700 hover:text-red-600"
+                }`}
+              >
+                관리자
+              </button>
+            )}
           </nav>
 
           {/* Right side buttons */}
           <div className="flex items-center space-x-3">
             {isLoggedIn ? (
               <>
+                {isAdmin && (
+                  <Button 
+                    onClick={() => onNavigate("admin")} 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-sm bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                  >
+                    관리자
+                  </Button>
+                )}
                 <Button onClick={onLogout} variant="outline" size="sm" className="text-sm bg-transparent">
                   로그아웃
                 </Button>
@@ -376,8 +418,8 @@ export default function PetServiceWebsite() {
         })
         const { id, email, name, role } = response.data.data
         setCurrentUser({ id, email, name })
-        setIsLoggedIn(true)
         setIsAdmin(role === "ADMIN")
+        setIsLoggedIn(true)
         console.log("Initial login check successful:", { id, email, name, role })
       } catch (err: any) {
         console.error("사용자 정보 조회 실패:", err)
@@ -438,9 +480,7 @@ export default function PetServiceWebsite() {
 
       const fetchUserInfo = async () => {
         try {
-          const response = await axios.get("http://localhost:8080/api/accounts/me", {
-            headers: { "Access_Token": accessToken },
-          })
+          const response = await axios.get("http://localhost:8080/api/accounts/me")
           const { id, email, name, role } = response.data.data
           setCurrentUser({ id, email, name })
           setIsLoggedIn(true)
@@ -449,7 +489,20 @@ export default function PetServiceWebsite() {
           console.log("OAuth login successful:", { id, email, name, role })
         } catch (err: any) {
           console.error("사용자 정보 조회 실패:", err)
-          toast.error("사용자 정보 조회 실패: " + (err.response?.data?.message || err.message), { duration: 5000 })
+          
+          let errorMessage = "사용자 정보 조회 실패"
+          if (err.response) {
+            // 서버 응답이 있는 경우
+            errorMessage += ": " + (err.response.data?.message || err.response.statusText)
+          } else if (err.request) {
+            // 네트워크 오류
+            errorMessage += ": 서버에 연결할 수 없습니다"
+          } else {
+            // 기타 오류
+            errorMessage += ": " + err.message
+          }
+          
+          toast.error(errorMessage, { duration: 5000 })
           localStorage.removeItem("accessToken")
           localStorage.removeItem("refreshToken")
           setIsLoggedIn(false)
@@ -539,8 +592,7 @@ export default function PetServiceWebsite() {
           {},
           {
             headers: {
-              "Content-Type": "application/json",
-              "Access_Token": accessToken,
+              "Content-Type": "application/json"
             },
           }
         )
@@ -1335,7 +1387,7 @@ export default function PetServiceWebsite() {
 
       case "cart":
         if (!isLoggedIn) {
-          return (
+        return (
             <div className="min-h-screen bg-gray-50 pt-20">
               <div className="container mx-auto px-4 py-8">
                 <div className="max-w-md mx-auto text-center">

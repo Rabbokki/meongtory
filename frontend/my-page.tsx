@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,7 +9,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { format } from "date-fns"
+import { adoptionRequestApi } from "./lib/api"
+import { Edit, X } from "lucide-react"
 
 interface User {
   email: string
@@ -50,6 +54,22 @@ interface AdoptionInquiry {
   date: string
 }
 
+interface AdoptionRequest {
+  id: number
+  petId: number
+  petName: string
+  petBreed: string
+  userId: number
+  userName: string
+  applicantName: string
+  contactNumber: string
+  email: string
+  message: string
+  status: "PENDING" | "CONTACTED" | "APPROVED" | "REJECTED"
+  createdAt: string
+  updatedAt: string
+}
+
 interface OrderItem {
   id: number
   productId: number
@@ -74,6 +94,16 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
   const [isEditingUserInfo, setIsEditingUserInfo] = useState(false)
   const [editedName, setEditedName] = useState(currentUser?.name || "")
   const [editedEmail, setEditedEmail] = useState(currentUser?.email || "")
+  const [adoptionRequests, setAdoptionRequests] = useState<AdoptionRequest[]>([])
+  const [loading, setLoading] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [selectedRequest, setSelectedRequest] = useState<AdoptionRequest | null>(null)
+  const [editForm, setEditForm] = useState({
+    applicantName: "",
+    contactNumber: "",
+    email: "",
+    message: ""
+  })
 
   if (!currentUser) {
     return (
@@ -96,18 +126,99 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
     setIsEditingUserInfo(false)
   }
 
+  // 입양신청 데이터 가져오기
+  const fetchAdoptionRequests = async () => {
+    setLoading(true)
+    try {
+      const response = await adoptionRequestApi.getUserAdoptionRequests()
+      setAdoptionRequests(response)
+    } catch (error) {
+      console.error("입양신청 데이터를 가져오는데 실패했습니다:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 컴포넌트 마운트 시 데이터 가져오기
+  useEffect(() => {
+    if (currentUser) {
+      fetchAdoptionRequests()
+    }
+  }, [currentUser])
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "대기중":
+      case "PENDING":
         return "bg-yellow-100 text-yellow-800"
-      case "연락완료":
+      case "CONTACTED":
         return "bg-blue-100 text-blue-800"
-      case "승인":
+      case "APPROVED":
         return "bg-green-100 text-green-800"
-      case "거절":
+      case "REJECTED":
         return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "대기중"
+      case "CONTACTED":
+        return "연락완료"
+      case "APPROVED":
+        return "승인"
+      case "REJECTED":
+        return "거절"
+      default:
+        return status
+    }
+  }
+
+  // 수정 모달 열기
+  const handleEditRequest = (request: AdoptionRequest) => {
+    setSelectedRequest(request)
+    setEditForm({
+      applicantName: request.applicantName,
+      contactNumber: request.contactNumber,
+      email: request.email,
+      message: request.message
+    })
+    setShowEditModal(true)
+  }
+
+  // 수정 모달 닫기
+  const handleCloseEditModal = () => {
+    setShowEditModal(false)
+    setSelectedRequest(null)
+    setEditForm({
+      applicantName: "",
+      contactNumber: "",
+      email: "",
+      message: ""
+    })
+  }
+
+  // 입양신청 수정
+  const handleUpdateRequest = async () => {
+    if (!selectedRequest) return
+
+    try {
+      await adoptionRequestApi.updateAdoptionRequest(selectedRequest.id, editForm)
+      
+      // 로컬 상태 업데이트
+      setAdoptionRequests(prev => prev.map(request => 
+        request.id === selectedRequest.id 
+          ? { ...request, ...editForm }
+          : request
+      ))
+      
+      alert("입양신청이 성공적으로 수정되었습니다.")
+      handleCloseEditModal()
+    } catch (error) {
+      console.error('입양신청 수정 오류:', error)
+      alert('입양신청 수정에 실패했습니다.')
     }
   }
 
@@ -288,20 +399,94 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
           {/* 입양 내역 Tab */}
           <TabsContent value="adoptionHistory" className="space-y-6">
             <h2 className="text-2xl font-bold">입양 내역</h2>
-            {userAdoptionInquiries.length > 0 ? (
+            
+            {/* 통계 카드 */}
+            {adoptionRequests.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {adoptionRequests.length}
+                    </div>
+                    <p className="text-xs text-gray-600">총 신청 건수</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {adoptionRequests.filter(r => r.status === "PENDING").length}
+                    </div>
+                    <p className="text-xs text-gray-600">대기중</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-green-600">
+                      {adoptionRequests.filter(r => r.status === "APPROVED").length}
+                    </div>
+                    <p className="text-xs text-gray-600">승인</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-red-600">
+                      {adoptionRequests.filter(r => r.status === "REJECTED").length}
+                    </div>
+                    <p className="text-xs text-gray-600">거절</p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            {loading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+                <p className="text-gray-600">입양 내역을 불러오는 중...</p>
+              </div>
+            ) : adoptionRequests.length > 0 ? (
               <div className="grid gap-4">
-                {userAdoptionInquiries.map((inquiry) => (
-                  <Card key={inquiry.id}>
+                {adoptionRequests.map((request) => (
+                  <Card key={request.id}>
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-3">
-                            <h3 className="font-semibold">{inquiry.petName} 입양 문의</h3>
-                            <Badge className={getStatusColor(inquiry.status)}>{inquiry.status}</Badge>
+                            <h3 className="font-semibold">{request.petName} ({request.petBreed}) 입양신청</h3>
+                            <Badge className={getStatusColor(request.status)}>
+                              {getStatusText(request.status)}
+                            </Badge>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">문의자: {inquiry.inquirerName}</p>
-                          <p className="text-sm text-gray-600 mb-4 line-clamp-2">{inquiry.message}</p>
-                          <p className="text-xs text-gray-500">문의일: {inquiry.date}</p>
+                          <div className="space-y-2 mb-4">
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">신청자:</span> {request.applicantName}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">연락처:</span> {request.contactNumber}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">이메일:</span> {request.email}
+                            </p>
+                          </div>
+                          <div className="mb-4">
+                            <p className="text-sm font-medium text-gray-700 mb-2">입양 동기 및 메시지:</p>
+                            <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                              {request.message}
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-4 text-xs text-gray-500">
+                            <span>신청일: {new Date(request.createdAt).toLocaleDateString()}</span>
+                            <span>수정일: {new Date(request.updatedAt).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditRequest(request)}
+                            disabled={request.status !== "PENDING"}
+                            title={request.status !== "PENDING" ? "대기중인 신청만 수정할 수 있습니다" : "수정하기"}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
                     </CardContent>
@@ -310,12 +495,88 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
               </div>
             ) : (
               <Card className="p-6 text-center text-gray-500">
-                <p>입양 문의 내역이 없습니다.</p>
+                <div className="space-y-4">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">입양 신청 내역이 없습니다</h3>
+                    <p className="text-gray-500">아직 입양 신청을 하지 않으셨습니다. 입양 페이지에서 마음에 드는 동물을 찾아보세요!</p>
+                  </div>
+                </div>
               </Card>
             )}
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* 입양신청 수정 모달 */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>입양신청 수정</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCloseEditModal}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="applicantName">신청자명</Label>
+              <Input
+                id="applicantName"
+                value={editForm.applicantName}
+                onChange={(e) => setEditForm(prev => ({ ...prev, applicantName: e.target.value }))}
+                placeholder="신청자명을 입력하세요"
+              />
+            </div>
+            <div>
+              <Label htmlFor="contactNumber">연락처</Label>
+              <Input
+                id="contactNumber"
+                value={editForm.contactNumber}
+                onChange={(e) => setEditForm(prev => ({ ...prev, contactNumber: e.target.value }))}
+                placeholder="연락처를 입력하세요"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">이메일</Label>
+              <Input
+                id="email"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                placeholder="이메일을 입력하세요"
+              />
+            </div>
+            <div>
+              <Label htmlFor="message">입양 동기 및 메시지</Label>
+              <Textarea
+                id="message"
+                value={editForm.message}
+                onChange={(e) => setEditForm(prev => ({ ...prev, message: e.target.value }))}
+                placeholder="입양 동기와 메시지를 입력하세요"
+                rows={4}
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={handleCloseEditModal}>
+                취소
+              </Button>
+              <Button onClick={handleUpdateRequest}>
+                수정 완료
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

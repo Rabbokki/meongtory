@@ -36,8 +36,8 @@ public class JwtUtil {
     public static final String ACCESS_TOKEN = "Access_Token";
     public static final String REFRESH_TOKEN = "Refresh_Token";
 
-    // @Value("${jwt.secret.key}")
-    private String secretKey = "defaultSecretKeyForTesting";
+    @Value("${jwt.secret.key}")
+    private String secretKey;
     private Key key;
     private final SignatureAlgorithm signatureAlgorithm = SignatureAlgorithm.HS256;
 

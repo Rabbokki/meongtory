@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import React, { useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Heart, Share2, MapPin, Calendar, Weight, Stethoscope, User } from "lucide-react"
+import AdoptionRequestModal from "./adoption-request-modal"
+import { adoptionRequestApi } from "./lib/api"
 
 interface Pet {
   id: number
@@ -29,6 +31,14 @@ interface Pet {
   ownerEmail?: string
 }
 
+interface FormField {
+  id: string
+  label: string
+  type: "text" | "email" | "tel" | "textarea"
+  required: boolean
+  placeholder: string
+}
+
 interface AdoptionDetailPageProps {
   pet: Pet
   onBack: () => void
@@ -38,13 +48,44 @@ interface AdoptionDetailPageProps {
 
 export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogin }: AdoptionDetailPageProps) {
   const [showFullStory, setShowFullStory] = useState(false)
+  const [showAdoptionRequestModal, setShowAdoptionRequestModal] = useState(false)
+  const [customFields, setCustomFields] = useState<FormField[]>([])
 
-  const handleAdoptionInquiry = () => {
+  const handleAdoptionRequest = () => {
     if (!isLoggedIn) {
       onShowLogin()
       return
     }
-    alert(`${pet.name}의 입양 문의가 접수되었습니다. 보호소에서 연락드리겠습니다.`)
+    setShowAdoptionRequestModal(true)
+  }
+
+  const handleSubmitAdoptionRequest = async (requestData: {
+    petId: number
+    [key: string]: any
+  }) => {
+    try {
+      // API 함수 호출 시 필요한 기본 필드들을 포함
+      const apiRequestData = {
+        applicantName: requestData.applicantName || "",
+        contactNumber: requestData.contactNumber || "",
+        email: requestData.email || "",
+        message: requestData.message || "",
+        ...requestData
+      }
+      
+      await adoptionRequestApi.createAdoptionRequest(apiRequestData)
+      alert("입양신청이 성공적으로 접수되었습니다. 보호소에서 검토 후 연락드리겠습니다.")
+      setShowAdoptionRequestModal(false)
+    } catch (error) {
+      console.error("입양신청 실패:", error)
+      alert("입양신청에 실패했습니다. 다시 시도해주세요.")
+    }
+  }
+
+  const handleUpdateCustomFields = (fields: FormField[]) => {
+    setCustomFields(fields)
+    // 여기서 백엔드에 커스텀 필드 설정을 저장할 수 있습니다
+    console.log("커스텀 필드 업데이트:", fields)
   }
 
   const handleShare = () => {
@@ -88,10 +129,17 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
 
             {/* Action Buttons */}
             <div className="flex gap-4">
-              <Button onClick={handleAdoptionInquiry} className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black">
-                <Heart className="w-4 h-4 mr-2" />
-                입양 문의하기
-              </Button>
+              {isLoggedIn ? (
+                <Button onClick={handleAdoptionRequest} className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black">
+                  <Heart className="w-4 h-4 mr-2" />
+                  입양신청하기
+                </Button>
+              ) : (
+                <Button onClick={handleAdoptionRequest} className="flex-1 bg-gray-400 hover:bg-gray-500 text-white">
+                  <Heart className="w-4 h-4 mr-2" />
+                  로그인 후 입양신청
+                </Button>
+              )}
               <Button variant="outline" onClick={handleShare}>
                 <Share2 className="w-4 h-4 mr-2" />
                 공유하기
@@ -101,113 +149,112 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
 
           {/* Pet Information */}
           <div className="space-y-6">
-            {/* Basic Info */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-2xl">
-                  {pet.name} ({pet.breed})
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">품종</span>
-                    <span className="font-medium">{pet.breed}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">나이</span>
-                    <span className="font-medium">{pet.age}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-4 h-4 ${pet.gender === "수컷" ? "text-blue-500" : "text-pink-500"}`}>
-                      {pet.gender === "수컷" ? "♂" : "♀"}
-                    </span>
-                    <span className="text-sm text-gray-600">성별</span>
-                    <span className="font-medium">{pet.gender === "수컷" ? "남아" : "여아"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Stethoscope className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">중성화</span>
-                    <span className="font-medium">{pet.isNeutered ? "완료" : "미완료"}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">지역</span>
-                    <span className="font-medium">{pet.location}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                {pet.name} ({pet.breed})
+              </h1>
+              <p className="text-gray-600">{pet.age} • {pet.gender} • {pet.location}</p>
+            </div>
 
-            {/* Personality */}
-            {pet.personality && pet.personality.length > 0 && (
+            {/* Basic Info Cards */}
+            <div className="grid grid-cols-2 gap-4">
               <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">성격</CardTitle>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    나이
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-2">
+                  <p className="text-lg font-semibold">{pet.age}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center">
+                    <Weight className="w-4 h-4 mr-2" />
+                    크기
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold">{pet.size}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center">
+                    <Stethoscope className="w-4 h-4 mr-2" />
+                    건강상태
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-lg font-semibold">{pet.healthStatus}</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center">
+                    <User className="w-4 h-4 mr-2" />
+                    성격
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-1">
                     {pet.personality.map((trait, index) => (
-                      <Badge key={index} variant="outline" className="bg-blue-50">
+                      <Badge key={index} variant="secondary" className="text-xs">
                         {trait}
                       </Badge>
                     ))}
                   </div>
                 </CardContent>
               </Card>
-            )}
-
-            {/* Health Status */}
-            {pet.healthStatus && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">건강 상태</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700">{pet.healthStatus}</p>
-                </CardContent>
-              </Card>
-            )}
+            </div>
 
             {/* Description */}
-            {pet.description && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">소개</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700">{pet.description}</p>
-                </CardContent>
-              </Card>
-            )}
+            <Card>
+              <CardHeader>
+                <CardTitle>소개</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-700 leading-relaxed">{pet.description}</p>
+              </CardContent>
+            </Card>
 
             {/* Special Needs */}
             {pet.specialNeeds && (
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">특별 관리사항</CardTitle>
+                  <CardTitle>특별한 사항</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3">
-                    <p className="text-gray-700">
-                      {showFullStory ? pet.specialNeeds : `${pet.specialNeeds.slice(0, 150)}...`}
-                    </p>
-                    {pet.specialNeeds.length > 150 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowFullStory(!showFullStory)}
-                        className="p-0 h-auto text-blue-600 hover:text-blue-800"
-                      >
-                        {showFullStory ? "접기" : "더 보기"}
-                      </Button>
-                    )}
-                  </div>
+                  <p className="text-gray-700 leading-relaxed">{pet.specialNeeds}</p>
                 </CardContent>
               </Card>
             )}
+
+            {/* Medical Info */}
+            <Card>
+              <CardHeader>
+                <CardTitle>의료 정보</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex justify-between">
+                  <span>중성화</span>
+                  <Badge variant={pet.isNeutered ? "default" : "secondary"}>
+                    {pet.isNeutered ? "완료" : "미완료"}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span>예방접종</span>
+                  <Badge variant={pet.isVaccinated ? "default" : "secondary"}>
+                    {pet.isVaccinated ? "완료" : "미완료"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
 
@@ -227,10 +274,30 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
               </ul>
             </div>
             <div className="mt-4 flex justify-center">
-            
+              {isLoggedIn ? (
+                <Button onClick={handleAdoptionRequest} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                  <Heart className="w-4 h-4 mr-2" />
+                  입양신청하기
+                </Button>
+              ) : (
+                <Button onClick={handleAdoptionRequest} className="bg-gray-400 hover:bg-gray-500 text-white">
+                  <Heart className="w-4 h-4 mr-2" />
+                  로그인 후 입양신청
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
+
+        {/* 입양신청 모달 */}
+        <AdoptionRequestModal
+          isOpen={showAdoptionRequestModal}
+          onClose={() => setShowAdoptionRequestModal(false)}
+          selectedPet={pet}
+          onSubmit={handleSubmitAdoptionRequest}
+          customFields={customFields}
+          onUpdateCustomFields={handleUpdateCustomFields}
+        />
       </div>
     </div>
   )

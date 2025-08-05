@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { X, Upload, Loader2 } from "lucide-react"
-import { petApi, handleApiError } from "./lib/api"
+import { petApi, s3Api, handleApiError } from "./lib/api"
 
 interface Pet {
   id: number
@@ -49,8 +49,10 @@ export default function AnimalEditModal({
   const [editAnimal, setEditAnimal] = useState<Partial<Pet>>({})
   const [imageFiles, setImageFiles] = useState<File[]>([])
   const [imagePreviews, setImagePreviews] = useState<string[]>([])
-  const [isGeneratingStory, setIsGeneratingStory] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isGeneratingStory, setIsGeneratingStory] = useState(false)
+  // 삭제된 이미지들을 추적하기 위한 상태 추가
+  const [deletedImages, setDeletedImages] = useState<string[]>([])
 
   useEffect(() => {
     if (selectedPet) {
@@ -71,24 +73,34 @@ export default function AnimalEditModal({
         specialNeeds: selectedPet.specialNeeds,
         adoptionStatus: selectedPet.adoptionStatus,
       })
-      setImagePreviews(selectedPet.images || [])
+      // 빈 문자열이나 undefined인 이미지는 제외
+      const validImages = (selectedPet.images || []).filter(img => img && img.trim() !== '')
+      setImagePreviews(validImages)
+      setImageFiles([])
+      setDeletedImages([]) // 모달이 열릴 때마다 삭제된 이미지 목록 초기화
     }
   }, [selectedPet])
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
-    setImageFiles(prev => [...prev, ...files])
-    
     files.forEach(file => {
       const reader = new FileReader()
       reader.onload = (e) => {
         setImagePreviews(prev => [...prev, e.target?.result as string])
+        setImageFiles(prev => [...prev, file])
       }
       reader.readAsDataURL(file)
     })
   }
 
   const handleRemoveImage = (index: number) => {
+    const imageToRemove = imagePreviews[index]
+    
+    // S3 이미지인 경우 삭제 목록에 추가 (실제 삭제는 저장 시에만)
+    if (imageToRemove && imageToRemove.startsWith('https://')) {
+      setDeletedImages(prev => [...prev, imageToRemove])
+    }
+    
     setImageFiles(prev => prev.filter((_, i) => i !== index))
     setImagePreviews(prev => prev.filter((_, i) => i !== index))
   }
@@ -117,7 +129,22 @@ export default function AnimalEditModal({
 
     setIsSaving(true)
     try {
-      // 새로 업로드된 이미지들을 S3에 업로드
+      // 1. 삭제된 이미지들을 S3에서 실제 삭제
+      for (const deletedImageUrl of deletedImages) {
+        try {
+          // URL에서 파일명 추출
+          const fileName = deletedImageUrl.split('/').pop()
+          if (fileName) {
+            await s3Api.deleteFile(fileName)
+            console.log(`S3에서 이미지 삭제 완료: ${fileName}`)
+          }
+        } catch (error) {
+          console.error("S3 이미지 삭제 실패:", error)
+          // 삭제 실패해도 계속 진행
+        }
+      }
+
+      // 2. 새로 업로드된 이미지들을 S3에 업로드
       const uploadedImageUrls: string[] = []
       
       for (let i = 0; i < imagePreviews.length; i++) {
@@ -135,7 +162,7 @@ export default function AnimalEditModal({
             return
           }
         } else if (imageUrl && imageUrl.startsWith('https://')) {
-          // 기존 S3 이미지
+          // 기존 S3 이미지 (삭제되지 않은 것들)
           uploadedImageUrls.push(imageUrl)
         } else {
           // 기존 이미지 (data URL이 아닌 경우)
@@ -157,7 +184,7 @@ export default function AnimalEditModal({
         neutered: editAnimal.isNeutered,
         vaccinated: editAnimal.isVaccinated,
         imageUrl: uploadedImageUrls[0] || selectedPet.images?.[0],
-      }
+      } as any
 
       const updatedPet = await petApi.updatePet(selectedPet.id, updateData)
       
@@ -171,10 +198,11 @@ export default function AnimalEditModal({
       onUpdatePet(updatedPetForFrontend)
       onClose()
       alert("동물 정보가 성공적으로 수정되었습니다!")
-      // 페이지 새로고침
-      window.location.reload()
+      // 페이지 새로고침 대신 상태 업데이트만 수행
+      // window.location.reload() 제거
     } catch (error) {
-      handleApiError(error, "동물 정보 수정에 실패했습니다.")
+      console.error("동물 정보 수정에 실패했습니다:", error)
+      alert("동물 정보 수정에 실패했습니다.")
     } finally {
       setIsSaving(false)
     }
@@ -355,7 +383,7 @@ export default function AnimalEditModal({
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {imagePreviews.map((preview, index) => (
+                {imagePreviews.filter(preview => preview && preview.trim() !== '').map((preview, index) => (
                   <div key={index} className="relative">
                     <img
                       src={preview}

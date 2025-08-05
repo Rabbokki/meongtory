@@ -14,7 +14,8 @@ import java.util.Optional;
 public interface VisitReservationRepository extends JpaRepository<VisitReservation, Long> {
     
     // 입양 요청별 방문 예약 조회
-    List<VisitReservation> findByAdoptionRequestKeyOrderByScheduledAtAsc(Long adoptionRequestKey);
+    @Query("SELECT vr FROM VisitReservation vr WHERE vr.adoptionRequest.id = :adoptionRequestKey ORDER BY vr.scheduledAt ASC")
+    List<VisitReservation> findByAdoptionRequestKeyOrderByScheduledAtAsc(@Param("adoptionRequestKey") Long adoptionRequestKey);
     
     // 상태별 방문 예약 조회
     List<VisitReservation> findByStatus(VisitReservation.Status status);
@@ -23,14 +24,15 @@ public interface VisitReservationRepository extends JpaRepository<VisitReservati
     List<VisitReservation> findByScheduledAtBetween(LocalDateTime startDate, LocalDateTime endDate);
     
     // 입양 요청과 상태로 방문 예약 조회
-    List<VisitReservation> findByAdoptionRequestKeyAndStatus(Long adoptionRequestKey, VisitReservation.Status status);
+    @Query("SELECT vr FROM VisitReservation vr WHERE vr.adoptionRequest.id = :adoptionRequestKey AND vr.status = :status")
+    List<VisitReservation> findByAdoptionRequestKeyAndStatus(@Param("adoptionRequestKey") Long adoptionRequestKey, @Param("status") VisitReservation.Status status);
     
     // 특정 날짜 범위의 특정 상태 방문 예약 조회
     List<VisitReservation> findByScheduledAtBetweenAndStatus(LocalDateTime startDate, LocalDateTime endDate, VisitReservation.Status status);
     
     // 필터링된 방문 예약 목록 조회 (무한 스크롤용)
     @Query("SELECT vr FROM VisitReservation vr WHERE " +
-           "(:adoptionRequestKey IS NULL OR vr.adoptionRequest.key = :adoptionRequestKey) AND " +
+           "(:adoptionRequestKey IS NULL OR vr.adoptionRequest.id = :adoptionRequestKey) AND " +
            "(:status IS NULL OR vr.status = :status) AND " +
            "(:startDate IS NULL OR vr.scheduledAt >= :startDate) AND " +
            "(:endDate IS NULL OR vr.scheduledAt <= :endDate) " +
@@ -43,7 +45,7 @@ public interface VisitReservationRepository extends JpaRepository<VisitReservati
     );
     
     // 입양 요청별 방문 예약 목록 (무한 스크롤용)
-    @Query("SELECT vr FROM VisitReservation vr WHERE vr.adoptionRequest.key = :adoptionRequestKey " +
+    @Query("SELECT vr FROM VisitReservation vr WHERE vr.adoptionRequest.id = :adoptionRequestKey " +
            "ORDER BY vr.scheduledAt DESC")
     List<VisitReservation> findVisitReservationsByAdoptionRequestKey(@Param("adoptionRequestKey") Long adoptionRequestKey);
 } 

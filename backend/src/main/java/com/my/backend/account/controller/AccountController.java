@@ -58,4 +58,6 @@ public class AccountController {
         String email = userDetails.getUsername();
         return ResponseDto.success(accountService.getUserInfoByEmail(email));
     }
+
+
 }

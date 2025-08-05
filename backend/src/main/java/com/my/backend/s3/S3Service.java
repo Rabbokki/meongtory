@@ -2,15 +2,12 @@ package com.my.backend.s3;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.PutObjectResponse;
-
-import java.io.ByteArrayInputStream;
-import java.io.InputStream;
-import java.util.UUID;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 
 @Service
 @Slf4j
@@ -18,78 +15,72 @@ public class S3Service {
 
     private final S3Client s3Client;
 
-    @Value("${aws.s3.bucket-name}")
+    @Value("${aws.s3.bucket-name:}")
     private String bucketName;
 
-    @Value("${aws.region}")
+    @Value("${aws.region:}")
     private String region;
 
     public S3Service(S3Client s3Client) {
         this.s3Client = s3Client;
+        if (s3Client == null) {
+            log.warn("S3Client is null - S3 functionality will be disabled");
+            log.warn("AWS credentials not configured - using mock URLs");
+        } else {
+            log.info("S3Service initialized with bucket: {}", bucketName);
+            log.info("AWS S3 client is available for file uploads");
+        }
     }
 
-    /**
-     * 파일을 S3에 업로드하고 URL을 반환합니다.
-     * 
-     * @param fileBytes 파일 바이트 배열
-     * @param originalFileName 원본 파일명
-     * @param contentType 파일 타입
-     * @return S3 URL
-     */
-    public String uploadFile(byte[] fileBytes, String originalFileName, String contentType) {
+    // S3 파일 업로드 메서드
+    public String uploadFile(String fileName, byte[] fileData) {
         try {
-            // UUID로 고유한 파일명 생성
-            String fileExtension = getFileExtension(originalFileName);
-            String fileName = UUID.randomUUID().toString() + fileExtension;
-            
-            // S3에 파일 업로드
-            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
-                    .bucket(bucketName)
-                    .key(fileName)
-                    .contentType(contentType)
-                    .build();
-
-            PutObjectResponse response = s3Client.putObject(putObjectRequest, 
-                    RequestBody.fromInputStream(new ByteArrayInputStream(fileBytes), fileBytes.length));
-
-            if (response.sdkHttpResponse().isSuccessful()) {
-                String fileUrl = String.format("https://%s.s3.%s.amazonaws.com/%s", bucketName, region, fileName);
-                log.info("File uploaded successfully: {}", fileUrl);
-                return fileUrl;
-            } else {
-                throw new RuntimeException("Failed to upload file to S3");
+            if (s3Client == null) {
+                log.warn("S3Client is null - returning mock URL");
+                return "https://mock-s3-bucket.s3.amazonaws.com/" + fileName;
             }
+            
+            // 실제 S3 업로드 로직 구현
+            log.info("Uploading file: {} to S3 bucket: {}", fileName, bucketName);
+            
+            // 실제 S3 업로드 코드 (AWS SDK v2 사용)
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .contentType("image/jpeg")
+                .build();
+            
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileData));
+            
+            // 실제 S3 URL 반환
+            return "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + fileName;
         } catch (Exception e) {
-            log.error("Error uploading file to S3", e);
-            throw new RuntimeException("Failed to upload file to S3", e);
+            log.error("Failed to upload file to S3: {}", e.getMessage());
+            throw new RuntimeException("S3 upload failed", e);
         }
     }
 
-    /**
-     * 파일 확장자를 추출합니다.
-     */
-    private String getFileExtension(String fileName) {
-        if (fileName == null || fileName.lastIndexOf(".") == -1) {
-            return "";
-        }
-        return fileName.substring(fileName.lastIndexOf("."));
-    }
-
-    /**
-     * 파일 크기를 검증합니다.
-     */
-    public void validateFileSize(byte[] fileBytes, long maxSizeInMB) {
-        if (fileBytes.length > maxSizeInMB * 1024 * 1024) {
-            throw new IllegalArgumentException("File size exceeds maximum allowed size of " + maxSizeInMB + "MB");
-        }
-    }
-
-    /**
-     * 파일 타입을 검증합니다.
-     */
-    public void validateFileType(String contentType) {
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Only image files are allowed");
+    // S3 파일 삭제 메서드
+    public void deleteFile(String fileName) {
+        try {
+            if (s3Client == null) {
+                log.warn("S3Client is null - delete operation skipped");
+                return;
+            }
+            
+            log.info("Deleting file: {} from S3 bucket: {}", fileName, bucketName);
+            
+            // 실제 S3 삭제 로직 구현
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(fileName)
+                .build();
+            
+            s3Client.deleteObject(deleteObjectRequest);
+            log.info("File deleted successfully: {}", fileName);
+        } catch (Exception e) {
+            log.error("Failed to delete file from S3: {}", e.getMessage());
+            throw new RuntimeException("S3 delete failed", e);
         }
     }
 } 

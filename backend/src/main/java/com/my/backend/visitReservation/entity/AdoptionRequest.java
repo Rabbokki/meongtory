@@ -1,47 +1,64 @@
 package com.my.backend.visitReservation.entity;
 
+import com.my.backend.account.entity.Account;
+import com.my.backend.pet.entity.Pet;
+import com.my.backend.account.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.CreationTimestamp;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
+import lombok.Setter;
 
 @Entity
-@Table(name = "AdoptionRequest")
-@Data
-@Builder
+@Table(name = "adoption_requests")
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class AdoptionRequest {
-    
+public class AdoptionRequest extends BaseEntity {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "Key")
-    private Long key;
-    
-    @Column(name = "user_id")
-    private Long userId;
-    
-    @Column(name = "pet_id")
-    private Long petId;
-    
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pet_id", nullable = false)
+    private Pet pet;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private Account user;
+
     @Enumerated(EnumType.STRING)
-    @Column(name = "status")
-    private Status status = Status.PENDING;
-    
-    @CreationTimestamp
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-    
-    @OneToMany(mappedBy = "adoptionRequest", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private List<VisitReservation> visitReservations = new ArrayList<>();
-    
-    public enum Status {
-        PENDING, APPROVED, REJECTED, COMPLETED
+    @Column(nullable = false)
+    private AdoptionStatus status = AdoptionStatus.PENDING;
+
+    @Column(columnDefinition = "TEXT")
+    private String message;
+
+    @Column(nullable = false)
+    private String applicantName;
+
+    @Column(nullable = false)
+    private String contactNumber;
+
+    @Column
+    private String email;
+
+    public enum AdoptionStatus {
+        PENDING("대기중"),
+        CONTACTED("연락완료"),
+        APPROVED("승인"),
+        REJECTED("거절");
+
+        private final String displayName;
+
+        AdoptionStatus(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public String getDisplayName() {
+            return displayName;
+        }
     }
 } 

@@ -2,6 +2,8 @@ package com.my.backend.pet.service;
 
 import com.my.backend.pet.entity.Pet;
 import com.my.backend.pet.repository.PetRepository;
+import com.my.backend.s3.S3Service;
+import com.my.backend.visitReservation.repository.AdoptionRequestRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,6 +19,8 @@ import java.util.Optional;
 public class PetService {
     
     private final PetRepository petRepository;
+    private final S3Service s3Service;
+    private final AdoptionRequestRepository adoptionRequestRepository;
     
     // 통합된 펫 조회 (모든 필터링 지원)
     public List<Pet> getAllPets() {
@@ -79,7 +83,7 @@ public class PetService {
         return petRepository.save(pet);
     }
     
-    // 펫 이미지 URL 업데이트 (S3 URL)
+    // 펫 이미지 URL 업데이트
     @Transactional
     public Pet updatePetImageUrl(Long petId, String imageUrl) {
         Pet pet = petRepository.findById(petId)
@@ -109,6 +113,30 @@ public class PetService {
                 .orElseThrow(() -> new RuntimeException("Pet not found with id: " + petId));
         
         log.info("Deleting pet: {}", pet.getName());
+        
+        // 관련된 입양신청들 먼저 삭제
+        try {
+            // 해당 펫에 대한 모든 입양신청 삭제
+            int deletedRequests = adoptionRequestRepository.deleteByPetId(petId);
+            log.info("펫 {}에 대한 {}개의 입양신청이 삭제되었습니다.", pet.getName(), deletedRequests);
+        } catch (Exception e) {
+            log.error("입양신청 삭제 중 오류: {}", e.getMessage());
+            throw new RuntimeException("입양신청 삭제 중 오류가 발생했습니다: " + e.getMessage());
+        }
+        
+        // S3 이미지 삭제
+        if (pet.getImageUrl() != null && pet.getImageUrl().startsWith("https://")) {
+            try {
+                // URL에서 파일명 추출
+                String fileName = pet.getImageUrl().substring(pet.getImageUrl().lastIndexOf("/") + 1);
+                s3Service.deleteFile(fileName);
+                log.info("S3 이미지 삭제 완료: {}", fileName);
+            } catch (Exception e) {
+                log.error("S3 이미지 삭제 실패: {}", e.getMessage());
+                // 삭제 실패해도 계속 진행
+            }
+        }
+        
         petRepository.delete(pet);
     }
 } 
