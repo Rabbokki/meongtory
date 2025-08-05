@@ -4,6 +4,7 @@ import com.my.backend.store.entity.Product;
 import com.my.backend.store.repository.ProductRepository;
 import com.my.backend.store.repository.CartRepository;
 import com.my.backend.store.dto.ProductDto;
+import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
