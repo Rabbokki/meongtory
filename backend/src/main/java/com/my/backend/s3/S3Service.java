@@ -15,10 +15,10 @@ public class S3Service {
 
     private final S3Client s3Client;
 
-    @Value("${aws.s3.bucket-name:}")
+    @Value("${aws.s3.bucket.name:}")
     private String bucketName;
 
-    @Value("${aws.region:}")
+    @Value("${aws.s3.region:}")
     private String region;
 
     public S3Service(S3Client s3Client) {
