@@ -67,3 +67,4 @@ model_checkpoints/
 runs/
 logs/
 application.yml
+CLAUDE.md

@@ -43,7 +43,7 @@ export default function DogResearchLabPage() {
   const [activeTab, setActiveTab] = useState<"identify" | "breeding" | "mood">("identify")
 
   // Breed Identification State
-  const [uploadedImage, setUploadedImage] = useState<string>("")
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const [identificationResult, setIdentificationResult] = useState<BreedIdentificationResult | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
 
@@ -72,7 +72,7 @@ export default function DogResearchLabPage() {
           const result = e.target.result as string
           switch (type) {
             case "breed":
-              setUploadedImage(result)
+              setUploadedFile(file)
               setIdentificationResult(null)
               break
             case "parent1":
@@ -106,38 +106,80 @@ export default function DogResearchLabPage() {
     }
   }
 
-  const analyzeBreed = () => {
-    if (!uploadedImage) return
+  const analyzeBreed = async () => {
+    if (!uploadedFile) return
 
     setIsAnalyzing(true)
 
-    // Simulate AI analysis
-    setTimeout(() => {
-      const mockResults: BreedIdentificationResult[] = [
-        {
-          breed: "골든 리트리버",
-          confidence: 87,
-          characteristics: ["온순함", "활발함", "지능적", "가족친화적"],
-          description: "골든 리트리버는 매우 온순하고 지능적인 견종으로, 가족과 함께하는 것을 좋아합니다.",
-        },
-        {
-          breed: "래브라도 리트리버",
-          confidence: 76,
-          characteristics: ["충성심", "에너지 넘침", "훈련 잘됨", "수영 좋아함"],
-          description: "래브라도 리트리버는 충성심이 강하고 에너지가 넘치는 견종입니다.",
-        },
-        {
-          breed: "믹스견",
-          confidence: 65,
-          characteristics: ["독특함", "건강함", "다양한 성격", "적응력 좋음"],
-          description: "여러 견종이 섞인 믹스견으로 보입니다. 각각의 장점을 가지고 있어요.",
-        },
-      ]
+    try {
+      const formData = new FormData()
+      formData.append('image', uploadedFile)
 
-      const randomResult = mockResults[Math.floor(Math.random() * mockResults.length)]
-      setIdentificationResult(randomResult)
+      const response = await fetch('/api/ai/predict-breed', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        // AI 결과를 기존 인터페이스에 맞게 변환
+        const aiResult = result.data
+        const breedInfo = getBreedInfo(aiResult.breed)
+        
+        setIdentificationResult({
+          breed: aiResult.breed,
+          confidence: Math.round(aiResult.confidence),
+          characteristics: breedInfo.characteristics,
+          description: breedInfo.description,
+        })
+      } else {
+        // 에러 발생 시 기본값 설정
+        setIdentificationResult({
+          breed: "분석 실패",
+          confidence: 0,
+          characteristics: ["분석 실패"],
+          description: "이미지 분석에 실패했습니다. 다시 시도해주세요.",
+        })
+      }
+    } catch (error) {
+      console.error('품종 분석 오류:', error)
+      setIdentificationResult({
+        breed: "연결 오류",
+        confidence: 0,
+        characteristics: ["연결 오류"],
+        description: "서버와 연결할 수 없습니다. 잠시 후 다시 시도해주세요.",
+      })
+    } finally {
       setIsAnalyzing(false)
-    }, 3000)
+    }
+  }
+
+  // 품종별 특성 정보를 반환하는 헬퍼 함수
+  const getBreedInfo = (breed: string) => {
+    const breedInfoMap: Record<string, { characteristics: string[], description: string }> = {
+      "골든 리트리버": {
+        characteristics: ["온순함", "활발함", "지능적", "가족친화적"],
+        description: "골든 리트리버는 매우 온순하고 지능적인 견종으로, 가족과 함께하는 것을 좋아합니다."
+      },
+      "래브라도 리트리버": {
+        characteristics: ["충성심", "에너지 넘침", "훈련 잘됨", "수영 좋아함"],
+        description: "래브라도 리트리버는 충성심이 강하고 에너지가 넘치는 견종입니다."
+      },
+      "치와와": {
+        characteristics: ["작은 체구", "용감함", "활발함", "주인에게 충성"],
+        description: "치와와는 세계에서 가장 작은 견종 중 하나로, 작지만 용감한 성격을 가지고 있습니다."
+      },
+      "믹스견": {
+        characteristics: ["독특함", "건강함", "다양한 성격", "적응력 좋음"],
+        description: "여러 견종이 섞인 믹스견으로 보입니다. 각각의 장점을 가지고 있어요."
+      }
+    }
+
+    return breedInfoMap[breed] || {
+      characteristics: ["독특한 특성", "개성 있음", "사랑스러움"],
+      description: `${breed}는 독특한 매력을 가진 견종입니다.`
+    }
   }
 
   const predictBreeding = () => {
@@ -295,10 +337,10 @@ export default function DogResearchLabPage() {
                 {/* Image Upload */}
                 <div className="text-center">
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 hover:border-blue-400 transition-colors">
-                    {uploadedImage ? (
+                    {uploadedFile ? (
                       <div className="space-y-4">
                         <Image
-                          src={uploadedImage || "/placeholder.svg"}
+                          src={URL.createObjectURL(uploadedFile) || "/placeholder.svg"}
                           alt="Uploaded dog"
                           width={300}
                           height={300}
@@ -338,7 +380,7 @@ export default function DogResearchLabPage() {
                 </div>
 
                 {/* Analyze Button */}
-                {uploadedImage && (
+                {uploadedFile && (
                   <div className="text-center">
                     <Button
                       onClick={analyzeBreed}

@@ -12,12 +12,16 @@ services:
       - "5433:5432"
     networks:
       - meongtory-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+    restart: unless-stopped
+
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    networks:
+      - meongtory-network
     restart: unless-stopped
 
   backend:
@@ -35,9 +39,10 @@ services:
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - AI_SERVICE_URL=${AI_SERVICE_URL}
     depends_on:
-      db:
-        condition: service_healthy
+      - db
+      - ai
     networks:
       - meongtory-network
     restart: on-failure
