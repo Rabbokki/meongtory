@@ -1,59 +1,69 @@
-   services:
-     db:
-       image: postgres:15
-       environment:
-         - POSTGRES_USER=${DB_USER}
-         - POSTGRES_PASSWORD=${DB_PASSWORD}
-         - POSTGRES_DB=${DB_NAME}
-       volumes:
-         - postgres_data:/var/lib/postgresql/data
-         - ./init-db:/docker-entrypoint-initdb.d
-       ports:
-         - "5433:5432"
-       networks:
-         - meongtory-network
-       healthcheck:
-         test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-         interval: 10s
-         timeout: 5s
-         retries: 10
-         start_period: 30s
-       restart: unless-stopped
+services:
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "5433:5432"
+    networks:
+      - meongtory-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
 
-     backend:
-       build:
-         context: ./backend
-         dockerfile: Dockerfile
-       ports:
-         - "${BACKEND_PORT}:${BACKEND_PORT}"
-       environment:
-         - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
-         - SPRING_DATASOURCE_USERNAME=${DB_USER}
-         - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
-         - SERVER_PORT=${BACKEND_PORT}
-         - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-         - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-         - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-         - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
-         - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
-         - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
-         - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
-         - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
-         - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-         - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-         - AWS_S3_REGION=${AWS_S3_REGION}  # 수정: AWS_REGION -> AWS_S3_REGION
-         - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
-         - AI_SERVICE_URL=${AI_SERVICE_URL}
-       depends_on:
-         db:
-           condition: service_healthy
-         ai
-       networks:
-         - meongtory-network
-       restart: on-failure
-   volumes:
-     postgres_data:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SERVER_PORT=${BACKEND_PORT}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
+      - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
+      - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
+      - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
+      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_REGION=${AWS_REGION}  # AWS_S3_REGION을 AWS_REGION으로 수정
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+      - AI_SERVICE_URL=${AI_SERVICE_URL}
+    depends_on:
+      - db
+      - ai
+    networks:
+      - meongtory-network
+    restart: on-failure
 
-   networks:
-     meongtory-network:
-       driver: bridge
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    networks:
+      - meongtory-network
+    restart: on-failure
+
+volumes:
+  postgres_data:
+
+networks:
+  meongtory-network:
+    driver: bridge
