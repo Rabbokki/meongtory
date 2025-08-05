@@ -8,7 +8,7 @@ export async function GET(
     const productId = params.id;
     console.log('상품 조회 시작, ID:', productId);
 
-    const response = await fetch(`http://localhost:8081/api/products/${productId}`, {
+    const response = await fetch(`http://localhost:8080/api/products/${productId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export async function DELETE(
     const productId = params.id;
     console.log('상품 삭제 시작, ID:', productId);
 
-    const response = await fetch(`http://localhost:8081/api/products/${productId}`, {
+    const response = await fetch(`http://localhost:8080/api/products/${productId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -105,7 +105,7 @@ export async function PUT(
     const body = await request.json();
     console.log('상품 수정 시작, ID:', productId, '데이터:', body);
 
-    const response = await fetch(`http://localhost:8081/api/products/${productId}`, {
+    const response = await fetch(`http://localhost:8080/api/products/${productId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

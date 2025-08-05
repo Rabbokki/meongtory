@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
     console.log('받은 데이터:', body);
 
     // 백엔드 API 호출
-    const response = await fetch('http://localhost:8081/api/products', {
+    const response = await fetch('http://localhost:8080/api/products', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     console.log('상품 목록 API 호출 시작...');
-    const response = await fetch('http://localhost:8081/api/products', {
+    const response = await fetch('http://localhost:8080/api/products', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

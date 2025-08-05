@@ -75,6 +75,7 @@ public class WebSecurityConfig {
                         .requestMatchers("/login/**", "/oauth2/**").permitAll()
                         .requestMatchers("/file/**", "/test", "/ws/**", "/post/**").permitAll()
                         .requestMatchers("/api/diary/**").permitAll()
+                        .requestMatchers("/api/products/**").permitAll()
                         .requestMatchers("/api/travel-plans/**", "/chat").authenticated()
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
