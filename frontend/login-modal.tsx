@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
+import { toast } from "sonner";
 import LogoutButton from "./components/ui/LogoutButton";
 
 interface LoginModalProps {
@@ -29,9 +30,23 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
   useEffect(() => {
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
-      // 토큰이 유효한지 백엔드에 확인 (선택적)
-      setIsLoggedIn(true);
-      // userEmail은 localStorage에 저장된 이메일이 없으므로 로그인 시 설정
+      axios
+        .get("/api/accounts/me", {
+          headers: { Access_Token: accessToken },
+        })
+        .then((response) => {
+          const { email } = response.data.data;
+          setUserEmail(email);
+          setIsLoggedIn(true);
+          toast.success("OAuth 로그인 되었습니다");
+        })
+        .catch(() => {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          setIsLoggedIn(false);
+          setUserEmail("");
+          toast.error("토큰이 유효하지 않습니다");
+        });
     }
   }, []);
 
@@ -53,14 +68,11 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
     setIsLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:8080/api/accounts/login", {
-        email,
-        password,
-      }, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      const response = await axios.post(
+        "/api/accounts/login",
+        { email, password },
+        { headers: { "Content-Type": "application/json" } }
+      );
 
       const { data } = response.data;
       const { accessToken, refreshToken } = data;
