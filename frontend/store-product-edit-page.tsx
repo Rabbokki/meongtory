@@ -102,27 +102,27 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
       
       let imageUrl = product.image;
       
-      // 새 이미지가 업로드된 경우 S3에 업로드 (백엔드 서버가 실행 중일 때만)
+      // 새 이미지가 업로드된 경우 Base64로 변환하여 백엔드로 전송
       if (imageFile) {
-        try {
-          const formData = new FormData();
-          formData.append('file', imageFile);
-          
-          const uploadResponse = await fetch('/api/products/upload-image', {
-            method: 'POST',
-            body: formData,
-          });
-          
-          if (!uploadResponse.ok) {
-            console.warn('S3 업로드 실패, 기존 이미지 유지');
-          } else {
-            const uploadResult = await uploadResponse.json();
-            imageUrl = uploadResult.imageUrl;
-          }
-        } catch (error) {
-          console.warn('S3 업로드 중 오류, 기존 이미지 유지:', error);
-        }
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          imageUrl = reader.result as string;
+        };
+        reader.readAsDataURL(imageFile);
+        // Base64 변환을 기다리기 위해 잠시 대기
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
+
+      console.log('상품 수정 데이터:', {
+        name: product.name,
+        price: product.price,
+        category: product.category,
+        description: product.description,
+        stock: product.stock,
+        targetAnimal: product.petType === 'all' ? 'ALL' : product.petType === 'dog' ? 'DOG' : 'CAT',
+        tags: JSON.stringify(product.tags),
+        imageUrl: imageUrl,
+      });
 
       const response = await fetch(`/api/products/${productId}`, {
         method: 'PUT',

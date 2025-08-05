@@ -16,7 +16,7 @@ interface Pet {
   age: string
   gender: string
   size: string
-  personality: string[]
+  personality: string
   healthStatus: string
   description: string
   images: string[]
@@ -203,9 +203,9 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-1">
-                    {pet.personality.map((trait, index) => (
+                    {pet.personality.split(', ').map((trait, index) => (
                       <Badge key={index} variant="secondary" className="text-xs">
-                        {trait}
+                        {trait.trim()}
                       </Badge>
                     ))}
                   </div>

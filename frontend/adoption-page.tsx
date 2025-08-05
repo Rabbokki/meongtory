@@ -16,7 +16,7 @@ interface Pet {
   age: string
   gender: string
   size: string
-  personality: string[]
+  personality: string
   healthStatus: string
   description: string
   images: string[]
@@ -113,19 +113,20 @@ export default function AdoptionPage({
   // API 데이터를 프론트엔드 형식으로 변환
   const convertApiPetToAdoptionPet = (apiPet: any): Pet => {
     // personality 안전한 파싱
-    let personality: string[] = []
+    let personality: string = ''
     if (apiPet.personality) {
       try {
         // JSON 형식인지 확인
         if (apiPet.personality.startsWith('[') && apiPet.personality.endsWith(']')) {
-          personality = JSON.parse(apiPet.personality)
+          const personalityArray = JSON.parse(apiPet.personality)
+          personality = personalityArray.join(', ')
         } else {
-          // 쉼표로 구분된 문자열인 경우
-          personality = apiPet.personality.split(',').map((item: string) => item.trim())
+          // 이미 문자열인 경우
+          personality = apiPet.personality
         }
       } catch (error) {
         console.warn('personality 파싱 실패, 기본값 사용:', apiPet.personality)
-        personality = ['온순함', '친화적']
+        personality = '온순함, 친화적'
       }
     }
 

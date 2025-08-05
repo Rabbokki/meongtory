@@ -26,6 +26,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "9000:9000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
     networks:
       - meongtory-network
     restart: on-failure

@@ -1,6 +1,8 @@
 package com.my.backend.ai.service;
 
 import com.my.backend.ai.dto.BreedPredictionResponseDto;
+import com.my.backend.ai.dto.BackgroundStoryRequestDto;
+import com.my.backend.ai.dto.BackgroundStoryResponseDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
@@ -43,6 +45,22 @@ public class AiService {
             aiServiceUrl + "/predict",
             requestEntity,
             BreedPredictionResponseDto.class
+        );
+        
+        return response.getBody();
+    }
+    
+    public BackgroundStoryResponseDto generateBackgroundStory(BackgroundStoryRequestDto request) throws Exception {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        // AI 서비스에 요청
+        HttpEntity<BackgroundStoryRequestDto> requestEntity = new HttpEntity<>(request, headers);
+        
+        ResponseEntity<BackgroundStoryResponseDto> response = restTemplate.postForEntity(
+            aiServiceUrl + "/generate-story",
+            requestEntity,
+            BackgroundStoryResponseDto.class
         );
         
         return response.getBody();

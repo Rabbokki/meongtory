@@ -19,7 +19,7 @@ interface Pet {
   age: string
   gender: string
   size: string
-  personality: string[]
+  personality: string
   healthStatus: string
   description: string
   images: string[]
@@ -113,9 +113,32 @@ export default function AnimalEditModal({
 
     setIsGeneratingStory(true)
     try {
-      // AI 스토리 생성 로직 (실제로는 AI API 호출)
-      const story = `${editAnimal.name}는 ${editAnimal.breed}로, 따뜻한 마음을 가진 아이입니다. 새로운 가족을 기다리고 있어요.`
-      setEditAnimal(prev => ({ ...prev, specialNeeds: story }))
+      const response = await fetch('/api/ai/generate-background-story', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          petName: editAnimal.name,
+          breed: editAnimal.breed,
+          age: editAnimal.age,
+          gender: editAnimal.gender,
+          personality: '',
+          userPrompt: editAnimal.specialNeeds || ''
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error('AI 스토리 생성에 실패했습니다.')
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        setEditAnimal(prev => ({ ...prev, specialNeeds: result.data.story }))
+      } else {
+        throw new Error(result.message || '스토리 생성에 실패했습니다.')
+      }
     } catch (error) {
       console.error("AI 스토리 생성 실패:", error)
       alert("AI 스토리 생성에 실패했습니다.")
@@ -170,6 +193,9 @@ export default function AnimalEditModal({
         }
       }
 
+      console.log('업로드된 이미지 URLs:', uploadedImageUrls);
+      console.log('선택된 펫의 이미지:', selectedPet.images);
+      
       const updateData = {
         name: editAnimal.name,
         breed: editAnimal.breed,
@@ -177,13 +203,13 @@ export default function AnimalEditModal({
         gender: editAnimal.gender === '수컷' ? 'MALE' : 'FEMALE',
         weight: parseFloat(editAnimal.size?.replace('kg', '') || '0'),
         location: editAnimal.location,
-        description: editAnimal.description,
+        description: editAnimal.specialNeeds || editAnimal.description || "새로 등록된 반려동물입니다.",
         medicalHistory: editAnimal.healthStatus,
-        personality: editAnimal.personality?.join(', '),
-        rescueStory: editAnimal.specialNeeds,
+        personality: editAnimal.personality || '',
         neutered: editAnimal.isNeutered,
         vaccinated: editAnimal.isVaccinated,
-        imageUrl: uploadedImageUrls[0] || selectedPet.images?.[0],
+        imageUrl: uploadedImageUrls[0] || 
+                 (selectedPet.images && selectedPet.images.length > 0 && !selectedPet.images[0].includes('placeholder') ? selectedPet.images[0] : undefined),
       } as any
 
       const updatedPet = await petApi.updatePet(selectedPet.id, updateData)
@@ -330,29 +356,29 @@ export default function AnimalEditModal({
           {/* 성격 및 특별한 사항 */}
           <Card>
             <CardHeader>
-              <CardTitle>성격 및 특별한 사항</CardTitle>
+              <CardTitle>성격 및 소개</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <Label htmlFor="personality">성격</Label>
                 <Input
                   id="personality"
-                  value={editAnimal.personality?.join(', ') || ""}
+                  value={editAnimal.personality || ""}
                   onChange={(e) => setEditAnimal(prev => ({ 
                     ...prev, 
-                    personality: e.target.value.split(',').map(p => p.trim()).filter(p => p) 
+                    personality: e.target.value 
                   }))}
-                  placeholder="예: 친근함, 활발함, 순함"
+                  placeholder="예: 화려함, 당돌함"
                 />
               </div>
               <div>
-                <Label htmlFor="specialNeeds">특별한 사항</Label>
+                <Label htmlFor="specialNeeds">동물 소개 (AI 생성)</Label>
                 <div className="space-y-2">
                   <Textarea
                     id="specialNeeds"
                     value={editAnimal.specialNeeds || ""}
                     onChange={(e) => setEditAnimal(prev => ({ ...prev, specialNeeds: e.target.value }))}
-                    placeholder="특별한 사항이나 배경 스토리"
+                    placeholder="구조사항, 특이사항 등 간단히 작성해주세요"
                     rows={3}
                   />
                   <Button
@@ -365,10 +391,10 @@ export default function AnimalEditModal({
                     {isGeneratingStory ? (
                       <>
                         <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        AI 스토리 생성 중...
+                        AI 소개 생성 중...
                       </>
                     ) : (
-                      "AI 스토리 생성"
+                      "AI 소개 생성"
                     )}
                   </Button>
                 </div>

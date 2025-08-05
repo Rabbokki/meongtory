@@ -39,7 +39,7 @@ interface Pet {
   age: string
   gender: string
   size: string
-  personality: string[]
+  personality: string
   healthStatus: string
   description: string
   images: string[]
@@ -158,7 +158,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
       age: `${animalRecord.age}살`,
       gender: animalRecord.gender,
       size: `${animalRecord.weight}kg`,
-      personality: ["온순함", "친화적"],
+      personality: "온순함, 친화적",
       healthStatus: animalRecord.medicalHistory.join(', '),
       description: animalRecord.notes || "새로 등록된 반려동물입니다.",
       images: animalRecord.images || [],
@@ -210,18 +210,39 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
 
     setIsGeneratingStory(true)
 
-    // Simulate AI story generation
-    setTimeout(() => {
-      const stories = [
-        `${newAnimal.breed} ${newAnimal.name}는 따뜻한 가정에서 태어나 사랑받으며 자란 반려동물입니다. 어릴 때부터 가족들과 함께 시간을 보내며 친화적이고 온순한 성격을 갖게 되었습니다.`,
-        `활발하고 호기심 많은 ${newAnimal.name}는 새로운 환경에 잘 적응하며, 주인과의 깊은 유대감을 형성하는 것을 좋아합니다. 건강하고 활동적인 생활을 즐기는 반려동물입니다.`,
-        `${newAnimal.name}는 조용하고 차분한 성격으로, 평화로운 환경에서 자라왔습니다. 주인에게 충성스럽고 다른 동물들과도 잘 어울리는 사회성 좋은 반려동물입니다.`,
-      ]
+    try {
+      const response = await fetch('/api/ai/generate-background-story', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          petName: newAnimal.name,
+          breed: newAnimal.breed,
+          age: newAnimal.age,
+          gender: newAnimal.gender,
+          personality: '',
+          userPrompt: newAnimal.aiBackgroundStory || ''
+        })
+      })
 
-      const randomStory = stories[Math.floor(Math.random() * stories.length)]
-      setNewAnimal((prev) => ({ ...prev, aiBackgroundStory: randomStory }))
+      if (!response.ok) {
+        throw new Error('AI 스토리 생성에 실패했습니다.')
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        setNewAnimal((prev) => ({ ...prev, aiBackgroundStory: result.data.story }))
+      } else {
+        throw new Error(result.message || '스토리 생성에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('AI 스토리 생성 오류:', error)
+      alert('AI 스토리 생성에 실패했습니다.')
+    } finally {
       setIsGeneratingStory(false)
-    }, 2000)
+    }
   }
 
   const handleSubmitRegistration = async () => {
@@ -264,7 +285,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         age: parseInt(newAnimal.age) || 0,
         gender: newAnimal.gender === "수컷" ? "MALE" : "FEMALE",
         vaccinated: newAnimal.vaccinations.includes("종합백신") || newAnimal.vaccinations.includes("광견병"),
-        description: newAnimal.notes || "새로 등록된 반려동물입니다.",
+        description: newAnimal.aiBackgroundStory || newAnimal.notes || "새로 등록된 반려동물입니다.",
         imageUrl: uploadedImageUrls.length > 0 ? uploadedImageUrls[0] : "/placeholder.svg?height=200&width=300",
         adopted: false,
         weight: parseFloat(newAnimal.weight) || undefined,
@@ -273,7 +294,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         medicalHistory: newAnimal.medicalHistory || undefined,
         vaccinations: newAnimal.vaccinations || undefined,
         notes: newAnimal.notes || undefined,
-        personality: JSON.stringify(["온순함", "친화적"]) || undefined,
+        personality: "온순함, 친화적",
         rescueStory: newAnimal.aiBackgroundStory || undefined,
         aiBackgroundStory: newAnimal.aiBackgroundStory || undefined,
         status: "보호중",
@@ -302,16 +323,15 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         age: newAnimal.age + "살",
         gender: newAnimal.gender,
         size: newAnimal.weight && parseFloat(newAnimal.weight) > 10 ? "대형" : "소형",
-        personality: ["온순함", "친화적"],
+        personality: "온순함, 친화적",
         healthStatus: "건강함",
-        description: newAnimal.notes || "새로 등록된 반려동물입니다.",
+        description: newAnimal.aiBackgroundStory || newAnimal.notes || "새로 등록된 반려동물입니다.",
         images: uploadedImageUrls.length > 0 ? uploadedImageUrls : ["/placeholder.svg?height=200&width=300"],
         location: newAnimal.location || "서울특별시",
         contact: "010-0000-0000",
         adoptionFee: 0,
         isNeutered: newPetData.neutered || false,
         isVaccinated: newPetData.vaccinated || false,
-        specialNeeds: newAnimal.aiBackgroundStory,
         dateRegistered: new Date().toISOString().split("T")[0],
         adoptionStatus: "available",
       }
@@ -562,7 +582,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
               {/* AI Background Story Section */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="aiBackgroundStory">AI 배경 스토리</Label>
+                  <Label htmlFor="aiBackgroundStory">동물 소개 (AI 생성)</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -572,14 +592,14 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
                     className="text-purple-600 border-purple-200 hover:bg-purple-50 bg-transparent"
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
-                    {isGeneratingStory ? "생성 중..." : "AI 스토리 생성"}
+                    {isGeneratingStory ? "생성 중..." : "AI 소개 생성"}
                   </Button>
                 </div>
                 <Textarea
                   id="aiBackgroundStory"
                   value={newAnimal.aiBackgroundStory}
                   onChange={(e) => setNewAnimal({ ...newAnimal, aiBackgroundStory: e.target.value })}
-                  placeholder="AI가 생성한 동물의 배경 스토리가 여기에 표시됩니다..."
+                  placeholder="AI가 생성한 동물의 소개가 여기에 표시됩니다..."
                   rows={4}
                   className="bg-purple-50 border-purple-200"
                 />

@@ -44,7 +44,7 @@ interface Pet {
   age: string
   gender: string
   size: string
-  personality: string[]
+  personality: string
   healthStatus: string
   description: string
   images: string[]
@@ -1252,19 +1252,32 @@ export default function AdminPage({
                               {order.orderItems.map((item) => {
                                 console.log('주문 아이템:', item);
                                 console.log('주문 아이템의 ImageUrl:', item.ImageUrl);
+                                console.log('이미지 표시 여부:', !!item.ImageUrl);
                                 
                                 return (
-                                  <div key={item.id} className="flex items-center space-x-3 p-2 bg-gray-50 rounded">
+                                  <div key={item.id} className="flex items-center space-x-3 p-2 bg-gray-50 rounded overflow-visible">
                                     <img
-                                      src={item.ImageUrl || "/placeholder.svg"}
+                                      src={item.ImageUrl ? item.ImageUrl : "/placeholder.svg"}
                                       alt={item.productName || "상품"}
-                                      className="w-8 h-8 object-cover rounded"
+                                      className="w-16 h-16 object-cover rounded border border-gray-200"
+                                      onError={(e) => {
+                                        console.log('이미지 로딩 실패:', item.ImageUrl);
+                                        const target = e.target as HTMLImageElement;
+                                        target.src = "/placeholder.svg";
+                                      }}
+                                      onLoad={(e) => {
+                                        console.log('이미지 로딩 성공:', item.ImageUrl);
+                                        const target = e.target as HTMLImageElement;
+                                        console.log('이미지 실제 크기:', target.naturalWidth, 'x', target.naturalHeight);
+                                        console.log('이미지 표시 크기:', target.width, 'x', target.height);
+                                      }}
                                     />
                                     <div className="flex-1">
                                       <p className="text-sm font-medium">{item.productName || "상품명 없음"}</p>
                                       <p className="text-xs text-gray-500">
                                         상품 ID: {item.productId || "N/A"} | {(item.price || 0).toLocaleString()}원 × {item.quantity || 1}개
                                       </p>
+                                      <p className="text-xs text-blue-500">이미지 URL: {item.ImageUrl ? '있음' : '없음'}</p>
                                     </div>
                                   </div>
                                 );

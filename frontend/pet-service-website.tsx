@@ -326,22 +326,11 @@ function NavigationHeader({
           <div className="flex items-center space-x-3">
             {isLoggedIn ? (
               <>
-                {isAdmin && (
-                  <Button 
-                    onClick={() => onNavigate("admin")} 
-                    variant="outline" 
-                    size="sm" 
-                    className="text-sm bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
-                  >
-                    관리자
-                  </Button>
-                )}
+            
                 <Button onClick={onLogout} variant="outline" size="sm" className="text-sm bg-transparent">
                   로그아웃
                 </Button>
-                <Button onClick={onNavigateToMyPage} variant="outline" size="sm" className="text-sm bg-transparent">
-                  마이페이지
-                </Button>
+
               </>
             ) : (
               <>

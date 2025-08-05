@@ -66,13 +66,17 @@ public class PetController {
     // 펫 정보 수정
     @PutMapping("/{petId}")
     public ResponseEntity<Pet> updatePet(@PathVariable Long petId, @RequestBody Pet petDetails) {
-        log.info("Updating pet with id: {}", petId);
+        log.info("Received pet data - name: {}, breed: {}, personality: {}", 
+                petDetails.getName(), petDetails.getBreed(), petDetails.getPersonality());
         try {
             Pet updatedPet = petService.updatePet(petId, petDetails);
             return ResponseEntity.ok(updatedPet);
         } catch (RuntimeException e) {
             log.error("Pet not found with id: {}", petId);
             return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error updating pet: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().build();
         }
     }
     

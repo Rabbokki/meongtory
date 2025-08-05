@@ -70,19 +70,35 @@ public class ProductService {
         product.setPrice(updatedProduct.getPrice());
         product.setStock(updatedProduct.getStock());
 
+        // 기존 이미지 URL 저장
+        String oldImageUrl = product.getImageUrl();
+
         // 이미지가 Base64 형태로 전달된 경우 S3에 업로드
         if (updatedProduct.getImageUrl() != null && updatedProduct.getImageUrl().startsWith("data:")) {
             try {
                 // Base64 이미지를 S3에 업로드하고 URL 반환
                 String s3ImageUrl = s3Service.uploadBase64Image(updatedProduct.getImageUrl());
                 product.setImageUrl(s3ImageUrl);
+                
+                // 기존 S3 이미지가 있으면 삭제
+                if (oldImageUrl != null && oldImageUrl.startsWith("https://")) {
+                    try {
+                        String fileName = oldImageUrl.substring(oldImageUrl.lastIndexOf("/") + 1);
+                        s3Service.deleteFile(fileName);
+                        System.out.println("기존 S3 이미지 삭제 완료: " + fileName);
+                    } catch (Exception e) {
+                        System.out.println("기존 S3 이미지 삭제 실패: " + e.getMessage());
+                    }
+                }
             } catch (Exception e) {
+                System.out.println("S3 업로드 실패: " + e.getMessage());
                 // S3 업로드 실패 시 기존 이미지 유지
-                // product.setImageUrl() 호출하지 않음
             }
-        } else {
+        } else if (updatedProduct.getImageUrl() != null) {
+            // Base64가 아닌 경우 그대로 설정
             product.setImageUrl(updatedProduct.getImageUrl());
         }
+        // imageUrl이 null인 경우 기존 이미지 유지
 
         return productRepository.save(product);
     }

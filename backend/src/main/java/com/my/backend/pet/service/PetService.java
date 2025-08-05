@@ -125,10 +125,13 @@ public class PetService {
                 // S3 업로드 실패 시 기존 이미지 유지
                 pet.setImageUrl(oldImageUrl);
             }
-        } else {
+        } else if (petDetails.getImageUrl() != null) {
             // Base64가 아닌 경우 그대로 설정
             pet.setImageUrl(petDetails.getImageUrl());
             log.info("Base64 이미지가 아님 - S3 업로드 건너뜀");
+        } else {
+            // imageUrl이 null인 경우 기존 이미지 유지
+            log.info("imageUrl이 null - 기존 이미지 유지: {}", oldImageUrl);
         }
         
         log.info("Updated pet: {}", pet.getName());
