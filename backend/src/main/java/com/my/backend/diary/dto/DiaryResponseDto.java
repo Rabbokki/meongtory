@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 public class DiaryResponseDto {
     private Long diaryId;
     private Long userId;
+    private String title;
     private String text;
     private String audioUrl;
     private String imageUrl;
@@ -23,6 +24,7 @@ public class DiaryResponseDto {
         return DiaryResponseDto.builder()
                 .diaryId(diary.getDiaryId())
                 .userId(diary.getUserId())
+                .title(diary.getTitle())
                 .text(diary.getText())
                 .audioUrl(diary.getAudioUrl())
                 .imageUrl(diary.getImageUrl())

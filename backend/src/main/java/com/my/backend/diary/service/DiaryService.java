@@ -22,11 +22,16 @@ public class DiaryService {
     public DiaryResponseDto createDiary(DiaryRequestDto dto) {
         Diary diary = new Diary();
         diary.setUserId(dto.getUserId());
+        diary.setTitle(dto.getTitle());
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
         diary.setImageUrl(dto.getImageUrl());
+
+        System.out.println("📝 Saving Diary Entity: title = " + diary.getTitle());
+
         return DiaryResponseDto.from(diaryRepository.save(diary));
     }
+
 
     public List<DiaryResponseDto> getUserDiaries(Long userId) {
         return diaryRepository.findByUserId(userId).stream()
@@ -44,11 +49,13 @@ public class DiaryService {
         Diary diary = diaryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
 
+        diary.setTitle(dto.getTitle());
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
         diary.setImageUrl(dto.getImageUrl());
         return DiaryResponseDto.from(diaryRepository.save(diary));
     }
+
 
     public void deleteDiary(Long id) {
         Diary diary = diaryRepository.findById(id)

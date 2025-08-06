@@ -1,3 +1,7 @@
+//글쓰기 
+
+"use client";
+
 import React, { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,20 +45,20 @@ export default function GrowthDiaryWritePage({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-  
+
     if (!title.trim() || !content.trim()) {
       setError("제목과 내용을 모두 입력해주세요.");
       return;
     }
-  
-    try {
-     await createDiary({
-  userId: currentUserId,
-  text: content,  // 프론트는 content, 백엔드는 text
-  imageUrl: images[0],  // 첫 번째 이미지만 보내기
-  audioUrl: audioUrl || undefined,
-});
 
+    try {
+      await createDiary({
+        userId: currentUserId,
+        title: title,  
+        text: content,
+        imageUrl: images[0],
+        audioUrl: audioUrl || undefined,
+      });
 
       alert("작성 완료!");
       onBack();
@@ -63,7 +67,7 @@ export default function GrowthDiaryWritePage({
       setError("일기 작성 중 오류가 발생했습니다.");
     }
   };
-  
+
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {

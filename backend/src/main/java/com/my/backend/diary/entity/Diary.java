@@ -20,6 +20,9 @@ public class Diary {
 
     private Long userId;
 
+    @Column(nullable = false, length = 255)
+    private String title;
+
     @Column(columnDefinition = "TEXT")
     private String text;
 
@@ -31,5 +34,5 @@ public class Diary {
 
     @UpdateTimestamp
     private LocalDateTime updatedAt;
-
 }
+

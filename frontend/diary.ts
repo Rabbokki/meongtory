@@ -1,10 +1,13 @@
+//타입 정의
+
+
 export interface DiaryEntry {
   diaryId: number;
-  userId: number;
-  title?: string;
+  userId: number | null;
+  title: string;  
   text: string;
-  images?: string[];
-  audioUrl?: string;
+  imageUrl?: string | null;
+  audioUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }

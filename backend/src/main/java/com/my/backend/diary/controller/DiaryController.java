@@ -19,8 +19,10 @@ public class DiaryController {
 
     @PostMapping
     public ResponseEntity<DiaryResponseDto> createDiary(@RequestBody DiaryRequestDto dto) {
+        System.out.println("🔍 Received DiaryRequestDto: title = " + dto.getTitle());
         return ResponseEntity.ok(diaryService.createDiary(dto));
     }
+
 
     @GetMapping
     public ResponseEntity<List<DiaryResponseDto>> getDiaries(@RequestParam(required = false) Long userId) {
