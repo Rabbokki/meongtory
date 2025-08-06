@@ -33,8 +33,13 @@ public class DiaryService {
     }
 
     public DiaryResponseDto getDiary(Long id) {
-        Diary diary = diaryRepository.findByIdAndIsDeletedFalse(id)
+        Diary diary = diaryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
+        
+        if (diary.getIsDeleted()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found");
+        }
+        
         return DiaryResponseDto.from(diary);
     }
 
@@ -51,8 +56,12 @@ public class DiaryService {
     }
 
     public DiaryResponseDto updateDiary(Long id, DiaryUpdateDto dto) {
-        Diary diary = diaryRepository.findByIdAndIsDeletedFalse(id)
+        Diary diary = diaryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
+        
+        if (diary.getIsDeleted()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found");
+        }
 
         diary.setTitle(dto.getTitle());
         diary.setText(dto.getText());
@@ -62,8 +71,12 @@ public class DiaryService {
     }
 
     public void deleteDiary(Long id) {
-        Diary diary = diaryRepository.findByIdAndIsDeletedFalse(id)
+        Diary diary = diaryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
+        
+        if (diary.getIsDeleted()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found");
+        }
 
         // Soft Delete: isDeleted를 true로 설정
         diary.setIsDeleted(true);
