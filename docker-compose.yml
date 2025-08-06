@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgres:15
+    build:
+      context: ./db
+      dockerfile: Dockerfile
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
@@ -26,6 +28,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "9000:9000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     networks:
       - meongtory-network
     restart: on-failure
