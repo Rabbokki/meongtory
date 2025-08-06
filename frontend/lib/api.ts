@@ -195,6 +195,64 @@ export const adoptionRequestApi = {
   },
 }
 
+// 상품 API 함수들
+export const productApi = {
+  // 모든 상품 조회
+  getProducts: async (): Promise<any[]> => {
+    const response = await axios.get(`${API_BASE_URL}/products`);
+    return response.data;
+  },
+
+  // 특정 상품 조회
+  getProduct: async (productId: number): Promise<any> => {
+    console.log('상품 조회 요청:', `${API_BASE_URL}/products/${productId}`);
+    console.log('요청할 productId:', productId, '타입:', typeof productId);
+    
+    try {
+      const response = await axios.get(`${API_BASE_URL}/products/${productId}`);
+      console.log('상품 조회 성공:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('상품 조회 실패:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Axios 에러 상세:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url,
+          method: error.config?.method
+        });
+      }
+      throw error;
+    }
+  },
+
+  // 상품 생성
+  createProduct: async (productData: any): Promise<any> => {
+    const response = await axios.post(`${API_BASE_URL}/products`, productData, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.data;
+  },
+
+  // 상품 수정
+  updateProduct: async (productId: number, productData: any): Promise<any> => {
+    const response = await axios.put(`${API_BASE_URL}/products/${productId}`, productData, {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    return response.data;
+  },
+
+  // 상품 삭제
+  deleteProduct: async (productId: number): Promise<void> => {
+    await axios.delete(`${API_BASE_URL}/products/${productId}`);
+  },
+};
+
 // 에러 처리 유틸리티
 export const handleApiError = (error: unknown): string => {
   if (error instanceof Error) {

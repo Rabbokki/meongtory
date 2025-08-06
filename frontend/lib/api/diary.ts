@@ -1,22 +1,21 @@
 // lib/api/diary.ts
 import type { DiaryEntry } from "../../diary";
+import axios from "axios";
 
 export async function fetchDiaries(userId?: number) {
   const url = userId 
     ? `/api/diary/user/${userId}`
     : `/api/diary`;
     
-  const res = await fetch(url, { method: "GET" });
+  try {
+    const res = await axios.get(url);
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error:", text);
-    throw new Error(`Failed to fetch diaries: ${res.status}`);
+    console.log('Fetched diaries:', res.data); // 디버깅용 콘솔
+    return res.data; // json.data 대신 json 반환
+  } catch (error) {
+    console.error("API error:", error);
+    throw new Error(`Failed to fetch diaries: ${axios.isAxiosError(error) ? error.response?.status : 'Unknown error'}`);
   }
-
-  const json = await res.json();
-  console.log('Fetched diaries:', json); // 디버깅용 콘솔
-  return json; // json.data 대신 json 반환
 }
 
 export async function createDiary(data: {
@@ -25,47 +24,38 @@ export async function createDiary(data: {
   audioUrl?: string;
   imageUrl?: string;
 }) {
-  const res = await fetch(`/api/diary`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+  try {
+    const res = await axios.post(`/api/diary`, data, {
+      headers: { "Content-Type": "application/json" },
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error:", text);
-    throw new Error(`Failed to create diary: ${res.status}`);
+    return res.data;
+  } catch (error) {
+    console.error("API error:", error);
+    throw new Error(`Failed to create diary: ${axios.isAxiosError(error) ? error.response?.status : 'Unknown error'}`);
   }
-
-  return res.json();
 }
 
 export async function updateDiary(id: number, data: any) {
-  const res = await fetch(`/api/diary/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+  try {
+    const res = await axios.put(`/api/diary/${id}`, data, {
+      headers: { "Content-Type": "application/json" },
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error:", text);
-    throw new Error(`Failed to update diary: ${res.status}`);
+    return res.data;
+  } catch (error) {
+    console.error("API error:", error);
+    throw new Error(`Failed to update diary: ${axios.isAxiosError(error) ? error.response?.status : 'Unknown error'}`);
   }
-
-  return res.json();
 }
 
 export async function deleteDiary(id: number) {
-  const res = await fetch(`/api/diary/${id}`, {
-    method: "DELETE",
-  });
+  try {
+    const res = await axios.delete(`/api/diary/${id}`);
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error:", text);
-    throw new Error(`Failed to delete diary: ${res.status}`);
+    return res.status === 200;
+  } catch (error) {
+    console.error("API error:", error);
+    throw new Error(`Failed to delete diary: ${axios.isAxiosError(error) ? error.response?.status : 'Unknown error'}`);
   }
-
-  return res.ok;
 }

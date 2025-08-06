@@ -2,7 +2,7 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Heart, Trash2 } from "lucide-react"
+import { Trash2, ShoppingCart } from "lucide-react"
 
 interface CartItem {
   id: number
@@ -49,7 +49,7 @@ export default function CartPage({
         {cartItems.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Heart className="w-12 h-12 text-gray-400" />
+              <ShoppingCart className="w-12 h-12 text-gray-400" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">장바구니가 비어있습니다</h3>
             <p className="text-gray-600 mb-6">마음에 드는 상품을 장바구니에 담아보세요!</p>
@@ -95,12 +95,7 @@ export default function CartPage({
                       height={200}
                       className="w-full h-48 object-cover"
                     />
-                    <button
-                      onClick={() => onRemoveFromCart(item.id)}
-                      className="absolute top-3 right-3 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-shadow"
-                    >
-                      <Heart className="w-4 h-4 text-red-500 fill-red-500" />
-                    </button>
+
                   </div>
                   <CardContent className="p-4">
                     <p className="text-xs text-gray-500 mb-1">{item.brand}</p>

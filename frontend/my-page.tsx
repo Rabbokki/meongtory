@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import React, { useState, useEffect, useCallback } from 'react'
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -87,9 +87,10 @@ interface MyPageProps {
   userAdoptionInquiries: AdoptionInquiry[]
   userOrders: OrderItem[]
   onClose: () => void
+  onRefreshOrders?: () => void
 }
 
-export default function MyPage({ currentUser, userPets, userAdoptionInquiries, userOrders, onClose }: MyPageProps) {
+export default function MyPage({ currentUser, userPets, userAdoptionInquiries, userOrders, onClose, onRefreshOrders }: MyPageProps) {
   const [activeTab, setActiveTab] = useState("userInfo")
   const [isEditingUserInfo, setIsEditingUserInfo] = useState(false)
   const [editedName, setEditedName] = useState(currentUser?.name || "")
@@ -145,6 +146,29 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
       fetchAdoptionRequests()
     }
   }, [currentUser])
+
+  // 주문 내역 탭이 활성화될 때 주문 데이터 새로고침
+  useEffect(() => {
+    if (activeTab === "orders" && onRefreshOrders) {
+      onRefreshOrders()
+    }
+  }, [activeTab, onRefreshOrders])
+
+  // 관리자 페이지에서 주문 상태 변경 시 자동 새로고침
+  const handleOrderStatusUpdate = useCallback(() => {
+    if (onRefreshOrders) {
+      console.log('주문 상태 변경 감지 - 마이페이지 주문 내역 새로고침')
+      onRefreshOrders()
+    }
+  }, [onRefreshOrders])
+
+  useEffect(() => {
+    window.addEventListener('orderStatusUpdated', handleOrderStatusUpdate)
+    
+    return () => {
+      window.removeEventListener('orderStatusUpdated', handleOrderStatusUpdate)
+    }
+  }, [handleOrderStatusUpdate])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -316,7 +340,22 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
 
           {/* 주문 내역 Tab */}
           <TabsContent value="orders" className="space-y-6">
-            <h2 className="text-2xl font-bold">주문 내역</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">주문 내역</h2>
+              {onRefreshOrders && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onRefreshOrders}
+                  className="flex items-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  새로고침
+                </Button>
+              )}
+            </div>
             {userOrders.length > 0 ? (
               <Card>
                 <CardContent className="p-0">
@@ -327,7 +366,7 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                         <TableHead>상품명</TableHead>
                         <TableHead>상품ID</TableHead>
                         <TableHead>수량</TableHead>
-                        <TableHead>가격</TableHead>
+                        <TableHead>총 가격</TableHead>
                         <TableHead>주문일</TableHead>
                         <TableHead className="text-right">상태</TableHead>
                       </TableRow>
@@ -347,7 +386,7 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                           <TableCell className="font-medium">{order.productName}</TableCell>
                           <TableCell>{order.productId || "N/A"}</TableCell>
                           <TableCell>{order.quantity}</TableCell>
-                          <TableCell>{(order.price || 0).toLocaleString()}원</TableCell>
+                          <TableCell>{((order.price || 0) * (order.quantity || 1)).toLocaleString()}원</TableCell>
                           <TableCell>
                             {order.orderDate ? 
                               (() => {

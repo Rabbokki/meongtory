@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus } from "lucide-react"
 import { useEffect } from "react" // useEffect 추가
+import { productApi } from "@/lib/api"
 
 interface Product {
   id: number
@@ -51,23 +52,15 @@ export default function StorePage({
   const fetchProducts = async () => {
     try {
       console.log('상품 목록 가져오기 시작...');
-      const response = await fetch('/api/products');
-      console.log('API 응답 상태:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API 오류 응답:', errorText);
-        throw new Error(`상품 데이터를 가져오는 데 실패했습니다. (${response.status}): ${errorText}`);
-      }
-      
-      const rawData = await response.json();
-      console.log('가져온 상품 데이터:', rawData);
+      const response = await productApi.getProducts();
+      console.log('가져온 상품 데이터:', response);
       
       // 백엔드 응답을 프론트엔드 형식으로 변환
-      const data: Product[] = rawData.map((item: any) => ({
+      const data: Product[] = response.map((item: any) => ({
         ...item,
-        imageUrl: item.image || item.imageUrl, // image 필드를 imageUrl로 매핑
-        petType: item.targetAnimal?.toLowerCase() || 'all' // targetAnimal을 petType으로 매핑
+        id: item.productId,
+        imageUrl: item.imageUrl,
+        petType: item.targetAnimal?.toLowerCase() || 'all'
       }));
       
       // 최신순으로 정렬 (registrationDate 기준 내림차순)
@@ -180,12 +173,12 @@ export default function StorePage({
   const allProducts = [...products] // products prop 대신 새로 가져온 products 상태 사용
 
   const categoryItems = [
-    { icon: "🥣", name: "사료", key: "food" },
-    { icon: "🐕", name: "간식", key: "treats" },
-    { icon: "🎾", name: "장난감", key: "toy" },
-    { icon: "🛏️", name: "용품", key: "supplies" },
-    { icon: "👕", name: "의류", key: "clothing" },
-    { icon: "💊", name: "건강관리", key: "health" },
+    { icon: "🥣", name: "사료", key: "사료" },
+    { icon: "🐕", name: "간식", key: "간식" },
+    { icon: "🎾", name: "장난감", key: "장난감" },
+    { icon: "🛏️", name: "용품", key: "용품" },
+    { icon: "👕", name: "의류", key: "의류" },
+    { icon: "💊", name: "건강관리", key: "건강관리" },
   ]
 
 
@@ -205,7 +198,7 @@ export default function StorePage({
     }
   })
 
-  const filteredProducts = allProducts.filter((product) => {
+    const filteredProducts = allProducts.filter((product) => {
     // Pet type filter - targetAnimal 필드 사용
     const petType = product.petType || product.targetAnimal?.toLowerCase() || 'all';
     if (selectedPet === "dog" && petType !== "dog" && petType !== "all") {
@@ -217,8 +210,7 @@ export default function StorePage({
 
     // Category filter
     if (selectedCategory) {
-      const normalizedSelectedCategory = selectedCategory.toLowerCase();
-      const matchesCategory = product.category.toLowerCase().includes(normalizedSelectedCategory);
+      const matchesCategory = product.category === selectedCategory;
       if (!matchesCategory) {
         return false;
       }
@@ -235,7 +227,10 @@ export default function StorePage({
       }
     }
     return true;
-  }).sort((a, b) => {
+  });
+
+  // 정렬 로직을 별도로 분리
+  const sortedAndFilteredProducts = [...filteredProducts].sort((a, b) => {
     switch (sortBy) {
       case "latest":
         return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime();
@@ -243,9 +238,10 @@ export default function StorePage({
         return a.price - b.price;
       case "highPrice":
         return b.price - a.price;
+      case "popular":
+        // 인기순은 기본적으로 최신순으로 처리 (실제로는 조회수나 판매량 기준이 필요)
+        return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime();
       default:
-        // For 'popular', we might need a dummy value or a more complex logic.
-        // For now, let's keep it as is, or use a stable sort.
         return 0;
     }
   });
@@ -307,7 +303,7 @@ export default function StorePage({
         <div className="mb-8">
           <div className="grid grid-cols-4 md:grid-cols-7 gap-6 max-w-4xl mx-auto">
             {categoryItems.map((category) => (
-              <button key={category.key} className={`flex flex-col items-center space-y-2 group ${selectedCategory === category.name ? 'text-blue-600' : ''}`} onClick={() => handleSelectCategory(category.name)}>
+              <button key={category.key} className={`flex flex-col items-center space-y-2 group ${selectedCategory === category.key ? 'text-blue-600' : ''}`} onClick={() => handleSelectCategory(category.key)}>
                 <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center text-2xl group-hover:bg-gray-200 transition-colors">
                   {category.icon}
                 </div>
@@ -353,8 +349,8 @@ export default function StorePage({
 
         {/* Products Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {filteredProducts.map((product, index) => (
-            <Card key={product.id} className="group cursor-pointer hover:shadow-lg transition-shadow relative">
+          {sortedAndFilteredProducts.map((product, index) => (
+            <Card key={`${product.id}-${index}`} className="group cursor-pointer hover:shadow-lg transition-shadow relative">
               {index === 0 && (
                 <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
                   Best
@@ -383,7 +379,7 @@ export default function StorePage({
           ))}
         </div>
 
-        {filteredProducts.length === 0 && (
+        {sortedAndFilteredProducts.length === 0 && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">등록된 상품이 없습니다.</p>
           </div>

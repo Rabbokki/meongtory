@@ -9,7 +9,7 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 public class OrderDto {
-    private Integer userId;
+    private Long userId;
     private Integer totalPrice;
     private LocalDateTime orderedAt;  // 주문 날짜 추가
     private List<OrderItemDto> orderItems;

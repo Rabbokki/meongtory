@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
@@ -554,7 +554,7 @@ export default function PetServiceWebsite() {
         breed: userData.petBreed,
         age: userData.petAge,
         gender: "미상",
-        size: "미상",
+        size: "대형",
         personality: [],
         healthStatus: "건강함",
         description: "사용자가 등록한 펫",
@@ -626,13 +626,12 @@ export default function PetServiceWebsite() {
 
     try {
       const currentUserId = currentUser?.id || 1
-      const url = `/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
-      const response = await fetch(url, {
-        method: "POST",
+      const url = `http://localhost:8080/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
+      const response = await axios.post(url, null, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       })
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error(`장바구니 추가에 실패했습니다. (${response.status})`)
       }
 
@@ -654,12 +653,12 @@ export default function PetServiceWebsite() {
 
     const currentUserId = currentUser?.id || 1
     try {
-      const response = await fetch(`/api/carts/${currentUserId}`)
-      if (!response.ok) {
+      const response = await axios.get(`http://localhost:8080/api/carts/${currentUserId}`)
+      if (response.status !== 200) {
         throw new Error("장바구니 조회에 실패했습니다.")
       }
 
-      const cartData = await response.json()
+      const cartData = response.data
       const cartItems: CartItem[] = cartData
         .sort((a: any, b: any) => a.cartId - b.cartId)
         .map((item: any, index: number) => ({
@@ -681,11 +680,9 @@ export default function PetServiceWebsite() {
 
   const handleRemoveFromCart = async (cartId: number) => {
     try {
-      const response = await fetch(`/api/carts/${cartId}`, {
-        method: "DELETE",
-      })
+      const response = await axios.delete(`http://localhost:8080/api/carts/${cartId}`)
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error("장바구니에서 삭제에 실패했습니다.")
       }
 
@@ -699,11 +696,9 @@ export default function PetServiceWebsite() {
 
   const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
     try {
-      const response = await fetch(`/api/carts/${cartId}?quantity=${quantity}`, {
-        method: "PUT",
-      })
+      const response = await axios.put(`http://localhost:8080/api/carts/${cartId}?quantity=${quantity}`)
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error("수량 업데이트에 실패했습니다.")
       }
 
@@ -721,19 +716,22 @@ export default function PetServiceWebsite() {
     }
   }, [isLoggedIn])
 
+  // 상품 목록 가져오기
+  useEffect(() => {
+    fetchProducts()
+  }, [])
+
   const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
     try {
-      const response = await fetch("/api/orders", {
-        method: "POST",
+      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData),
       })
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error("주문 생성에 실패했습니다.")
       }
 
-      const newOrder = await response.json()
+      const newOrder = response.data
       setOrders((prev) => [...prev, newOrder])
       toast.success("주문이 생성되었습니다", { duration: 5000 })
       return newOrder
@@ -752,15 +750,13 @@ export default function PetServiceWebsite() {
     }
 
     try {
-      const response = await fetch(`/api/orders/purchase-all/${currentUser.id}`, {
-        method: "POST",
-      })
+      const response = await axios.post(`http://localhost:8080/api/orders/purchase-all/${currentUser.id}`)
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error("전체 구매에 실패했습니다.")
       }
 
-      const newOrder = await response.json()
+      const newOrder = response.data
       setOrders((prev) => [...prev, newOrder])
       setCart([])
       await fetchUserOrders()
@@ -772,16 +768,16 @@ export default function PetServiceWebsite() {
     }
   }
 
-  const fetchUserOrders = async () => {
+  const fetchUserOrders = useCallback(async () => {
     if (!isLoggedIn || !currentUser) return
 
     try {
-      const response = await fetch(`/api/orders/user/${currentUser.id}`)
-      if (!response.ok) {
+      const response = await axios.get(`http://localhost:8080/api/orders/user/${currentUser.id}`)
+      if (response.status !== 200) {
         throw new Error("주문 조회에 실패했습니다.")
       }
 
-      const userOrders = await response.json()
+      const userOrders = response.data
       const orderItems: OrderItem[] = userOrders.flatMap((order: any) => {
         if (order.orderItems && order.orderItems.length > 0) {
           return order.orderItems.map((item: any) => ({
@@ -817,15 +813,13 @@ export default function PetServiceWebsite() {
       console.error("주문 조회 오류:", error)
       toast.error("주문 조회에 실패했습니다", { duration: 5000 })
     }
-  }
+  }, [isLoggedIn, currentUser])
 
   const deleteOrder = async (orderId: number) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}`, {
-        method: "DELETE",
-      })
+      const response = await axios.delete(`http://localhost:8080/api/orders/${orderId}`)
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error("주문 삭제에 실패했습니다.")
       }
 
@@ -839,15 +833,13 @@ export default function PetServiceWebsite() {
 
   const updatePaymentStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/status?status=${status}`, {
-        method: "PUT",
-      })
+      const response = await axios.put(`http://localhost:8080/api/orders/${orderId}/status?status=${status}`)
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error("결제 상태 업데이트에 실패했습니다.")
       }
 
-      const updatedOrder = await response.json()
+      const updatedOrder = response.data
       setOrders((prev) =>
         prev.map((order) =>
           order.id === orderId
@@ -872,6 +864,34 @@ export default function PetServiceWebsite() {
     setPets((prev) => [...prev, newPet])
     toast.success("새로운 펫이 등록되었습니다", { duration: 5000 })
     setCurrentPage("adoption")
+  }
+
+  const fetchProducts = async () => {
+    try {
+      const response = await axios.get('http://localhost:8080/api/products')
+      const backendProducts = response.data
+      
+      // 백엔드 데이터를 프론트엔드 형식으로 변환
+      const convertedProducts: Product[] = backendProducts.map((product: any) => ({
+        id: product.productId,
+        name: product.name,
+        brand: product.brand || '브랜드 없음',
+        price: product.price,
+        image: product.imageUrl || '/placeholder.svg?height=300&width=300',
+        category: product.category,
+        description: product.description || '',
+        tags: product.tags || [],
+        stock: product.stock,
+        petType: product.targetAnimal?.toLowerCase() || 'all',
+        registrationDate: product.registrationDate || new Date().toISOString().split('T')[0],
+        registeredBy: product.registeredBy || 'admin'
+      }))
+      
+      setProducts(convertedProducts)
+    } catch (error) {
+      console.error('상품 목록 조회 오류:', error)
+      toast.error('상품 목록을 불러오는데 실패했습니다', { duration: 5000 })
+    }
   }
 
   const handleAddProduct = (productData: any) => {
@@ -957,13 +977,11 @@ export default function PetServiceWebsite() {
         ],
       }
 
-      const response = await fetch("/api/orders", {
-        method: "POST",
+      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(orderData),
       })
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error("주문 생성에 실패했습니다.")
       }
 
@@ -1020,34 +1038,7 @@ export default function PetServiceWebsite() {
     },
   ])
 
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: 1,
-      name: "프리미엄 강아지 사료 (성견용)",
-      brand: "로얄캐닌",
-      price: 45000,
-      image: "/placeholder.svg?height=300&width=300",
-      category: "사료",
-      description: "성견을 위한 프리미엄 사료입니다.",
-      tags: ["프리미엄", "성견용", "영양균형"],
-      stock: 50,
-      registrationDate: "2024-01-10",
-      registeredBy: "admin",
-    },
-    {
-      id: 2,
-      name: "고양이 장난감 세트",
-      brand: "캣토이",
-      price: 25000,
-      image: "/placeholder.svg?height=300&width=300",
-      category: "장난감",
-      description: "다양한 고양이 장난감으로 구성된 세트입니다.",
-      tags: ["고양이", "장난감", "세트"],
-      stock: 100,
-      registrationDate: "2024-02-01",
-      registeredBy: "admin",
-    },
-  ])
+  const [products, setProducts] = useState<Product[]>([])
 
   const [insurances, setInsurances] = useState<Insurance[]>([
     {
@@ -1470,6 +1461,7 @@ export default function PetServiceWebsite() {
             userAdoptionInquiries={adoptionInquiries.filter((inquiry) => inquiry.email === currentUser?.email)}
             userOrders={orders}
             onClose={() => setCurrentPage("home")}
+            onRefreshOrders={fetchUserOrders}
           />
         )
 
