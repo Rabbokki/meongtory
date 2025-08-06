@@ -1,15 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus, Edit, Mic } from "lucide-react"
-import { fetchDiaries } from "@/lib/api/diary"
+import { Plus, Edit, Mic, Trash2 } from "lucide-react"
+import { fetchDiaries, deleteDiary } from "@/lib/api/diary"
+import { useToast } from "@/components/ui/use-toast"
 import GrowthDiaryWritePage from "./growth-diary-write-page"
 
 interface DiaryEntry {
   diaryId: number;
-  userId: number;
+  userId: number | null;
+  title: string | null;
   text: string | null;
   imageUrl: string | null;
   audioUrl: string | null;
@@ -38,35 +41,121 @@ export default function GrowthDiaryPage({
 }: GrowthDiaryPageProps) {
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [isWriteMode, setIsWriteMode] = useState(false);
+  const router = useRouter();
+  const { toast } = useToast();
 
   const refetchDiaries = () => {
-    console.log("Fetching diaries for userId:", currentUserId); // 디버깅용
-    fetchDiaries(currentUserId ? Number(currentUserId) : undefined)
-      .then((data) => {
-        console.log("Setting diary entries:", data); // 디버깅용
-        setDiaryEntries(data as DiaryEntry[]);
-      })
-      .catch((err) => console.error("일기 목록 불러오기 실패:", err));
+    console.log("Fetching diaries for currentUserId:", currentUserId);
+    
+    // currentUserId가 이메일인 경우, localStorage에서 실제 userId를 가져옴
+    const userId = localStorage.getItem("userId");
+    console.log("Using userId from localStorage:", userId);
+    
+    if (!userId) {
+      console.log("No userId found, fetching all diaries");
+      fetchDiaries()
+        .then((data) => {
+          console.log("Setting diary entries:", data);
+          console.log("Number of entries fetched:", data.length);
+          setDiaryEntries(data as DiaryEntry[]);
+        })
+        .catch((err) => {
+          console.error("일기 목록 불러오기 실패:", err);
+          console.error("Error details:", err.message);
+        });
+    } else {
+      fetchDiaries(Number(userId))
+        .then((data) => {
+          console.log("Setting diary entries:", data);
+          console.log("Number of entries fetched:", data.length);
+          setDiaryEntries(data as DiaryEntry[]);
+        })
+        .catch((err) => {
+          console.error("일기 목록 불러오기 실패:", err);
+          console.error("Error details:", err.message);
+        });
+    }
+  };
+
+  const handleEdit = (diaryId: number) => {
+    router.push(`/diary/edit/${diaryId}`);
+  };
+
+  const handleDelete = async (diaryId: number) => {
+    try {
+      await deleteDiary(diaryId);
+      console.log(`Diary ${diaryId} deleted successfully`);
+      toast({
+        title: "삭제 완료",
+        description: "삭제가 완료되었습니다.",
+      });
+      refetchDiaries();
+    } catch (err) {
+      console.error("일기 삭제 실패:", err);
+      toast({
+        title: "삭제 실패",
+        description: "삭제 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
   };
 
   useEffect(() => {
-    console.log("Current userId:", currentUserId); // 디버깅용
+    console.log("Current userId:", currentUserId, "isLoggedIn:", isLoggedIn);
     refetchDiaries();
-  }, [currentUserId]);
+  }, [currentUserId, isLoggedIn]);
 
-  const userEntries = (diaryEntries ?? []).filter((entry) => {
-    console.log("Filtering entry:", entry); // 디버깅용
-    if (!currentUserId) return true;
-    return entry.userId === Number(currentUserId) || entry.userId === null;
+  // URL 파라미터 변경 시에도 데이터 새로고침
+  useEffect(() => {
+    const handleUrlChange = () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const page = urlParams.get("page");
+      console.log("URL changed, page:", page);
+      if (page === "diary") {
+        console.log("Diary page detected, refetching data");
+        refetchDiaries();
+      }
+    };
+
+    // 초기 로드 시 체크
+    handleUrlChange();
+
+    // URL 변경 감지
+    const handlePopState = () => {
+      handleUrlChange();
+    };
+
+    // 페이지 포커스 시에도 데이터 새로고침
+    const handleFocus = () => {
+      handleUrlChange();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  const userEntries = diaryEntries.filter((entry) => {
+    console.log("Filtering entry:", entry);
+    console.log("Entry userId:", entry.userId, "Entry title:", entry.title);
+    
+    // 모든 일기를 표시 (필터링 제거)
+    return true;
   });
 
-  // 글쓰기 페이지 렌더링 분기
+  console.log("userEntries length:", userEntries.length);
+  console.log("userEntries:", userEntries);
+
   if (isWriteMode) {
     return (
       <GrowthDiaryWritePage
         onBack={() => {
           setIsWriteMode(false);
-          refetchDiaries(); // 글 작성 후 목록 다시 불러오기
+          refetchDiaries();
         }}
         currentUserId={Number(currentUserId)}
       />
@@ -97,11 +186,41 @@ export default function GrowthDiaryPage({
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-xl font-bold text-gray-900">{entry.text || "(내용 없음)"}</h2>
-                        <Button size="sm" variant="ghost" onClick={() => onViewEntry(entry)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
+                        <h2 className="text-xl font-bold text-gray-900">
+                          {entry.title || "(제목 없음)"}
+                        </h2>
+                        <div className="flex gap-2">
+                          {isLoggedIn && (
+                            <>
+                              <Button 
+                                size="sm" 
+                                variant="ghost" 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleEdit(entry.diaryId);
+                                }}
+                                className="hover:bg-gray-100"
+                                title="수정"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDelete(entry.diaryId);
+                                }}
+                                className="hover:bg-red-50 text-red-500 hover:text-red-700"
+                                title="삭제"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
                       </div>
+                      <p className="text-base text-gray-700 mb-2">{entry.text || "(내용 없음)"}</p>
                       <p className="text-sm text-gray-500 mb-3">{entry.createdAt}</p>
                       {entry.audioUrl && (
                         <div className="flex items-center gap-2 mb-2">

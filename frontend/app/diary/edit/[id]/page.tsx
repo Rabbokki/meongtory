@@ -1,131 +1,111 @@
-//글쓰기 
+//수정 상세페이지 
 
 "use client";
 
-import React, { useState, useRef } from "react";
-import { Button } from "@/components/ui/button";
+import { useEffect, useState, useRef } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label"; // Label 컴포넌트 추가
-import { Card, CardContent } from "@/components/ui/card"; // Card 컴포넌트 추가
-import Image from "next/image";
-import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-react"; // 음성 관련 아이콘 추가
-import { createDiary } from "@/lib/api/diary"
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent } from "@/components/ui/card";
+import { updateDiary, fetchDiaries, fetchDiary } from "@/lib/api/diary";
 import { useToast } from "@/components/ui/use-toast";
-import { useRouter } from "next/navigation";
+import type { DiaryEntry } from "@/diary";
+import { Mic, MicOff, Play, Pause, X, Camera, ChevronLeft } from "lucide-react";
 
-interface GrowthDiaryWritePageProps {
-  onBack: () => void;
-  currentUserId: number;
-}
-
-export default function GrowthDiaryWritePage({
-  onBack,
-  currentUserId
-}: GrowthDiaryWritePageProps) {
+export default function DiaryEditPage() {
+  const router = useRouter();
+  const params = useParams();
+  const { toast } = useToast();
+  const [entry, setEntry] = useState<DiaryEntry | null>(null);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [images, setImages] = useState<string[]>([]); // State to store image URLs
-  const [imageFiles, setImageFiles] = useState<File[]>([]); // State to store actual image files
-  const [milestones, setMilestones] = useState<string>(""); // 마일스톤 상태 추가
-  const [error, setError] = useState(""); // Error state 추가
-  const [activities, setActivities] = useState<string>(""); // 활동 상태 추가
-  const [tags, setTags] = useState<string>(""); // 태그 상태 추가
-
-  // 음성 녹음 관련 상태
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [audioUrl, setAudioUrl] = useState<string>("");
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const { toast } = useToast();
-  const router = useRouter();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+  useEffect(() => {
+    const fetchEntry = async () => {
+      try {
+        setIsLoading(true);
+        console.log("Fetching entry with params:", params);
+        
+        const userId = localStorage.getItem("userId");
+        const accessToken = localStorage.getItem("accessToken");
 
-    if (!title.trim() || !content.trim()) {
-      setError("제목과 내용을 모두 입력해주세요.");
-      toast({
-        title: "입력 오류",
-        description: "제목과 내용을 모두 입력해주세요.",
-        variant: "destructive",
-      });
-      return;
-    }
+        if (!userId || !accessToken) {
+          toast({
+            title: "로그인 필요",
+            description: "로그인이 필요합니다.",
+            variant: "destructive",
+          });
+          router.push("/?page=diary");
+          return;
+        }
 
-    // 현재 로그인된 사용자의 실제 ID 가져오기
-    const userId = localStorage.getItem("userId");
-    if (!userId) {
-      toast({
-        title: "로그인 필요",
-        description: "로그인이 필요합니다.",
-        variant: "destructive",
-      });
-      return;
-    }
+        // params.id가 배열일 수 있으므로 첫 번째 요소를 사용
+        const diaryId = Array.isArray(params.id) ? params.id[0] : params.id;
+        console.log("Diary ID:", diaryId, "User ID:", userId);
 
-    try {
-      console.log("Creating diary with data:", {
-        userId: Number(userId),
-        title,
-        text: content,
-        imageUrl: images[0] || null,
-        audioUrl: audioUrl || null,
-      });
+        if (!diaryId) {
+          toast({
+            title: "잘못된 접근",
+            description: "일기 ID가 올바르지 않습니다.",
+            variant: "destructive",
+          });
+          router.push("/?page=diary");
+          return;
+        }
 
-      const result = await createDiary({
-        userId: Number(userId),
-        title: title,  
-        text: content,
-        imageUrl: images[0] || null,
-        audioUrl: audioUrl || null,
-      });
+        // 개별 일기 데이터 가져오기
+        const foundEntry = await fetchDiary(Number(diaryId));
+        console.log("Found entry:", foundEntry);
 
-      console.log("Diary created successfully:", result);
+        if (foundEntry) {
+          setEntry(foundEntry);
+          setTitle(foundEntry.title || "");
+          setContent(foundEntry.text || "");
+          setImageUrl(foundEntry.imageUrl || null);
+          setAudioUrl(foundEntry.audioUrl || null);
+          console.log("Entry data set:", {
+            title: foundEntry.title,
+            content: foundEntry.text,
+            imageUrl: foundEntry.imageUrl,
+            audioUrl: foundEntry.audioUrl
+          });
+        } else {
+          console.log("Entry not found for ID:", diaryId);
+          toast({
+            title: "일기를 찾을 수 없습니다",
+            description: "요청하신 일기를 찾을 수 없습니다.",
+            variant: "destructive",
+          });
+          router.push("/?page=diary");
+        }
+      } catch (error) {
+        console.error("일기 불러오기 실패:", error);
+        toast({
+          title: "오류 발생",
+          description: "일기를 불러오는 중 오류가 발생했습니다.",
+          variant: "destructive",
+        });
+        router.push("/?page=diary");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-      // 성공 토스트 메시지 표시
-      toast({
-        title: "작성 완료",
-        description: "작성이 완료되었습니다!",
-      });
-      
-      // 약간의 지연 후 뒤로가기 (토스트 메시지가 보이도록)
-      setTimeout(() => {
-        onBack();
-      }, 1000);
-    } catch (err) {
-      console.error("작성 실패:", err);
-      setError("일기 작성 중 오류가 발생했습니다.");
-      toast({
-        title: "작성 실패",
-        description: "일기 작성 중 오류가 발생했습니다.",
-        variant: "destructive",
-      });
-    }
-  };
+    fetchEntry();
+  }, [params, router, toast]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const filesArray = Array.from(e.target.files);
-      setImageFiles((prev) => [...prev, ...filesArray]);
-
-      // Create URLs for preview
-      const newImageUrls = filesArray.map((file) => URL.createObjectURL(file));
-      setImages((prev) => [...prev, ...newImageUrls]);
-    }
-  };
-
-  const handleRemoveImage = (indexToRemove: number) => {
-    setImages((prev) => prev.filter((_, index) => index !== indexToRemove));
-    setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
-  };
-
-  // 음성 녹음 시작
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -133,9 +113,7 @@ export default function GrowthDiaryWritePage({
       mediaRecorderRef.current = mediaRecorder;
 
       const chunks: BlobPart[] = [];
-      mediaRecorder.ondataavailable = (event) => {
-        chunks.push(event.data);
-      };
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: "audio/wav" });
@@ -154,7 +132,6 @@ export default function GrowthDiaryWritePage({
       }, 1000);
     } catch (error) {
       console.error("Error accessing microphone:", error);
-      setError("마이크 접근 권한이 필요합니다.");
       toast({
         title: "마이크 접근 오류",
         description: "마이크 접근 권한이 필요합니다.",
@@ -163,7 +140,6 @@ export default function GrowthDiaryWritePage({
     }
   };
 
-  // 음성 녹음 중지
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
@@ -177,7 +153,6 @@ export default function GrowthDiaryWritePage({
     }
   };
 
-  // 음성 재생/일시정지
   const toggleAudioPlayback = () => {
     if (audioRef.current) {
       if (isPlaying) {
@@ -189,9 +164,8 @@ export default function GrowthDiaryWritePage({
     }
   };
 
-  // 음성 삭제
   const removeAudio = () => {
-    setAudioUrl("");
+    setAudioUrl(null);
     setIsPlaying(false);
     if (audioRef.current) {
       audioRef.current.pause();
@@ -199,23 +173,94 @@ export default function GrowthDiaryWritePage({
     }
   };
 
-  // 녹음 시간 포맷팅
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleSave = async () => {
+    if (!entry) return;
+
+    if (!title.trim() || !content.trim()) {
+      toast({
+        title: "입력 오류",
+        description: "제목과 내용을 모두 입력해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log("Saving entry:", {
+        diaryId: entry.diaryId,
+        title,
+        text: content,
+        imageUrl,
+        audioUrl
+      });
+
+      const result = await updateDiary(entry.diaryId, {
+        title,
+        text: content,
+        imageUrl: imageUrl || null,
+        audioUrl: audioUrl || null,
+      });
+
+      console.log("Diary updated successfully:", result);
+      
+      toast({
+        title: "수정 완료",
+        description: "수정이 완료되었습니다.",
+      });
+      
+      // 메인 페이지로 이동하면서 성장일기 탭 활성화
+      router.push("/?page=diary");
+    } catch (err) {
+      console.error("수정 실패:", err);
+      toast({
+        title: "수정 실패",
+        description: "수정 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    // 메인 페이지로 이동하면서 성장일기 탭 활성화
+    router.push("/?page=diary");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <div className="text-center">데이터를 불러오는 중...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!entry) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="container mx-auto px-4">
+          <div className="text-center">일기를 찾을 수 없습니다.</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
-          <Button onClick={onBack} variant="outline">
+          <Button onClick={handleCancel} variant="outline">
             <ChevronLeft className="h-4 w-4 mr-2" />
             뒤로가기
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">새 게시글 작성</h1>
+          <h1 className="text-3xl font-bold text-gray-900">일기 수정</h1>
           <div className="w-24" /> {/* Placeholder for alignment */}
         </div>
 
@@ -225,9 +270,9 @@ export default function GrowthDiaryWritePage({
               <Label htmlFor="title">제목</Label>
               <Input
                 id="title"
-                placeholder="제목을 입력하세요"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
+                placeholder="제목을 입력하세요"
                 required
               />
             </div>
@@ -236,10 +281,10 @@ export default function GrowthDiaryWritePage({
               <Label htmlFor="content">내용</Label>
               <Textarea
                 id="content"
-                placeholder="내용을 입력하세요"
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 rows={10}
+                placeholder="내용을 입력하세요"
                 required
               />
             </div>
@@ -247,32 +292,19 @@ export default function GrowthDiaryWritePage({
             {/* Image Upload Section */}
             <div className="space-y-2">
               <Label htmlFor="image-upload">사진 첨부 (선택 사항)</Label>
-              <Input id="image-upload" type="file" multiple accept="image/*" onChange={handleImageUpload} />
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {images.map((imageSrc, index) => (
-                  <div key={index} className="relative w-full h-32 rounded-md overflow-hidden group">
-                    <img
-                      src={imageSrc || "/placeholder.svg"}
-                      alt={`Uploaded preview ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleRemoveImage(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                {images.length === 0 && (
-                  <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400">
-                    <ImageIcon className="h-8 w-8" />
-                  </div>
-                )}
+              <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400">
+                <Camera className="h-8 w-8" />
+                <span className="ml-2">사진 첨부는 추후 구현 예정</span>
               </div>
+              {imageUrl && (
+                <div className="mt-4">
+                  <img
+                    src={imageUrl}
+                    alt="기존 이미지"
+                    className="w-full h-32 object-cover rounded-md"
+                  />
+                </div>
+              )}
             </div>
 
             {/* 음성 녹음 섹션 */}
@@ -343,18 +375,17 @@ export default function GrowthDiaryWritePage({
               )}
             </div>
 
-            {error && <div className="text-red-500 text-sm text-center">{error}</div>}
-
-            <Button
-              type="button"
-              onClick={handleSubmit}
-            >
-              작성 완료
-            </Button>
-
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={handleCancel}>
+                취소
+              </Button>
+              <Button onClick={handleSave}>
+                수정 완료
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
     </div>
   );
-}
+} 

@@ -19,7 +19,13 @@ public class DiaryController {
 
     @PostMapping
     public ResponseEntity<DiaryResponseDto> createDiary(@RequestBody DiaryRequestDto dto) {
+        System.out.println("🔍 Received DiaryRequestDto: title = " + dto.getTitle());
         return ResponseEntity.ok(diaryService.createDiary(dto));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<DiaryResponseDto> getDiary(@PathVariable Long id) {
+        return ResponseEntity.ok(diaryService.getDiary(id));
     }
 
     @GetMapping
@@ -30,7 +36,6 @@ public class DiaryController {
             return ResponseEntity.ok(diaryService.getAllDiaries());
         }
     }
-
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<DiaryResponseDto>> getUserDiaries(@PathVariable Long userId) {

@@ -8,4 +8,9 @@ import java.util.Optional;
 
 public interface DiaryRepository extends JpaRepository<Diary, Long> {
     List<Diary> findByUserId(Long userId);
+    
+    // Soft Delete를 위한 메서드들
+    Optional<Diary> findByIdAndIsDeletedFalse(Long id);
+    List<Diary> findByUserIdAndIsDeletedFalse(Long userId);
+    List<Diary> findByIsDeletedFalse();
 }
