@@ -11,6 +11,8 @@ import { Card, CardContent } from "@/components/ui/card"; // Card 컴포넌트 �
 import Image from "next/image";
 import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-react"; // 음성 관련 아이콘 추가
 import { createDiary } from "@/lib/api/diary"
+import { useToast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
 
 interface GrowthDiaryWritePageProps {
   onBack: () => void;
@@ -39,8 +41,8 @@ export default function GrowthDiaryWritePage({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
-
-
+  const { toast } = useToast();
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,26 +50,64 @@ export default function GrowthDiaryWritePage({
 
     if (!title.trim() || !content.trim()) {
       setError("제목과 내용을 모두 입력해주세요.");
+      toast({
+        title: "입력 오류",
+        description: "제목과 내용을 모두 입력해주세요.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // 현재 로그인된 사용자의 실제 ID 가져오기
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      toast({
+        title: "로그인 필요",
+        description: "로그인이 필요합니다.",
+        variant: "destructive",
+      });
       return;
     }
 
     try {
-      await createDiary({
-        userId: currentUserId,
-        title: title,  
+      console.log("Creating diary with data:", {
+        userId: Number(userId),
+        title,
         text: content,
-        imageUrl: images[0],
-        audioUrl: audioUrl || undefined,
+        imageUrl: images[0] || null,
+        audioUrl: audioUrl || null,
       });
 
-      alert("작성 완료!");
-      onBack();
+      const result = await createDiary({
+        userId: Number(userId),
+        title: title,  
+        text: content,
+        imageUrl: images[0] || null,
+        audioUrl: audioUrl || null,
+      });
+
+      console.log("Diary created successfully:", result);
+
+      // 성공 토스트 메시지 표시
+      toast({
+        title: "작성 완료",
+        description: "작성이 완료되었습니다!",
+      });
+      
+      // 약간의 지연 후 뒤로가기 (토스트 메시지가 보이도록)
+      setTimeout(() => {
+        onBack();
+      }, 1000);
     } catch (err) {
       console.error("작성 실패:", err);
       setError("일기 작성 중 오류가 발생했습니다.");
+      toast({
+        title: "작성 실패",
+        description: "일기 작성 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
     }
   };
-
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -115,6 +155,11 @@ export default function GrowthDiaryWritePage({
     } catch (error) {
       console.error("Error accessing microphone:", error);
       setError("마이크 접근 권한이 필요합니다.");
+      toast({
+        title: "마이크 접근 오류",
+        description: "마이크 접근 권한이 필요합니다.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -160,7 +205,6 @@ export default function GrowthDiaryWritePage({
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

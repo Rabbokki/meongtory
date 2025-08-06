@@ -420,6 +420,18 @@ export default function PetServiceWebsite() {
     checkLoginStatus()
   }, [])
 
+  // URL 파라미터를 읽어서 페이지 설정
+  useEffect(() => {
+    if (typeof window === "undefined") return
+
+    const urlParams = new URLSearchParams(window.location.search)
+    const page = urlParams.get("page")
+    
+    if (page && ["home", "adoption", "insurance", "diary", "community", "store", "myPage"].includes(page)) {
+      setCurrentPage(page)
+    }
+  }, [])
+
   // OAuth callback handling
   useEffect(() => {
     if (typeof window === "undefined") return

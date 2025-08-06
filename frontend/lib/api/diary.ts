@@ -25,6 +25,41 @@ async function handleUnauthorized(res: Response) {
   }
 }
 
+// 개별 일기 가져오기
+export async function fetchDiary(id: number): Promise<DiaryEntry> {
+  const accessToken = getAccessTokenOrRedirect();
+
+  const res = await fetch(`/api/diary/${id}`, {
+    method: "GET",
+    headers: {
+      Authorization: `${accessToken}`,
+    },
+  });
+
+  console.log("Fetch diary response status:", res.status);
+
+  if (res.status === 401) {
+    await handleUnauthorized(res);
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    console.error("API error response:", text);
+    throw new Error(`Failed to fetch diary: ${res.status}`);
+  }
+
+  const contentType = res.headers.get("Content-Type");
+  if (!contentType || !contentType.includes("application/json")) {
+    const text = await res.text();
+    console.error("Non-JSON response:", text);
+    throw new Error("Received non-JSON response from server");
+  }
+
+  const json = await res.json();
+  console.log("Fetched diary:", json);
+  return json;
+}
+
 // 일기 목록 가져오기
 export async function fetchDiaries(userId?: number): Promise<DiaryEntry[]> {
   const accessToken = getAccessTokenOrRedirect();

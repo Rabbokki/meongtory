@@ -23,6 +23,10 @@ public class DiaryController {
         return ResponseEntity.ok(diaryService.createDiary(dto));
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<DiaryResponseDto> getDiary(@PathVariable Long id) {
+        return ResponseEntity.ok(diaryService.getDiary(id));
+    }
 
     @GetMapping
     public ResponseEntity<List<DiaryResponseDto>> getDiaries(@RequestParam(required = false) Long userId) {
@@ -32,7 +36,6 @@ public class DiaryController {
             return ResponseEntity.ok(diaryService.getAllDiaries());
         }
     }
-
 
     @GetMapping("/user/{userId}")
     public ResponseEntity<List<DiaryResponseDto>> getUserDiaries(@PathVariable Long userId) {

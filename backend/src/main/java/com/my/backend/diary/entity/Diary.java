@@ -29,6 +29,9 @@ public class Diary {
     private String audioUrl;
     private String imageUrl;
 
+    @Column(name = "is_deleted", nullable = false)
+    private Boolean isDeleted = false;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
