@@ -1,11 +1,11 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { X, Send } from "lucide-react"
+import axios from "axios"
 
 interface ChatMessage {
   id: number
@@ -26,7 +26,7 @@ export default function Chatbot() {
   ])
   const [inputMessage, setInputMessage] = useState("")
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (inputMessage.trim()) {
       const userMessage: ChatMessage = {
         id: Date.now(),
@@ -34,19 +34,31 @@ export default function Chatbot() {
         isUser: true,
         timestamp: new Date(),
       }
-
       setMessages((prev) => [...prev, userMessage])
 
-      // Simulate bot response
-      setTimeout(() => {
+      try {
+        const response = await axios.post(
+          "http://localhost:8080/api/chatbot/query",
+          { query: inputMessage },
+          { headers: { "Content-Type": "application/json" } }
+        )
         const botResponse: ChatMessage = {
           id: Date.now() + 1,
-          message: "죄송합니다. 현재 개발 중인 기능입니다. 곧 더 나은 서비스로 찾아뵙겠습니다! 🐾",
+          message: response.data.answer,
           isUser: false,
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, botResponse])
-      }, 1000)
+      } catch (error) {
+        console.error("챗봇 요청 실패:", error)
+        const errorMessage: ChatMessage = {
+          id: Date.now() + 1,
+          message: "죄송합니다. 서버 오류가 발생했습니다. 다시 시도해주세요.",
+          isUser: false,
+          timestamp: new Date(),
+        }
+        setMessages((prev) => [...prev, errorMessage])
+      }
 
       setInputMessage("")
     }
@@ -60,7 +72,6 @@ export default function Chatbot() {
 
   return (
     <>
-      {/* Chatbot Toggle Button */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
@@ -70,10 +81,8 @@ export default function Chatbot() {
         </button>
       )}
 
-      {/* Chatbot Window */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 w-80 h-96 bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col z-50">
-          {/* Header */}
           <div className="bg-yellow-400 text-black p-4 rounded-t-lg flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="text-xl">🐕</div>
@@ -87,7 +96,6 @@ export default function Chatbot() {
             </button>
           </div>
 
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}>
@@ -102,7 +110,6 @@ export default function Chatbot() {
             ))}
           </div>
 
-          {/* Input */}
           <div className="p-4 border-t border-gray-200">
             <div className="flex space-x-2">
               <Input
