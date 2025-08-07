@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata } from "next"
 import { GeistSans } from "geist/font/sans"
 import { GeistMono } from "geist/font/mono"
+import Script from "next/script"
 import "./globals.css"
 
 export const metadata: Metadata = {
@@ -26,7 +27,10 @@ html {
 }
         `}</style>
       </head>
-      <body>{children}</body>
+      <body>
+        <Script src="https://js.tosspayments.com/v1/payment" strategy="beforeInteractive" />
+        {children}
+      </body>
     </html>
   )
 }

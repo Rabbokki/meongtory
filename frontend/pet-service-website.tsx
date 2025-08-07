@@ -91,6 +91,18 @@ interface CartItem {
   category: string
   quantity: number
   order: number
+  product?: {
+    productId: number
+    name: string
+    description: string
+    price: number
+    stock: number
+    imageUrl: string
+    category: string
+    targetAnimal: string
+    registrationDate: string
+    registeredBy: string
+  }
 }
 
 interface Insurance {
@@ -188,10 +200,10 @@ axios.interceptors.request.use(
     const refreshToken = localStorage.getItem("refreshToken")
     
     if (accessToken) {
-      config.headers["Access_Token"] = accessToken
+      config.headers["access_token"] = accessToken
     }
     if (refreshToken) {
-      config.headers["Refresh_Token"] = refreshToken
+      config.headers["refresh_token"] = refreshToken
     }
     
     console.log("Request:", config.method, config.url, config.headers)
@@ -625,10 +637,12 @@ export default function PetServiceWebsite() {
     }
 
     try {
+      console.log('장바구니 추가 시작...')
       const currentUserId = currentUser?.id || 1
       const url = `http://localhost:8080/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
       const response = await axios.post(url, null, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 5000
       })
 
       if (response.status !== 200) {
@@ -638,9 +652,14 @@ export default function PetServiceWebsite() {
       await fetchCartItems()
       toast.success(`${product.name}을(를) 장바구니에 추가했습니다`, { duration: 5000 })
       setCurrentPage("cart")
-    } catch (error) {
+    } catch (error: any) {
       console.error("장바구니 추가 오류:", error)
-      toast.error("장바구니 추가에 실패했습니다", { duration: 5000 })
+      console.error('에러 상세 정보:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      })
+      toast.error("백엔드 서버 연결에 실패했습니다. 장바구니 추가가 불가능합니다.", { duration: 5000 })
     }
   }
 
@@ -653,28 +672,54 @@ export default function PetServiceWebsite() {
 
     const currentUserId = currentUser?.id || 1
     try {
-      const response = await axios.get(`http://localhost:8080/api/carts/${currentUserId}`)
+      console.log('장바구니 조회 시작...')
+      const response = await axios.get(`http://localhost:8080/api/carts/${currentUserId}`, {
+        timeout: 5000
+      })
       if (response.status !== 200) {
         throw new Error("장바구니 조회에 실패했습니다.")
       }
 
       const cartData = response.data
+      console.log('백엔드에서 받은 장바구니 데이터:', cartData)
+      
       const cartItems: CartItem[] = cartData
         .sort((a: any, b: any) => a.cartId - b.cartId)
         .map((item: any, index: number) => ({
           id: item.cartId,
           name: item.product.name,
-          brand: item.product.brand || "브랜드 없음",
+          brand: "브랜드 없음", // Product 엔티티에 brand 필드가 없음
           price: item.product.price,
           image: item.product.imageUrl || "/placeholder.svg",
           category: item.product.category,
           quantity: item.quantity,
           order: index,
+          product: {
+            productId: item.product.productId,
+            name: item.product.name,
+            description: item.product.description,
+            price: item.product.price,
+            stock: item.product.stock,
+            imageUrl: item.product.imageUrl,
+            category: item.product.category,
+            targetAnimal: item.product.targetAnimal,
+            registrationDate: item.product.registrationDate,
+            registeredBy: item.product.registeredBy,
+          }
         }))
       setCart(cartItems)
-    } catch (error) {
+      console.log('장바구니 설정 완료:', cartItems.length, '개')
+    } catch (error: any) {
       console.error("장바구니 조회 오류:", error)
-      toast.error("장바구니 조회에 실패했습니다", { duration: 5000 })
+      console.error('에러 상세 정보:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      })
+      
+      // 백엔드 서버가 응답하지 않을 때 빈 장바구니로 설정
+      setCart([])
+      toast.error('백엔드 서버 연결에 실패했습니다. 장바구니를 불러올 수 없습니다.', { duration: 5000 })
     }
   }
 
@@ -765,6 +810,67 @@ export default function PetServiceWebsite() {
     } catch (error) {
       console.error("전체 구매 오류:", error)
       toast.error("전체 구매에 실패했습니다", { duration: 5000 })
+    }
+  }
+
+  const purchaseSingleItem = async (cartItem: CartItem) => {
+    if (!isLoggedIn || !currentUser) {
+      toast.error("로그인이 필요합니다", { duration: 5000 })
+      setShowLoginModal(true)
+      return
+    }
+
+    try {
+      // 인증 토큰 가져오기
+      const accessToken = localStorage.getItem('accessToken')
+      const headers: any = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+      
+      // 토큰이 있으면 헤더에 추가
+      if (accessToken) {
+        headers['access_token'] = accessToken
+      }
+
+      const orderData = {
+        userId: currentUser.id,
+        totalPrice: cartItem.price * cartItem.quantity,
+        orderItems: [
+          {
+            productId: cartItem.product?.productId || cartItem.id, // 실제 상품 ID 사용
+            productName: cartItem.product?.name || cartItem.name || cartItem.brand + " " + cartItem.category,
+            imageUrl: cartItem.product?.imageUrl || cartItem.image || "/placeholder.svg",
+            quantity: cartItem.quantity,
+            price: cartItem.product?.price || cartItem.price,
+          },
+        ],
+      }
+
+      console.log("개별 구매 요청 데이터:", orderData)
+
+      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
+        headers: headers,
+        timeout: 10000
+      })
+
+      console.log("개별 구매 응답:", response.data)
+
+      if (response.status !== 200) {
+        throw new Error("개별 구매에 실패했습니다.")
+      }
+
+      // 장바구니에서 해당 상품 제거
+      await handleRemoveFromCart(cartItem.id)
+      await fetchUserOrders()
+      toast.success("개별 구매가 완료되었습니다", { duration: 5000 })
+      setCurrentPage("myPage")
+    } catch (error: any) {
+      console.error("개별 구매 오류:", error)
+      console.error("에러 응답 데이터:", error.response?.data)
+      console.error("에러 상태 코드:", error.response?.status)
+      console.error("에러 메시지:", error.message)
+      toast.error("개별 구매에 실패했습니다", { duration: 5000 })
     }
   }
 
@@ -868,29 +974,141 @@ export default function PetServiceWebsite() {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('http://localhost:8080/api/products')
+      console.log('상품 목록 조회 시작...')
+      console.log('요청 URL:', 'http://localhost:8080/api/products')
+      
+      // 백엔드 서버 상태 확인
+      try {
+        const healthCheck = await axios.get('http://localhost:8080/actuator/health', {
+          timeout: 3000
+        })
+        console.log('백엔드 서버 상태:', healthCheck.data)
+      } catch (healthError) {
+        console.warn('백엔드 서버 상태 확인 실패:', healthError)
+      }
+      
+      // 인증 토큰 가져오기
+      const accessToken = localStorage.getItem('accessToken')
+      const headers: any = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+      
+      // 토큰이 있으면 헤더에 추가
+      if (accessToken) {
+        headers['access_token'] = accessToken
+        headers['refresh_token'] = localStorage.getItem('refreshToken') || ''
+        console.log('인증 토큰 추가됨')
+      } else {
+        console.log('인증 토큰 없음 - 익명 접근')
+      }
+      
+      const response = await axios.get('http://localhost:8080/api/products', {
+        timeout: 10000, // 10초로 증가
+        headers: headers
+      })
+      
+      console.log('응답 상태:', response.status)
+      console.log('응답 헤더:', response.headers)
       const backendProducts = response.data
+      console.log('백엔드에서 받은 상품 데이터:', backendProducts)
+      
+      if (!Array.isArray(backendProducts)) {
+        console.error('백엔드 응답이 배열이 아닙니다:', typeof backendProducts)
+        throw new Error('잘못된 데이터 형식')
+      }
       
       // 백엔드 데이터를 프론트엔드 형식으로 변환
       const convertedProducts: Product[] = backendProducts.map((product: any) => ({
-        id: product.productId,
-        name: product.name,
+        id: product.productId || product.id,
+        name: product.name || '상품명 없음',
         brand: product.brand || '브랜드 없음',
-        price: product.price,
-        image: product.imageUrl || '/placeholder.svg?height=300&width=300',
-        category: product.category,
+        price: product.price || 0,
+        image: product.imageUrl || product.image || '/placeholder.svg?height=300&width=300',
+        category: product.category || '기타',
         description: product.description || '',
         tags: product.tags || [],
-        stock: product.stock,
-        petType: product.targetAnimal?.toLowerCase() || 'all',
+        stock: product.stock || 0,
+        petType: product.targetAnimal?.toLowerCase() || product.petType || 'all',
         registrationDate: product.registrationDate || new Date().toISOString().split('T')[0],
         registeredBy: product.registeredBy || 'admin'
       }))
       
       setProducts(convertedProducts)
-    } catch (error) {
+      console.log('상품 목록 설정 완료:', convertedProducts.length, '개')
+    } catch (error: any) {
       console.error('상품 목록 조회 오류:', error)
-      toast.error('상품 목록을 불러오는데 실패했습니다', { duration: 5000 })
+      console.error('에러 상세 정보:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          timeout: error.config?.timeout
+        }
+      })
+      
+      // 404 에러나 기타 네트워크 오류 시 기본 상품 데이터 제공
+      console.log('기본 상품 데이터로 대체합니다.')
+      const defaultProducts: Product[] = [
+        {
+          id: 1,
+          name: "프리미엄 강아지 사료 (성견용)",
+          brand: "펫푸드",
+          price: 45000,
+          image: "/placeholder.svg?height=300&width=300",
+          category: "사료",
+          description: "성견을 위한 프리미엄 사료입니다.",
+          tags: ["사료", "성견용", "프리미엄"],
+          stock: 50,
+          petType: "dog",
+          registrationDate: new Date().toISOString().split('T')[0],
+          registeredBy: "admin"
+        },
+        {
+          id: 2,
+          name: "고양이 장난감 세트",
+          brand: "펫토이",
+          price: 25000,
+          image: "/placeholder.svg?height=300&width=300",
+          category: "장난감",
+          description: "다양한 고양이 장난감으로 구성된 세트입니다.",
+          tags: ["장난감", "고양이", "세트"],
+          stock: 100,
+          petType: "cat",
+          registrationDate: new Date().toISOString().split('T')[0],
+          registeredBy: "admin"
+        },
+        {
+          id: 3,
+          name: "강아지 목줄",
+          brand: "펫액세서리",
+          price: 15000,
+          image: "/placeholder.svg?height=300&width=300",
+          category: "용품",
+          description: "편안하고 안전한 강아지 목줄입니다.",
+          tags: ["목줄", "강아지", "안전"],
+          stock: 30,
+          petType: "dog",
+          registrationDate: new Date().toISOString().split('T')[0],
+          registeredBy: "admin"
+        }
+      ]
+      
+      setProducts(defaultProducts)
+      
+      let errorMessage = '백엔드 서버 연결에 실패했습니다. 기본 상품 데이터를 표시합니다.'
+      if (error.response?.status === 500) {
+        errorMessage = '서버 내부 오류가 발생했습니다. 기본 상품 데이터를 표시합니다.'
+      } else if (error.response?.status === 404) {
+        errorMessage = '상품 API 엔드포인트를 찾을 수 없습니다. 기본 상품 데이터를 표시합니다.'
+      } else if (error.code === 'ECONNABORTED') {
+        errorMessage = '서버 응답 시간이 초과되었습니다. 기본 상품 데이터를 표시합니다.'
+      }
+      
+      toast.error(errorMessage, { duration: 5000 })
     }
   }
 
@@ -963,6 +1181,21 @@ export default function PetServiceWebsite() {
     }
 
     try {
+      // 인증 토큰 가져오기
+      const accessToken = localStorage.getItem('accessToken')
+      const headers: any = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
+      
+      // 토큰이 있으면 헤더에 추가
+      if (accessToken) {
+        headers['access_token'] = accessToken
+        console.log('인증 토큰 추가됨')
+      } else {
+        console.log('인증 토큰 없음')
+      }
+
       const orderData = {
         userId: currentUser.id,
         totalPrice: product.price,
@@ -970,16 +1203,21 @@ export default function PetServiceWebsite() {
           {
             productId: product.id,
             productName: product.name || product.brand + " " + product.category,
-            productImage: product.image || "/placeholder.svg",
+            imageUrl: product.image || "/placeholder.svg",
             quantity: 1,
             price: product.price,
           },
         ],
       }
 
+      console.log('주문 데이터:', orderData)
+
       const response = await axios.post("http://localhost:8080/api/orders", orderData, {
-        headers: { "Content-Type": "application/json" },
+        headers: headers,
+        timeout: 10000
       })
+
+      console.log('주문 응답:', response.data)
 
       if (response.status !== 200) {
         throw new Error("주문 생성에 실패했습니다.")
@@ -988,8 +1226,19 @@ export default function PetServiceWebsite() {
       await fetchUserOrders()
       toast.success("바로구매가 완료되었습니다", { duration: 5000 })
       setCurrentPage("myPage")
-    } catch (error) {
+    } catch (error: any) {
       console.error("바로구매 오류:", error)
+      console.error('에러 상세 정보:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          headers: error.config?.headers
+        }
+      })
       toast.error("바로구매에 실패했습니다", { duration: 5000 })
     }
   }
@@ -1403,7 +1652,8 @@ export default function PetServiceWebsite() {
             cartItems={cart}
             onRemoveFromCart={handleRemoveFromCart}
             onNavigateToStore={() => setCurrentPage("store")}
-            onPurchase={purchaseAllFromCart}
+            onPurchaseAll={purchaseAllFromCart}
+            onPurchaseSingle={purchaseSingleItem}
             onUpdateQuantity={handleUpdateCartQuantity}
           />
         )

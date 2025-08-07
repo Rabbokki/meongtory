@@ -3,6 +3,8 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Trash2, ShoppingCart } from "lucide-react"
+import { useState } from "react"
+import PaymentPage from "./PaymentPage"
 
 interface CartItem {
   id: number
@@ -19,7 +21,8 @@ interface CartPageProps {
   cartItems: CartItem[]
   onRemoveFromCart: (id: number) => void
   onNavigateToStore: () => void
-  onPurchase: (items: CartItem[]) => void
+  onPurchaseAll: (items: CartItem[]) => void
+  onPurchaseSingle: (item: CartItem) => void
   onUpdateQuantity: (id: number, quantity: number) => void
 }
 
@@ -27,15 +30,60 @@ export default function CartPage({
   cartItems,
   onRemoveFromCart,
   onNavigateToStore,
-  onPurchase,
+  onPurchaseAll,
+  onPurchaseSingle,
   onUpdateQuantity,
 }: CartPageProps) {
+  const [showPayment, setShowPayment] = useState(false)
+  const [paymentItems, setPaymentItems] = useState<CartItem[]>([])
+
   const handlePurchaseAll = () => {
-    onPurchase(cartItems)
+    setPaymentItems(cartItems)
+    setShowPayment(true)
   }
 
   const handlePurchaseItem = (item: CartItem) => {
-    onPurchase([item])
+    setPaymentItems([item])
+    setShowPayment(true)
+  }
+
+  const handlePaymentSuccess = (paymentInfo: any) => {
+    console.log("결제 성공:", paymentInfo)
+    // 결제 성공 후 장바구니에서 상품 제거
+    paymentItems.forEach(item => onRemoveFromCart(item.id))
+    setShowPayment(false)
+    setPaymentItems([])
+    // 성공 페이지로 이동하거나 알림
+    alert("결제가 완료되었습니다!")
+  }
+
+  const handlePaymentFail = (error: any) => {
+    console.log("결제 실패:", error)
+    setShowPayment(false)
+    setPaymentItems([])
+  }
+
+  const handleBackFromPayment = () => {
+    setShowPayment(false)
+    setPaymentItems([])
+  }
+
+  // PaymentPage가 표시되어야 하는 경우
+  if (showPayment) {
+    return (
+      <PaymentPage
+        items={paymentItems.map(item => ({
+          id: item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image: item.image
+        }))}
+        onBack={handleBackFromPayment}
+        onSuccess={handlePaymentSuccess}
+        onFail={handlePaymentFail}
+      />
+    )
   }
 
   return (

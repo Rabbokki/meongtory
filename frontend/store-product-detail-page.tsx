@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, ShoppingCart, Star } from "lucide-react"
 import Image from "next/image"
 import { productApi } from "@/lib/api"
+import PaymentPage from "./PaymentPage"
 
 interface Product {
   id: number
@@ -42,6 +43,8 @@ export default function StoreProductDetailPage({
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showPayment, setShowPayment] = useState(false)
+  const [quantity, setQuantity] = useState(1)
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -83,6 +86,29 @@ export default function StoreProductDetailPage({
     fetchProduct()
   }, [productId])
 
+  const handleBuyNow = () => {
+    if (product) {
+      setShowPayment(true)
+    }
+  }
+
+  const handlePaymentSuccess = (paymentInfo: any) => {
+    console.log("결제 성공:", paymentInfo)
+    setShowPayment(false)
+    alert("결제가 완료되었습니다!")
+    // 성공 후 상품 목록으로 돌아가기
+    onBack()
+  }
+
+  const handlePaymentFail = (error: any) => {
+    console.log("결제 실패:", error)
+    setShowPayment(false)
+  }
+
+  const handleBackFromPayment = () => {
+    setShowPayment(false)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -105,6 +131,24 @@ export default function StoreProductDetailPage({
           </CardContent>
         </Card>
       </div>
+    )
+  }
+
+  // PaymentPage가 표시되어야 하는 경우
+  if (showPayment) {
+    return (
+      <PaymentPage
+        items={[{
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: quantity,
+          image: product.imageUrl
+        }]}
+        onBack={handleBackFromPayment}
+        onSuccess={handlePaymentSuccess}
+        onFail={handlePaymentFail}
+      />
     )
   }
 
@@ -180,6 +224,30 @@ export default function StoreProductDetailPage({
                   )}
                 </div>
 
+                {/* 수량 선택 */}
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm text-gray-600">수량:</span>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-8 h-8 p-0"
+                    >
+                      -
+                    </Button>
+                    <span className="w-12 text-center text-sm font-medium">{quantity}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-8 h-8 p-0"
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <Button
                     onClick={() => onAddToCart(product)}
@@ -190,7 +258,7 @@ export default function StoreProductDetailPage({
                     {isInCart(product.id) ? '장바구니에 추가됨' : '장바구니에 추가'}
                   </Button>
                   <Button
-                    onClick={() => onBuyNow(product)}
+                    onClick={handleBuyNow}
                     variant="outline"
                     disabled={(typeof product.stock === 'number' ? product.stock : 0) === 0}
                     className="flex-1"
