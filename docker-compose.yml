@@ -11,16 +11,19 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d
     ports:
-      - "5433:5432"
+      - "0.0.0.0:5433:5432"
     networks:
       - meongtory-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    restart: unless-stopped
+    command: |
+      bash -c "
+        docker-entrypoint.sh postgres &
+        sleep 10
+        cp /docker-entrypoint-initdb.d/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf
+        chmod 600 /var/lib/postgresql/data/pg_hba.conf
+        chown postgres:postgres /var/lib/postgresql/data/pg_hba.conf
+        pg_ctl reload -D /var/lib/postgresql/data
+        wait
+      "
 
   ai:
     build:
@@ -28,11 +31,14 @@ services:
       dockerfile: Dockerfile
     ports:
       - "9000:9000"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./ai:/app
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
+    # environment:
+      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # - OPENAI_MODEL=${OPENAI_MODEL}
     networks:
       - meongtory-network
-    restart: on-failure
 
   backend:
     build:
@@ -52,7 +58,6 @@ services:
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
-      - SPRING_PROFILES_ACTIVE=${SPRING_PROFILES_ACTIVE}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_S3_REGION=${AWS_S3_REGION}
@@ -63,7 +68,6 @@ services:
       - ai
     networks:
       - meongtory-network
-    restart: on-failure
 
 volumes:
   postgres_data:
