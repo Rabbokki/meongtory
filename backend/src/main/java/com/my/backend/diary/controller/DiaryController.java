@@ -44,7 +44,20 @@ public class DiaryController {
 
     @PutMapping("/{id}")
     public ResponseEntity<DiaryResponseDto> updateDiary(@PathVariable Long id, @RequestBody DiaryUpdateDto dto) {
-        return ResponseEntity.ok(diaryService.updateDiary(id, dto));
+        System.out.println("🔍 === Backend PUT Request Debug ===");
+        System.out.println("🔍 Updating diary with ID: " + id);
+        System.out.println("🔍 Update data: title = " + dto.getTitle() + ", text = " + dto.getText() + ", imageUrl = " + dto.getImageUrl() + ", audioUrl = " + dto.getAudioUrl());
+        System.out.println("🔍 Request body: " + dto);
+        
+        try {
+            DiaryResponseDto result = diaryService.updateDiary(id, dto);
+            System.out.println("🔍 Update successful: " + result);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.out.println("🔍 Update failed with error: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @DeleteMapping("/{id}")

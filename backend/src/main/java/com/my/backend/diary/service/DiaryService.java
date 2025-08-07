@@ -44,18 +44,21 @@ public class DiaryService {
     }
 
     public List<DiaryResponseDto> getUserDiaries(Long userId) {
-        return diaryRepository.findByUserIdAndIsDeletedFalse(userId).stream()
+        return diaryRepository.findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(userId).stream()
                 .map(DiaryResponseDto::from)
                 .collect(Collectors.toList());
     }
 
     public List<DiaryResponseDto> getAllDiaries() {
-        return diaryRepository.findByIsDeletedFalse().stream()
+        return diaryRepository.findByIsDeletedFalseOrderByCreatedAtDesc().stream()
                 .map(DiaryResponseDto::from)
                 .collect(Collectors.toList());
     }
 
     public DiaryResponseDto updateDiary(Long id, DiaryUpdateDto dto) {
+        System.out.println("🔍 DiaryService.updateDiary called with ID: " + id);
+        System.out.println("🔍 Update DTO: title = " + dto.getTitle() + ", text = " + dto.getText() + ", imageUrl = " + dto.getImageUrl());
+        
         Diary diary = diaryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
         
@@ -67,19 +70,20 @@ public class DiaryService {
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
         diary.setImageUrl(dto.getImageUrl());
+        
+        System.out.println("🔍 Updated diary imageUrl: " + diary.getImageUrl());
+        
         return DiaryResponseDto.from(diaryRepository.save(diary));
     }
 
     public void deleteDiary(Long id) {
         Diary diary = diaryRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다."));
         
         if (diary.getIsDeleted()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "다이어리를 찾을 수 없습니다.");
         }
 
-        // Soft Delete: isDeleted를 true로 설정
-        diary.setIsDeleted(true);
-        diaryRepository.save(diary);
+        diaryRepository.delete(diary);
     }
 }

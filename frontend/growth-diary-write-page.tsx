@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"; // Label 컴포넌트 추가
 import { Card, CardContent } from "@/components/ui/card"; // Card 컴포넌트 추가
 import Image from "next/image";
 import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-react"; // 음성 관련 아이콘 추가
-import { createDiary } from "@/lib/api/diary"
+import { createDiary, uploadImageToS3 } from "@/lib/api/diary"
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 
@@ -31,6 +31,7 @@ export default function GrowthDiaryWritePage({
   const [error, setError] = useState(""); // Error state 추가
   const [activities, setActivities] = useState<string>(""); // 활동 상태 추가
   const [tags, setTags] = useState<string>(""); // 태그 상태 추가
+  const [isUploading, setIsUploading] = useState(false); // 이미지 업로드 상태
 
   // 음성 녹음 관련 상태
   const [isRecording, setIsRecording] = useState(false);
@@ -41,6 +42,7 @@ export default function GrowthDiaryWritePage({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -70,11 +72,37 @@ export default function GrowthDiaryWritePage({
     }
 
     try {
+      // 이미지 파일들을 S3에 업로드
+      let uploadedImageUrls: string[] = [];
+      if (imageFiles.length > 0) {
+        setIsUploading(true);
+        toast({
+          title: "이미지 업로드 중",
+          description: "이미지를 업로드하고 있습니다...",
+        });
+
+        for (const file of imageFiles) {
+          try {
+            const uploadedUrl = await uploadImageToS3(file);
+            uploadedImageUrls.push(uploadedUrl);
+          } catch (error) {
+            console.error("이미지 업로드 실패:", error);
+            toast({
+              title: "이미지 업로드 실패",
+              description: "이미지 업로드 중 오류가 발생했습니다.",
+              variant: "destructive",
+            });
+            return;
+          }
+        }
+        setIsUploading(false);
+      }
+
       console.log("Creating diary with data:", {
         userId: Number(userId),
         title,
         text: content,
-        imageUrl: images[0] || null,
+        imageUrl: uploadedImageUrls[0] || null,
         audioUrl: audioUrl || null,
       });
 
@@ -82,7 +110,7 @@ export default function GrowthDiaryWritePage({
         userId: Number(userId),
         title: title,  
         text: content,
-        imageUrl: images[0] || null,
+        imageUrl: uploadedImageUrls[0] || null,
         audioUrl: audioUrl || null,
       });
 
@@ -98,14 +126,29 @@ export default function GrowthDiaryWritePage({
       setTimeout(() => {
         onBack();
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
       console.error("작성 실패:", err);
+      
+      // 인증 관련 에러 처리
+      if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
+        toast({
+          title: "로그인 필요",
+          description: "로그인이 필요합니다. 다시 로그인해주세요.",
+          variant: "destructive",
+        });
+        // 로그인 페이지로 이동
+        window.location.href = "/login";
+        return;
+      }
+      
       setError("일기 작성 중 오류가 발생했습니다.");
       toast({
         title: "작성 실패",
         description: "일기 작성 중 오류가 발생했습니다.",
         variant: "destructive",
       });
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -123,6 +166,10 @@ export default function GrowthDiaryWritePage({
   const handleRemoveImage = (indexToRemove: number) => {
     setImages((prev) => prev.filter((_, index) => index !== indexToRemove));
     setImageFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
   };
 
   // 음성 녹음 시작
@@ -247,7 +294,29 @@ export default function GrowthDiaryWritePage({
             {/* Image Upload Section */}
             <div className="space-y-2">
               <Label htmlFor="image-upload">사진 첨부 (선택 사항)</Label>
-              <Input id="image-upload" type="file" multiple accept="image/*" onChange={handleImageUpload} />
+              <div className="flex items-center space-x-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleImageClick}
+                  disabled={isUploading}
+                  className="flex items-center space-x-2"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  <span>{images.length === 0 ? "선택된 파일 없음" : `${images.length}개 파일 선택됨`}</span>
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  id="image-upload"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
+              
+              {/* Image Preview Grid */}
               <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {images.map((imageSrc, index) => (
                   <div key={index} className="relative w-full h-32 rounded-md overflow-hidden group">
@@ -268,7 +337,10 @@ export default function GrowthDiaryWritePage({
                   </div>
                 ))}
                 {images.length === 0 && (
-                  <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400">
+                  <div 
+                    className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-400 hover:text-gray-500 transition-colors"
+                    onClick={handleImageClick}
+                  >
                     <ImageIcon className="h-8 w-8" />
                   </div>
                 )}
@@ -348,8 +420,9 @@ export default function GrowthDiaryWritePage({
             <Button
               type="button"
               onClick={handleSubmit}
+              disabled={isUploading}
             >
-              작성 완료
+              {isUploading ? "업로드 중..." : "작성 완료"}
             </Button>
 
           </CardContent>

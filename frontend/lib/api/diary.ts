@@ -5,8 +5,7 @@ import type { DiaryEntry } from "../../diary";
 function getAccessTokenOrRedirect(): string {
   const accessToken = localStorage.getItem("accessToken");
   if (!accessToken) {
-    alert("로그인이 필요합니다.");
-    window.location.href = "/login";
+    // API 요청의 경우 리다이렉트하지 않고 에러를 던짐
     throw new Error("로그인이 필요합니다.");
   }
   return accessToken;
@@ -17,11 +16,13 @@ async function handleUnauthorized(res: Response) {
   if (res.status === 401) {
     const errorText = await res.text();
     console.error("Unauthorized:", errorText);
-    alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+    
+    // 토큰 제거
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    window.location.href = "/login";
-    throw new Error("AccessToken Expired");
+    
+    // API 요청의 경우 리다이렉트하지 않고 에러를 던짐
+    throw new Error("세션이 만료되었습니다. 다시 로그인해주세요.");
   }
 }
 
@@ -134,24 +135,47 @@ export async function createDiary(data: {
 export async function updateDiary(id: number, data: any) {
   const accessToken = getAccessTokenOrRedirect();
 
-  const res = await fetch(`/api/diary/${id}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `${accessToken}`,
-    },
-    body: JSON.stringify(data),
-  });
+  console.log("=== Frontend UpdateDiary Debug ===");
+  console.log("Updating diary with data:", { id, data });
+  console.log("API URL:", `/api/diary/${id}`);
+  console.log("Access token:", accessToken ? "Present" : "Missing");
 
-  if (res.status === 401) await handleUnauthorized(res);
+  try {
+    const res = await fetch(`/api/diary/${id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `${accessToken}`,
+      },
+      body: JSON.stringify(data),
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error:", text);
-    throw new Error(`Failed to update diary: ${res.status}`);
+    console.log("Update diary response status:", res.status);
+    console.log("Update diary response headers:", Object.fromEntries(res.headers.entries()));
+
+    if (res.status === 401) await handleUnauthorized(res);
+
+    if (!res.ok) {
+      const text = await res.text();
+      console.error("API error response:", text);
+      
+      // JSON 응답인지 확인
+      try {
+        const errorData = JSON.parse(text);
+        console.error("Parsed error data:", errorData);
+        throw new Error(`Failed to update diary: ${res.status} - ${errorData.error || errorData.details || text}`);
+      } catch (parseError) {
+        throw new Error(`Failed to update diary: ${res.status} - ${text}`);
+      }
+    }
+
+    const result = await res.json();
+    console.log("Update diary success result:", result);
+    return result;
+  } catch (error) {
+    console.error("Update diary error:", error);
+    throw error;
   }
-
-  return res.json();
 }
 
 // 일기 삭제하기
@@ -174,4 +198,24 @@ export async function deleteDiary(id: number) {
   }
 
   return res.ok;
+}
+
+// S3 이미지 업로드 함수
+export async function uploadImageToS3(file: File): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`/api/s3/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json();
+    console.error("S3 upload error:", errorData);
+    throw new Error(`Failed to upload image: ${errorData.error || res.statusText}`);
+  }
+
+  const result = await res.json();
+  return result.url;
 }

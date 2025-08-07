@@ -20,6 +20,7 @@ public class S3UploadController {
             byte[] fileData = file.getBytes();
             
             String fileUrl = s3Service.uploadFile(originalFileName, fileData);
+
             return ResponseEntity.ok(fileUrl);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("File upload failed: " + e.getMessage());
