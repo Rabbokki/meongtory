@@ -92,14 +92,7 @@ interface MyPageProps {
   onRefreshOrders?: () => void
 }
 
-<<<<<<< HEAD
-export default function MyPage({ currentUser, userPets, userAdoptionInquiries, userOrders, onClose }: MyPageProps) {
-  console.log("MyPage 컴포넌트 함수 시작")
-  console.log("MyPage props:", { currentUser, userPets, userAdoptionInquiries, userOrders })
-  
-=======
 export default function MyPage({ currentUser, userPets, userAdoptionInquiries, userOrders, onClose, onRefreshOrders }: MyPageProps) {
->>>>>>> paypage
   const [activeTab, setActiveTab] = useState("userInfo")
   const [isEditingUserInfo, setIsEditingUserInfo] = useState(false)
   const [userInfo, setUserInfo] = useState<any>(null)
@@ -180,7 +173,30 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
     console.log("fetchMyPets 함수 호출 시작")
     fetchMyPets()
     console.log("MyPage useEffect 완료")
-  }, []) // userInfo 상태와 관계없이 실행
+  }, [])
+
+  // 주문 내역 탭이 활성화될 때 주문 데이터 새로고침
+  useEffect(() => {
+    if (activeTab === "orders" && onRefreshOrders) {
+      onRefreshOrders()
+    }
+  }, [activeTab, onRefreshOrders])
+
+  // 관리자 페이지에서 주문 상태 변경 시 자동 새로고침
+  const handleOrderStatusUpdate = useCallback(() => {
+    if (onRefreshOrders) {
+      console.log('주문 상태 변경 감지 - 마이페이지 주문 내역 새로고침')
+      onRefreshOrders()
+    }
+  }, [onRefreshOrders])
+
+  useEffect(() => {
+    window.addEventListener('orderStatusUpdated', handleOrderStatusUpdate)
+    
+    return () => {
+      window.removeEventListener('orderStatusUpdated', handleOrderStatusUpdate)
+    }
+  }, [handleOrderStatusUpdate])
 
   console.log("userInfo 상태:", userInfo)
   console.log("userInfo가 null인지 확인:", userInfo === null)
@@ -207,52 +223,6 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
     setIsEditingUserInfo(false)
   }
 
-<<<<<<< HEAD
-=======
-  // 입양신청 데이터 가져오기
-  const fetchAdoptionRequests = async () => {
-    setLoading(true)
-    try {
-      const response = await adoptionRequestApi.getUserAdoptionRequests()
-      setAdoptionRequests(response)
-    } catch (error) {
-      console.error("입양신청 데이터를 가져오는데 실패했습니다:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 컴포넌트 마운트 시 데이터 가져오기
-  useEffect(() => {
-    if (currentUser) {
-      fetchAdoptionRequests()
-    }
-  }, [currentUser])
-
-  // 주문 내역 탭이 활성화될 때 주문 데이터 새로고침
-  useEffect(() => {
-    if (activeTab === "orders" && onRefreshOrders) {
-      onRefreshOrders()
-    }
-  }, [activeTab, onRefreshOrders])
-
-  // 관리자 페이지에서 주문 상태 변경 시 자동 새로고침
-  const handleOrderStatusUpdate = useCallback(() => {
-    if (onRefreshOrders) {
-      console.log('주문 상태 변경 감지 - 마이페이지 주문 내역 새로고침')
-      onRefreshOrders()
-    }
-  }, [onRefreshOrders])
-
-  useEffect(() => {
-    window.addEventListener('orderStatusUpdated', handleOrderStatusUpdate)
-    
-    return () => {
-      window.removeEventListener('orderStatusUpdated', handleOrderStatusUpdate)
-    }
-  }, [handleOrderStatusUpdate])
-
->>>>>>> paypage
   const getStatusColor = (status: string) => {
     switch (status) {
       case "PENDING":
