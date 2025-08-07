@@ -1,5 +1,6 @@
 package com.my.backend.store.entity;
 
+import com.my.backend.account.entity.Account;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -13,7 +14,9 @@ public class Cart {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer cartId;
 
-    private Integer userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private Account user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id")

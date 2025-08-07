@@ -43,4 +43,40 @@ public class Product {
     private LocalDate registrationDate;
 
     private String registeredBy;
+
+    // 문자열을 Category enum으로 변환하는 setter
+    public void setCategory(String categoryStr) {
+        if (categoryStr != null) {
+            try {
+                this.category = Category.valueOf(categoryStr);
+            } catch (IllegalArgumentException e) {
+                // 기본값 설정
+                this.category = Category.용품;
+            }
+        }
+    }
+
+    // 문자열을 TargetAnimal enum으로 변환하는 setter
+    public void setTargetAnimal(String targetAnimalStr) {
+        if (targetAnimalStr != null) {
+            try {
+                switch (targetAnimalStr.toLowerCase()) {
+                    case "dog":
+                        this.targetAnimal = TargetAnimal.DOG;
+                        break;
+                    case "cat":
+                        this.targetAnimal = TargetAnimal.CAT;
+                        break;
+                    case "all":
+                        this.targetAnimal = TargetAnimal.ALL;
+                        break;
+                    default:
+                        this.targetAnimal = TargetAnimal.ALL;
+                        break;
+                }
+            } catch (Exception e) {
+                this.targetAnimal = TargetAnimal.ALL;
+            }
+        }
+    }
 }

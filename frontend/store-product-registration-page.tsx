@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Upload, X } from "lucide-react"
+import { productApi } from "@/lib/api"
 import Image from "next/image"
 
 interface Product {
@@ -35,7 +36,7 @@ interface StoreProductRegistrationPageProps {
 
 
 
-const categories = ["사료", "간식", "장난감", "용품", "의류", "건강관리"]
+  const categories = ["의류", "장난감", "건강관리", "용품", "간식", "사료"]
 
 export default function StoreProductRegistrationPage({
   isAdmin = false,
@@ -138,20 +139,7 @@ export default function StoreProductRegistrationPage({
       console.log("새 상품 데이터:", newProduct)
 
       // 백엔드 API 호출
-      const response = await fetch('/api/products', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newProduct),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '상품 등록에 실패했습니다.');
-      }
-
-      const registeredProduct = await response.json();
+      const registeredProduct = await productApi.createProduct(newProduct);
       console.log("상품 등록 완료!", registeredProduct);
 
       alert("상품이 성공적으로 등록되었습니다!")
@@ -177,6 +165,7 @@ export default function StoreProductRegistrationPage({
       onBack()
     } catch (error) {
       console.error("상품 등록 중 오류:", error)
+      console.error('상품 등록 오류:', error);
       alert("상품 등록 중 오류가 발생했습니다.")
     } finally {
       setIsSubmitting(false)

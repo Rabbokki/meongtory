@@ -22,7 +22,8 @@ import {
   User,
 } from "lucide-react"
 import AnimalEditModal from "./animal-edit-modal"
-import { petApi, handleApiError, s3Api, adoptionRequestApi } from "./lib/api"
+import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "./lib/api"
+import axios from "axios"
 
 interface Product {
   id: number
@@ -189,14 +190,24 @@ export default function AdminPage({
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch('/api/products');
-        if (!response.ok) {
-          throw new Error('상품 데이터를 가져오는 데 실패했습니다.');
-        }
-        const data: Product[] = await response.json();
+        const data = await productApi.getProducts();
+        
+        // 백엔드 응답을 프론트엔드 형식으로 변환
+        const convertedProducts = data.map((product: any) => ({
+          id: product.productId,
+          name: product.name,
+          price: product.price,
+          image: product.imageUrl,
+          category: product.category,
+          description: product.description,
+          tags: [],
+          stock: product.stock,
+          registrationDate: product.registrationDate,
+          registeredBy: product.registeredBy
+        }));
         
         // 최신순으로 정렬 (registrationDate 기준 내림차순)
-        const sortedProducts = data.sort((a, b) => {
+        const sortedProducts = convertedProducts.sort((a: any, b: any) => {
           const dateA = new Date(a.registrationDate).getTime();
           const dateB = new Date(b.registrationDate).getTime();
           return dateB - dateA; // 내림차순 (최신순)
@@ -216,14 +227,10 @@ export default function AdminPage({
     const fetchOrders = async () => {
       try {
         console.log('주문 데이터 가져오기 시작...');
-        const response = await fetch('/api/orders');
+        const response = await axios.get('/api/orders');
         console.log('주문 API 응답:', response);
         
-        if (!response.ok) {
-          throw new Error('주문 데이터를 가져오는 데 실패했습니다.');
-        }
-        
-        const data: any[] = await response.json();
+        const data: any[] = response.data;
         console.log('받은 주문 데이터:', data);
         
         // 데이터를 Order 형태로 변환
@@ -252,6 +259,10 @@ export default function AdminPage({
         setOrders(sortedOrders);
       } catch (error) {
         console.error("Error fetching orders:", error);
+        if (axios.isAxiosError(error)) {
+          console.error('Axios 오류:', error.response?.data);
+          console.error('상태 코드:', error.response?.status);
+        }
       }
     };
 
@@ -552,23 +563,18 @@ export default function AdminPage({
       try {
         console.log('상품 삭제 요청:', productId);
         
-        const response = await fetch(`/api/products/${productId}`, {
-          method: 'DELETE',
-        });
-
-        const result = await response.json();
-        console.log('삭제 응답:', result);
-
-        if (!response.ok) {
-          throw new Error(result.error || '상품 삭제에 실패했습니다.');
-        }
+        await productApi.deleteProduct(productId);
+        console.log('삭제 완료');
 
         // 상품 목록에서 제거
         setProducts(prev => prev.filter(p => p.id !== productId));
         alert('상품이 성공적으로 삭제되었습니다.');
       } catch (error) {
         console.error('상품 삭제 오류:', error);
-        alert('상품 삭제 중 오류가 발생했습니다: ' + (error as Error).message);
+        const errorMessage = axios.isAxiosError(error) && error.response?.data?.error 
+          ? error.response.data.error 
+          : '상품 삭제 중 오류가 발생했습니다.';
+        alert('상품 삭제 중 오류가 발생했습니다: ' + errorMessage);
       }
     }
   };
@@ -577,20 +583,8 @@ export default function AdminPage({
     try {
       console.log(`주문 상태 변경 요청: 주문ID ${orderId}, 상태 ${status}`);
       
-      const response = await fetch(`/api/orders/${orderId}/status?status=${status}`, {
-        method: 'PUT'
-      });
-      
-      console.log('상태 변경 응답:', response);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('상태 변경 오류 응답:', errorText);
-        throw new Error('주문 상태 업데이트에 실패했습니다.');
-      }
-      
-      const updatedOrder = await response.json();
-      console.log('업데이트된 주문:', updatedOrder);
+      const response = await axios.put(`/api/orders/${orderId}/status?status=${status}`);
+      console.log('업데이트된 주문:', response.data);
       
       // 현재 주문 목록에서 해당 주문만 업데이트
       setOrders(prev => prev.map(order => 
@@ -599,10 +593,18 @@ export default function AdminPage({
           : order
       ));
       
+      // 마이페이지의 주문 내역도 업데이트하기 위해 전역 이벤트 발생
+      window.dispatchEvent(new CustomEvent('orderStatusUpdated', {
+        detail: { orderId, status }
+      }));
+      
       alert(`주문 상태가 ${status === 'COMPLETED' ? '완료' : status === 'PENDING' ? '대기중' : '취소'}로 변경되었습니다.`);
     } catch (error) {
       console.error('주문 상태 업데이트 오류:', error);
-      alert('주문 상태 업데이트에 실패했습니다.');
+      const errorMessage = axios.isAxiosError(error) && error.response?.data?.error 
+        ? error.response.data.error 
+        : '주문 상태 업데이트에 실패했습니다.';
+      alert('주문 상태 업데이트에 실패했습니다: ' + errorMessage);
     }
   };
 
@@ -774,8 +776,8 @@ export default function AdminPage({
             </div>
 
             <div className="grid gap-4">
-              {products.map((product) => (
-                <Card key={product.id}>
+              {products.map((product, index) => (
+                <Card key={product.id || `product-${index}`}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
@@ -833,8 +835,8 @@ export default function AdminPage({
                   <p>등록된 동물이 없습니다.</p>
                 </div>
               ) : (
-                pets.map((pet) => (
-                <Card key={pet.id}>
+                pets.map((pet, index) => (
+                <Card key={pet.id || `pet-${index}`}>
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
@@ -930,8 +932,8 @@ export default function AdminPage({
 
             <div className="grid gap-4">
               {adoptionRequests.length > 0 ? (
-                adoptionRequests.map((request) => (
-                  <Card key={request.id}>
+                adoptionRequests.map((request, index) => (
+                  <Card key={request.id || `adoption-request-${index}`}>
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -1058,7 +1060,7 @@ export default function AdminPage({
             {/* 통계 요약 */}
             <div className="flex items-center justify-between mb-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
-              <Card>
+              <Card key="pending">
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-yellow-600">
                     {filteredRequests.filter(r => r.status === "PENDING").length}
@@ -1066,7 +1068,7 @@ export default function AdminPage({
                   <p className="text-xs text-gray-600">대기중</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card key="contacted">
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-blue-600">
                     {filteredRequests.filter(r => r.status === "CONTACTED").length}
@@ -1074,7 +1076,7 @@ export default function AdminPage({
                   <p className="text-xs text-gray-600">연락완료</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card key="approved">
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-green-600">
                     {filteredRequests.filter(r => r.status === "APPROVED").length}
@@ -1082,7 +1084,7 @@ export default function AdminPage({
                   <p className="text-xs text-gray-600">승인</p>
                 </CardContent>
               </Card>
-              <Card>
+              <Card key="rejected">
                 <CardContent className="p-4">
                   <div className="text-2xl font-bold text-red-600">
                     {filteredRequests.filter(r => r.status === "REJECTED").length}
@@ -1098,8 +1100,8 @@ export default function AdminPage({
 
             <div className="grid gap-4">
               {filteredRequests.length > 0 ? (
-                filteredRequests.map((request) => (
-                  <Card key={request.id}>
+                filteredRequests.map((request, index) => (
+                  <Card key={request.id || `request-${index}`}>
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -1207,8 +1209,8 @@ export default function AdminPage({
 
             <div className="grid gap-4">
               {orders.length > 0 ? (
-                orders.map((order) => (
-                  <Card key={order.orderId}>
+                orders.map((order, index) => (
+                  <Card key={order.orderId || `order-${index}`}>
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
@@ -1249,13 +1251,13 @@ export default function AdminPage({
                           {order.orderItems && order.orderItems.length > 0 ? (
                             <div className="space-y-2">
                               <h4 className="font-medium text-sm">주문 상품:</h4>
-                              {order.orderItems.map((item) => {
+                              {order.orderItems.map((item, index) => {
                                 console.log('주문 아이템:', item);
                                 console.log('주문 아이템의 ImageUrl:', item.ImageUrl);
                                 console.log('이미지 표시 여부:', !!item.ImageUrl);
                                 
                                 return (
-                                  <div key={item.id} className="flex items-center space-x-3 p-2 bg-gray-50 rounded overflow-visible">
+                                  <div key={item.id || `order-item-${index}`} className="flex items-center space-x-3 p-2 bg-gray-50 rounded overflow-visible">
                                     <img
                                       src={item.ImageUrl ? item.ImageUrl : "/placeholder.svg"}
                                       alt={item.productName || "상품"}

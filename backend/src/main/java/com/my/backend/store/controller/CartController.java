@@ -27,7 +27,7 @@ public class CartController {
      * 예: GET /api/carts/1
      */
     @GetMapping("/{userId}")
-    public List<CartDto> getCartByUserId(@PathVariable Integer userId) {
+    public List<CartDto> getCartByUserId(@PathVariable Long userId) {
         return cartService.getCartDtoByUserId(userId);
     }
 
@@ -43,7 +43,7 @@ public class CartController {
      * 예: POST /api/carts?userId=1&productId=3&quantity=2
      */
     @PostMapping
-    public CartDto addToCart(@RequestParam Integer userId,
+    public CartDto addToCart(@RequestParam Long userId,
                              @RequestParam Integer productId,
                              @RequestParam(required = false) Integer quantity) {
         Cart cart = cartService.addToCart(userId, productId, quantity);

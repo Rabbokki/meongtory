@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { X, Upload, Loader2 } from "lucide-react"
 import { petApi, s3Api, handleApiError } from "./lib/api"
+import axios from "axios"
 
 interface Pet {
   id: number
@@ -113,26 +114,24 @@ export default function AnimalEditModal({
 
     setIsGeneratingStory(true)
     try {
-      const response = await fetch('/api/ai/generate-background-story', {
-        method: 'POST',
+      const response = await axios.post('/api/ai/generate-background-story', {
+        petName: editAnimal.name,
+        breed: editAnimal.breed,
+        age: editAnimal.age,
+        gender: editAnimal.gender,
+        personality: '',
+        userPrompt: editAnimal.specialNeeds || ''
+      }, {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          petName: editAnimal.name,
-          breed: editAnimal.breed,
-          age: editAnimal.age,
-          gender: editAnimal.gender,
-          personality: '',
-          userPrompt: editAnimal.specialNeeds || ''
-        })
       })
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error('AI 스토리 생성에 실패했습니다.')
       }
 
-      const result = await response.json()
+      const result = response.data
       
       if (result.success) {
         setEditAnimal(prev => ({ ...prev, specialNeeds: result.data.story }))

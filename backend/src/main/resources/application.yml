@@ -59,10 +59,10 @@ spring:
             token-uri: https://kauth.kakao.com/oauth/token
             user-info-uri: https://kapi.kakao.com/v2/user/me
             user-name-attribute: id
-            
+
+server:
   port: ${SERVER_PORT:8080}
 
-# AWS S3 Configuration
 aws:
   access:
     key:
@@ -81,6 +81,7 @@ jwt:
 ai:
   service:
     url: ${AI_SERVICE_URL:http://localhost:9000}
+
 logging:
   level:
     org.springframework: INFO
@@ -90,3 +91,20 @@ logging:
     com.zaxxer.hikari: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql: TRACE
+
+# 토스페이먼츠 설정
+toss:
+  payments:
+    secret-key: ${TOSS_SECRET_KEY:test_sk_yZqmkKeP8gxnXQjXE5BO3bQRxB9l}
+    client-key: ${TOSS_CLIENT_KEY:test_ck_4yKeq5bgrp2mdOw6yOYJ3GX0lzW6}
+
+# Spring Boot Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always

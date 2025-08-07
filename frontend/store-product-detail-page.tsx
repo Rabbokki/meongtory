@@ -4,8 +4,10 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Heart, ShoppingCart, Star } from "lucide-react"
+import { ArrowLeft, ShoppingCart, Star } from "lucide-react"
 import Image from "next/image"
+import { productApi } from "@/lib/api"
+import PaymentPage from "./PaymentPage"
 
 interface Product {
   id: number
@@ -20,55 +22,61 @@ interface Product {
   registeredBy: string
   petType: "dog" | "cat" | "all"
   targetAnimal?: "ALL" | "DOG" | "CAT"
+  brand?: string
 }
 
 interface StoreProductDetailPageProps {
   productId: number
   onBack: () => void
-  onAddToWishlist: (product: Product) => void
   onAddToCart: (product: Product) => void
   onBuyNow: (product: Product) => void
-  isInWishlist: (id: number) => boolean
   isInCart: (id: number) => boolean
 }
 
 export default function StoreProductDetailPage({
   productId,
   onBack,
-  onAddToWishlist,
   onAddToCart,
   onBuyNow,
-  isInWishlist,
   isInCart,
 }: StoreProductDetailPageProps) {
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showPayment, setShowPayment] = useState(false)
+  const [quantity, setQuantity] = useState(1)
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/products/${productId}`)
+        console.log('상품 조회 요청 - productId:', productId)
         
-        if (!response.ok) {
-          throw new Error('상품을 찾을 수 없습니다.')
-        }
-        
-        const rawData = await response.json()
+        const rawData = await productApi.getProduct(productId)
         console.log('상품 상세 데이터:', rawData);
         
         // 백엔드 응답을 프론트엔드 형식으로 변환
         const data: Product = {
           ...rawData,
-          id: rawData.productId || rawData.id, // productId를 id로 매핑
-          imageUrl: rawData.image || rawData.imageUrl, // image 필드를 imageUrl로 매핑
-          petType: rawData.targetAnimal?.toLowerCase() || 'all' // targetAnimal을 petType으로 매핑
+          id: rawData.productId || rawData.id || 0, // productId를 id로 매핑
+          name: rawData.name || '상품명 없음',
+          price: typeof rawData.price === 'number' ? rawData.price : 0, // price 필드 안전하게 매핑
+          imageUrl: rawData.image || rawData.imageUrl || '/placeholder.svg', // image 필드를 imageUrl로 매핑
+          category: rawData.category || '카테고리 없음',
+          description: rawData.description || '상품 설명이 없습니다.',
+          petType: rawData.targetAnimal?.toLowerCase() || 'all', // targetAnimal을 petType으로 매핑
+          brand: rawData.brand || '브랜드 없음', // brand 필드 추가
+          tags: rawData.tags || [], // tags 필드 추가
+          stock: typeof rawData.stock === 'number' ? rawData.stock : 0,
+          registrationDate: rawData.registrationDate || '등록일 없음',
+          registeredBy: rawData.registeredBy || '등록자 없음'
         };
         
         setProduct(data)
       } catch (error) {
         console.error('상품 조회 오류:', error)
+        
+        console.error('상품 조회 오류:', error);
         setError('상품을 불러오는데 실패했습니다.')
       } finally {
         setLoading(false)
@@ -77,6 +85,29 @@ export default function StoreProductDetailPage({
 
     fetchProduct()
   }, [productId])
+
+  const handleBuyNow = () => {
+    if (product) {
+      setShowPayment(true)
+    }
+  }
+
+  const handlePaymentSuccess = (paymentInfo: any) => {
+    console.log("결제 성공:", paymentInfo)
+    setShowPayment(false)
+    alert("결제가 완료되었습니다!")
+    // 성공 후 상품 목록으로 돌아가기
+    onBack()
+  }
+
+  const handlePaymentFail = (error: any) => {
+    console.log("결제 실패:", error)
+    setShowPayment(false)
+  }
+
+  const handleBackFromPayment = () => {
+    setShowPayment(false)
+  }
 
   if (loading) {
     return (
@@ -100,6 +131,24 @@ export default function StoreProductDetailPage({
           </CardContent>
         </Card>
       </div>
+    )
+  }
+
+  // PaymentPage가 표시되어야 하는 경우
+  if (showPayment) {
+    return (
+      <PaymentPage
+        items={[{
+          id: product.id,
+          name: product.name,
+          price: product.price,
+          quantity: quantity,
+          image: product.imageUrl
+        }]}
+        onBack={handleBackFromPayment}
+        onSuccess={handlePaymentSuccess}
+        onFail={handlePaymentFail}
+      />
     )
   }
 
@@ -139,20 +188,13 @@ export default function StoreProductDetailPage({
                     <CardTitle className="text-2xl font-bold">{product.name}</CardTitle>
                     <p className="text-gray-600 mt-2">{product.category}</p>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onAddToWishlist(product)}
-                    className={`hover:bg-red-50 ${isInWishlist(product.id) ? 'text-red-500' : 'text-gray-400'}`}
-                  >
-                    <Heart className={`w-5 h-5 ${isInWishlist(product.id) ? 'fill-current' : ''}`} />
-                  </Button>
+
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between">
                   <span className="text-3xl font-bold text-yellow-600">
-                    {product.price.toLocaleString()}원
+                    {(typeof product.price === 'number' ? product.price : 0).toLocaleString()}원
                   </span>
                   <Badge variant="outline" className="text-sm">
                     {product.petType === 'all' ? '강아지/고양이' : product.petType === 'dog' ? '강아지' : '고양이'}
@@ -173,28 +215,52 @@ export default function StoreProductDetailPage({
 
                 <div className="space-y-2">
                   <p className="text-sm text-gray-600">
-                    재고: <span className="font-semibold">{product.stock}개</span>
+                    재고: <span className="font-semibold">{typeof product.stock === 'number' ? product.stock : 0}개</span>
                   </p>
-                  {product.stock === 0 && (
+                  {(typeof product.stock === 'number' ? product.stock : 0) === 0 && (
                     <Badge variant="destructive" className="text-sm">
                       품절
                     </Badge>
                   )}
                 </div>
 
+                {/* 수량 선택 */}
+                <div className="flex items-center space-x-4">
+                  <span className="text-sm text-gray-600">수량:</span>
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-8 h-8 p-0"
+                    >
+                      -
+                    </Button>
+                    <span className="w-12 text-center text-sm font-medium">{quantity}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setQuantity(quantity + 1)}
+                      className="w-8 h-8 p-0"
+                    >
+                      +
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <Button
                     onClick={() => onAddToCart(product)}
-                    disabled={product.stock === 0 || isInCart(product.id)}
+                    disabled={(typeof product.stock === 'number' ? product.stock : 0) === 0 || isInCart(product.id)}
                     className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black"
                   >
                     <ShoppingCart className="w-4 h-4 mr-2" />
                     {isInCart(product.id) ? '장바구니에 추가됨' : '장바구니에 추가'}
                   </Button>
                   <Button
-                    onClick={() => onBuyNow(product)}
+                    onClick={handleBuyNow}
                     variant="outline"
-                    disabled={product.stock === 0}
+                    disabled={(typeof product.stock === 'number' ? product.stock : 0) === 0}
                     className="flex-1"
                   >
                     바로 구매
@@ -232,10 +298,7 @@ export default function StoreProductDetailPage({
                       {product.targetAnimal === 'ALL' ? '강아지/고양이' : product.targetAnimal === 'DOG' ? '강아지' : product.targetAnimal === 'CAT' ? '고양이' : '알 수 없음'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">등록일</span>
-                    <span className="font-medium">{product.registrationDate}</span>
-                  </div>
+ 
                   {product.tags && Array.isArray(product.tags) && product.tags.length > 0 && (
                     <div className="flex justify-between items-start">
                       <span className="text-gray-600">태그</span>

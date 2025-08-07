@@ -14,6 +14,7 @@ import { ko } from "date-fns/locale"
 import { ArrowLeft } from "lucide-react"
 import { petApi, s3Api, Pet as ApiPet, handleApiError } from "./lib/api"
 import AnimalEditModal from "./animal-edit-modal"
+import axios from "axios"
 
 interface AnimalRecord {
   id: string
@@ -211,26 +212,24 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
     setIsGeneratingStory(true)
 
     try {
-      const response = await fetch('/api/ai/generate-background-story', {
-        method: 'POST',
+      const response = await axios.post('/api/ai/generate-background-story', {
+        petName: newAnimal.name,
+        breed: newAnimal.breed,
+        age: newAnimal.age,
+        gender: newAnimal.gender,
+        personality: '',
+        userPrompt: newAnimal.aiBackgroundStory || ''
+      }, {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          petName: newAnimal.name,
-          breed: newAnimal.breed,
-          age: newAnimal.age,
-          gender: newAnimal.gender,
-          personality: '',
-          userPrompt: newAnimal.aiBackgroundStory || ''
-        })
       })
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error('AI 스토리 생성에 실패했습니다.')
       }
 
-      const result = await response.json()
+      const result = response.data
       
       if (result.success) {
         setNewAnimal((prev) => ({ ...prev, aiBackgroundStory: result.data.story }))

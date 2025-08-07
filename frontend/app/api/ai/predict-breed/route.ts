@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import axios from 'axios'
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,17 +19,17 @@ export async function POST(request: NextRequest) {
 
     // Call Spring Boot backend
     const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080'
-    const response = await fetch(`${backendUrl}/api/ai/predict-breed`, {
-      method: 'POST',
-      body: backendFormData,
+    const response = await axios.post(`${backendUrl}/api/ai/predict-breed`, backendFormData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     })
 
-    if (!response.ok) {
+    if (response.status !== 200) {
       throw new Error(`Backend API error: ${response.status}`)
     }
 
-    const result = await response.json()
-    return NextResponse.json(result)
+    return NextResponse.json(response.data)
 
   } catch (error) {
     console.error('AI prediction error:', error)
