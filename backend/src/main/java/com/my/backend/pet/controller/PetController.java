@@ -1,5 +1,6 @@
 package com.my.backend.pet.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.my.backend.pet.entity.Pet;
 import com.my.backend.pet.service.PetService;
 import lombok.RequiredArgsConstructor;
@@ -65,17 +66,22 @@ public class PetController {
     
     // 펫 정보 수정
     @PutMapping("/{petId}")
-    public ResponseEntity<Pet> updatePet(@PathVariable Long petId, @RequestBody Pet petDetails) {
-        log.info("Received pet data - name: {}, breed: {}, personality: {}", 
-                petDetails.getName(), petDetails.getBreed(), petDetails.getPersonality());
+    public ResponseEntity<Pet> updatePet(@PathVariable Long petId, @RequestBody String requestBody) {
+        log.info("=== 펫 수정 요청 시작 ===");
+        log.info("Pet ID: {}", petId);
+        log.info("Raw request body: {}", requestBody);
+        
         try {
+            Pet petDetails = new ObjectMapper().readValue(requestBody, Pet.class);
+            log.info("Parsed pet data - name: {}, breed: {}, personality: {}, imageUrl: {}", 
+                    petDetails.getName(), petDetails.getBreed(), petDetails.getPersonality(), petDetails.getImageUrl());
+            log.info("Full pet details: {}", petDetails);
+            
             Pet updatedPet = petService.updatePet(petId, petDetails);
+            log.info("펫 수정 성공: {}", updatedPet.getName());
             return ResponseEntity.ok(updatedPet);
-        } catch (RuntimeException e) {
-            log.error("Pet not found with id: {}", petId);
-            return ResponseEntity.notFound().build();
         } catch (Exception e) {
-            log.error("Error updating pet: {}", e.getMessage(), e);
+            log.error("Error parsing or updating pet: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().build();
         }
     }

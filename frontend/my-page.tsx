@@ -11,9 +11,11 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
-import { adoptionRequestApi } from "./lib/api"
-import { Edit, X } from "lucide-react"
+import { adoptionRequestApi, userApi } from "./lib/api"
+import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "./lib/api/mypet"
+import { Edit, X, Plus, Trash2, Camera } from "lucide-react"
 
 interface User {
   email: string
@@ -90,10 +92,14 @@ interface MyPageProps {
 }
 
 export default function MyPage({ currentUser, userPets, userAdoptionInquiries, userOrders, onClose }: MyPageProps) {
+  console.log("MyPage 컴포넌트 함수 시작")
+  console.log("MyPage props:", { currentUser, userPets, userAdoptionInquiries, userOrders })
+  
   const [activeTab, setActiveTab] = useState("userInfo")
   const [isEditingUserInfo, setIsEditingUserInfo] = useState(false)
-  const [editedName, setEditedName] = useState(currentUser?.name || "")
-  const [editedEmail, setEditedEmail] = useState(currentUser?.email || "")
+  const [userInfo, setUserInfo] = useState<any>(null)
+  const [editedName, setEditedName] = useState("")
+  const [editedEmail, setEditedEmail] = useState("")
   const [adoptionRequests, setAdoptionRequests] = useState<AdoptionRequest[]>([])
   const [loading, setLoading] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -105,7 +111,77 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
     message: ""
   })
 
-  if (!currentUser) {
+  // MyPet 관련 상태
+  const [myPets, setMyPets] = useState<MyPetResponseDto[]>([])
+  const [showPetModal, setShowPetModal] = useState(false)
+  const [selectedPet, setSelectedPet] = useState<MyPetResponseDto | null>(null)
+  const [petForm, setPetForm] = useState<MyPetRequestDto>({
+    name: "",
+    breed: "",
+    age: undefined,
+    gender: "UNKNOWN",
+    type: "",
+    weight: undefined,
+    imageUrl: ""
+  })
+  const [selectedImage, setSelectedImage] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string>("")
+
+  // 사용자 정보 가져오기
+  const fetchUserInfo = async () => {
+    try {
+      console.log("사용자 정보 요청 시작...")
+      const response = await userApi.getCurrentUser()
+      console.log("사용자 정보 응답:", response)
+      setUserInfo(response)
+      setEditedName(response.name || "")
+      setEditedEmail(response.email || "")
+    } catch (error) {
+      console.error("사용자 정보를 가져오는데 실패했습니다:", error)
+    }
+  }
+
+  // 입양신청 데이터 가져오기
+  const fetchAdoptionRequests = async () => {
+    setLoading(true)
+    try {
+      const response = await adoptionRequestApi.getUserAdoptionRequests()
+      setAdoptionRequests(response)
+    } catch (error) {
+      console.error("입양신청 데이터를 가져오는데 실패했습니다:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 내 펫 데이터 가져오기
+  const fetchMyPets = async () => {
+    try {
+      const response = await myPetApi.getMyPets()
+      setMyPets(response.myPets)
+    } catch (error) {
+      console.error("내 펫 데이터를 가져오는데 실패했습니다:", error)
+    }
+  }
+
+  // 컴포넌트 마운트 시 데이터 가져오기
+  useEffect(() => {
+    console.log("MyPage 컴포넌트 마운트됨")
+    console.log("currentUser prop:", currentUser)
+    console.log("fetchUserInfo 함수 호출 시작")
+    fetchUserInfo()
+    console.log("fetchAdoptionRequests 함수 호출 시작")
+    fetchAdoptionRequests()
+    console.log("fetchMyPets 함수 호출 시작")
+    fetchMyPets()
+    console.log("MyPage useEffect 완료")
+  }, []) // userInfo 상태와 관계없이 실행
+
+  console.log("userInfo 상태:", userInfo)
+  console.log("userInfo가 null인지 확인:", userInfo === null)
+  
+  if (!userInfo) {
+    console.log("userInfo가 null이므로 로그인 필요 메시지 표시")
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="p-8 text-center">
@@ -125,26 +201,6 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
     // In a real app, you'd update the currentUser state in the parent component (PetServiceWebsite)
     setIsEditingUserInfo(false)
   }
-
-  // 입양신청 데이터 가져오기
-  const fetchAdoptionRequests = async () => {
-    setLoading(true)
-    try {
-      const response = await adoptionRequestApi.getUserAdoptionRequests()
-      setAdoptionRequests(response)
-    } catch (error) {
-      console.error("입양신청 데이터를 가져오는데 실패했습니다:", error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 컴포넌트 마운트 시 데이터 가져오기
-  useEffect(() => {
-    if (currentUser) {
-      fetchAdoptionRequests()
-    }
-  }, [currentUser])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -222,6 +278,108 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
     }
   }
 
+  // 펫 등록/수정 모달 열기
+  const handleOpenPetModal = (pet?: MyPetResponseDto) => {
+    if (pet) {
+      setSelectedPet(pet)
+      setPetForm({
+        name: pet.name,
+        breed: pet.breed || "",
+        age: pet.age,
+        gender: pet.gender || "UNKNOWN",
+        type: pet.type || "",
+        weight: pet.weight,
+        imageUrl: pet.imageUrl || ""
+      })
+      setImagePreview(pet.imageUrl || "")
+    } else {
+      setSelectedPet(null)
+      setPetForm({
+        name: "",
+        breed: "",
+        age: undefined,
+        gender: "UNKNOWN",
+        type: "",
+        weight: undefined,
+        imageUrl: ""
+      })
+      setImagePreview("")
+    }
+    setShowPetModal(true)
+  }
+
+  // 펫 등록/수정 모달 닫기
+  const handleClosePetModal = () => {
+    setShowPetModal(false)
+    setSelectedPet(null)
+    setSelectedImage(null)
+    setImagePreview("")
+  }
+
+  // 이미지 선택 처리
+  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("이미지 선택 이벤트 발생:", event)
+    const file = event.target.files?.[0]
+    console.log("선택된 파일:", file)
+    if (file) {
+      setSelectedImage(file)
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        console.log("파일 읽기 완료:", e.target?.result)
+        setImagePreview(e.target?.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  // 펫 등록/수정 처리
+  const handleSavePet = async () => {
+    try {
+      let imageUrl = petForm.imageUrl
+
+      // 새 이미지가 선택된 경우 업로드
+      if (selectedImage) {
+        imageUrl = await myPetApi.uploadPetImage(selectedImage)
+      }
+
+      const petData = {
+        ...petForm,
+        imageUrl
+      }
+
+      if (selectedPet) {
+        // 수정
+        await myPetApi.updateMyPet(selectedPet.myPetId, petData)
+        alert("펫 정보가 수정되었습니다.")
+      } else {
+        // 등록
+        await myPetApi.registerMyPet(petData)
+        alert("펫이 등록되었습니다.")
+      }
+
+      // 목록 새로고침
+      fetchMyPets()
+      handleClosePetModal()
+    } catch (error) {
+      console.error('펫 저장 오류:', error)
+      alert('펫 저장에 실패했습니다.')
+    }
+  }
+
+  // 펫 삭제 처리
+  const handleDeletePet = async (petId: number) => {
+    if (confirm("정말로 이 펫을 삭제하시겠습니까?")) {
+      try {
+        await myPetApi.deleteMyPet(petId)
+        alert("펫이 삭제되었습니다.")
+        fetchMyPets()
+      } catch (error) {
+        console.error('펫 삭제 오류:', error)
+        alert('펫 삭제에 실패했습니다.')
+      }
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -229,7 +387,7 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">마이페이지</h1>
-            <p className="text-gray-600 mt-2">{currentUser.name}님의 정보</p>
+            <p className="text-gray-600 mt-2">{userInfo.name}님의 정보</p>
           </div>
           <Button onClick={onClose} variant="outline">
             홈으로 돌아가기
@@ -256,7 +414,7 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                   {isEditingUserInfo ? (
                     <Input id="name" value={editedName} onChange={(e) => setEditedName(e.target.value)} />
                   ) : (
-                    <p className="text-gray-700 font-medium">{currentUser.name}</p>
+                    <p className="text-gray-700 font-medium">{userInfo.name}</p>
                   )}
                 </div>
                 <div className="grid gap-2">
@@ -264,7 +422,7 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                   {isEditingUserInfo ? (
                     <Input id="email" value={editedEmail} onChange={(e) => setEditedEmail(e.target.value)} disabled />
                   ) : (
-                    <p className="text-gray-700 font-medium">{currentUser.email}</p>
+                    <p className="text-gray-700 font-medium">{userInfo.email}</p>
                   )}
                 </div>
                 <div className="flex justify-end">
@@ -282,26 +440,73 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
 
           {/* 펫 정보 Tab */}
           <TabsContent value="petInfo" className="space-y-6">
-            <h2 className="text-2xl font-bold">나의 펫 정보</h2>
-            {userPets.length > 0 ? (
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">나의 펫 정보</h2>
+              <Button onClick={() => handleOpenPetModal()} className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                펫 등록
+              </Button>
+            </div>
+            
+            {myPets.length > 0 ? (
               <div className="grid gap-4">
-                {userPets.map((pet) => (
-                  <Card key={pet.id}>
-                    <CardContent className="p-6 flex items-center space-x-4">
-                      <Image
-                        src={pet.images?.[0] || "/placeholder.svg?height=100&width=100"}
-                        alt={pet.name}
-                        width={100}
-                        height={100}
-                        className="rounded-md object-cover"
-                      />
-                      <div>
-                        <h3 className="text-lg font-semibold">{pet.name}</h3>
-                        <p className="text-sm text-gray-600">
-                          {pet.breed} • {pet.age} • {pet.gender}
-                        </p>
-                        <p className="text-sm text-gray-500">건강 상태: {pet.healthStatus}</p>
-                        <p className="text-sm text-gray-500">성격: {pet.personality.join(", ")}</p>
+                {myPets.map((pet) => (
+                  <Card key={pet.myPetId}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start space-x-4">
+                        <div className="relative">
+                          <Image
+                            src={pet.imageUrl || "/placeholder.svg"}
+                            alt={pet.name}
+                            width={120}
+                            height={120}
+                            className="rounded-lg object-cover"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-xl font-semibold">{pet.name}</h3>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleOpenPetModal(pet)}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeletePet(pet.myPetId)}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium">품종:</span> {pet.breed || "미등록"}
+                            </div>
+                            <div>
+                              <span className="font-medium">나이:</span> {pet.age ? `${pet.age}살` : "미등록"}
+                            </div>
+                            <div>
+                              <span className="font-medium">성별:</span> {
+                                pet.gender === "MALE" ? "수컷" : 
+                                pet.gender === "FEMALE" ? "암컷" : "미등록"
+                              }
+                            </div>
+                            <div>
+                              <span className="font-medium">종류:</span> {pet.type || "미등록"}
+                            </div>
+                            {pet.weight && (
+                              <div>
+                                <span className="font-medium">체중:</span> {pet.weight}kg
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -309,7 +514,17 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
               </div>
             ) : (
               <Card className="p-6 text-center text-gray-500">
-                <p>등록된 펫 정보가 없습니다.</p>
+                <div className="space-y-4">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                    <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">등록된 펫이 없습니다</h3>
+                    <p className="text-gray-500">반려동물을 등록하여 관리해보세요!</p>
+                  </div>
+                </div>
               </Card>
             )}
           </TabsContent>
@@ -572,6 +787,150 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
               </Button>
               <Button onClick={handleUpdateRequest}>
                 수정 완료
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 펫 등록/수정 모달 */}
+      <Dialog open={showPetModal} onOpenChange={setShowPetModal}>
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{selectedPet ? "펫 정보 수정" : "펫 등록"}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClosePetModal}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {/* 기본 정보 */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="petName">펫 이름 *</Label>
+                <Input
+                  id="petName"
+                  value={petForm.name}
+                  onChange={(e) => setPetForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="펫 이름을 입력하세요"
+                />
+              </div>
+              <div>
+                <Label htmlFor="petBreed">품종</Label>
+                <Input
+                  id="petBreed"
+                  value={petForm.breed}
+                  onChange={(e) => setPetForm(prev => ({ ...prev, breed: e.target.value }))}
+                  placeholder="품종을 입력하세요"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="petAge">나이</Label>
+                <Input
+                  id="petAge"
+                  type="number"
+                  value={petForm.age || ""}
+                  onChange={(e) => setPetForm(prev => ({ ...prev, age: e.target.value ? parseInt(e.target.value) : undefined }))}
+                  placeholder="나이"
+                />
+              </div>
+              <div>
+                <Label htmlFor="petGender">성별</Label>
+                <Select value={petForm.gender} onValueChange={(value) => setPetForm(prev => ({ ...prev, gender: value as any }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="성별 선택" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="MALE">수컷</SelectItem>
+                    <SelectItem value="FEMALE">암컷</SelectItem>
+                    <SelectItem value="UNKNOWN">미상</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="petType">종류</Label>
+                <Input
+                  id="petType"
+                  value={petForm.type}
+                  onChange={(e) => setPetForm(prev => ({ ...prev, type: e.target.value }))}
+                  placeholder="강아지, 고양이 등"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="petWeight">체중 (kg)</Label>
+              <Input
+                id="petWeight"
+                type="number"
+                step="0.1"
+                value={petForm.weight || ""}
+                onChange={(e) => setPetForm(prev => ({ ...prev, weight: e.target.value ? parseFloat(e.target.value) : undefined }))}
+                placeholder="체중"
+              />
+            </div>
+
+            {/* 이미지 업로드 */}
+            <div>
+              <Label>펫 사진</Label>
+              <div className="mt-2 space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="file"
+                    id="petImage"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <label htmlFor="petImage" className="cursor-pointer">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="flex items-center space-x-2"
+                      onClick={() => {
+                        const fileInput = document.getElementById('petImage') as HTMLInputElement;
+                        if (fileInput) {
+                          fileInput.click();
+                        }
+                      }}
+                    >
+                      <Camera className="h-4 w-4" />
+                      <span>사진 선택</span>
+                    </Button>
+                  </label>
+                </div>
+                {imagePreview && (
+                  <div className="relative w-32 h-32 border rounded-lg overflow-hidden">
+                    <Image
+                      src={imagePreview}
+                      alt="펫 사진 미리보기"
+                      fill
+                      className="rounded-lg object-cover"
+                    />
+                  </div>
+                )}
+                {!imagePreview && (
+                  <div className="text-sm text-gray-500">
+                    사진을 선택하면 여기에 미리보기가 표시됩니다.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={handleClosePetModal}>
+                취소
+              </Button>
+              <Button onClick={handleSavePet} disabled={!petForm.name}>
+                {selectedPet ? "수정 완료" : "등록 완료"}
               </Button>
             </div>
           </div>

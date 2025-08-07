@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
@@ -34,42 +35,153 @@ public class S3Service {
     }
 
     // S3 파일 업로드 메서드
-    public String uploadFile(String fileName, byte[] fileData) {
+    public String uploadFile(String originalFileName, byte[] fileData) {
         try {
             if (s3Client == null) {
                 log.warn("S3Client is null - returning mock URL");
-                return "https://mock-s3-bucket.s3.amazonaws.com/" + fileName;
+                String uuidFileName = generateFileName(originalFileName);
+                return "https://mock-s3-bucket.s3.amazonaws.com/" + uuidFileName;
             }
             
-            // 실제 S3 업로드 로직 구현
-            log.info("Uploading file: {} to S3 bucket: {}", fileName, bucketName);
+            // UUID를 사용한 파일명 생성
+            String uuidFileName = generateFileName(originalFileName);
+            log.info("Uploading file: {} (UUID: {}) to S3 bucket: {}", originalFileName, uuidFileName, bucketName);
             
             // 실제 S3 업로드 코드 (AWS SDK v2 사용)
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                 .bucket(bucketName)
-                .key(fileName)
+                .key(uuidFileName)
                 .contentType("image/jpeg")
                 .build();
             
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileData));
             
             // 실제 S3 URL 반환
-            return "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + fileName;
+            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + uuidFileName;
+            log.info("S3 업로드 성공: {}", s3Url);
+            return s3Url;
         } catch (Exception e) {
             log.error("Failed to upload file to S3: {}", e.getMessage());
             throw new RuntimeException("S3 upload failed", e);
         }
     }
 
-    // Base64 이미지 업로드 메서드
+    // MultipartFile 업로드 메서드
+    public String uploadFile(MultipartFile file) {
+        try {
+            if (s3Client == null) {
+                log.warn("S3Client is null - returning mock URL");
+                String uuidFileName = generateFileName(file.getOriginalFilename());
+                return "https://mock-s3-bucket.s3.amazonaws.com/" + uuidFileName;
+            }
+            
+            String originalFileName = file.getOriginalFilename();
+            byte[] fileData = file.getBytes();
+            
+            // UUID를 사용한 파일명 생성
+            String uuidFileName = generateFileName(originalFileName);
+            log.info("Uploading file: {} (UUID: {}) to S3 bucket: {}", originalFileName, uuidFileName, bucketName);
+            
+            // 실제 S3 업로드 코드 (AWS SDK v2 사용)
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(uuidFileName)
+                .contentType(file.getContentType())
+                .build();
+            
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileData));
+            
+            // 실제 S3 URL 반환
+            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + uuidFileName;
+            log.info("S3 업로드 성공: {}", s3Url);
+            return s3Url;
+        } catch (Exception e) {
+            log.error("Failed to upload file to S3: {}", e.getMessage());
+            throw new RuntimeException("S3 upload failed", e);
+        }
+    }
+
+    // MyPet 전용 이미지 업로드 메서드 (/mypet 폴더에 저장)
+    public String uploadMyPetImage(MultipartFile file) {
+        try {
+            if (s3Client == null) {
+                log.warn("S3Client is null - returning mock URL");
+                String uuidFileName = generateFileName(file.getOriginalFilename());
+                return "https://mock-s3-bucket.s3.amazonaws.com/mypet/" + uuidFileName;
+            }
+            
+            String originalFileName = file.getOriginalFilename();
+            byte[] fileData = file.getBytes();
+            
+            // UUID를 사용한 파일명 생성
+            String uuidFileName = generateFileName(originalFileName);
+            String mypetKey = "mypet/" + uuidFileName;
+            log.info("Uploading MyPet image: {} (UUID: {}) to S3 bucket: {} in mypet folder", originalFileName, uuidFileName, bucketName);
+            
+            // 실제 S3 업로드 코드 (AWS SDK v2 사용)
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(mypetKey)
+                .contentType(file.getContentType())
+                .build();
+            
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileData));
+            
+            // 실제 S3 URL 반환
+            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + mypetKey;
+            log.info("MyPet S3 업로드 성공: {}", s3Url);
+            return s3Url;
+        } catch (Exception e) {
+            log.error("Failed to upload MyPet image to S3: {}", e.getMessage());
+            throw new RuntimeException("MyPet S3 upload failed", e);
+        }
+    }
+
+    // 입양 펫 전용 이미지 업로드 메서드 (/adoption 폴더에 저장)
+    public String uploadAdoptionPetImage(MultipartFile file) {
+        try {
+            if (s3Client == null) {
+                log.warn("S3Client is null - returning mock URL");
+                String uuidFileName = generateFileName(file.getOriginalFilename());
+                return "https://mock-s3-bucket.s3.amazonaws.com/adoption/" + uuidFileName;
+            }
+            
+            String originalFileName = file.getOriginalFilename();
+            byte[] fileData = file.getBytes();
+            
+            // UUID를 사용한 파일명 생성
+            String uuidFileName = generateFileName(originalFileName);
+            String adoptionKey = "adoption/" + uuidFileName;
+            log.info("Uploading Adoption Pet image: {} (UUID: {}) to S3 bucket: {} in adoption folder", originalFileName, uuidFileName, bucketName);
+            
+            // 실제 S3 업로드 코드 (AWS SDK v2 사용)
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                .bucket(bucketName)
+                .key(adoptionKey)
+                .contentType(file.getContentType())
+                .build();
+            
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileData));
+            
+            // 실제 S3 URL 반환
+            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + adoptionKey;
+            log.info("Adoption Pet S3 업로드 성공: {}", s3Url);
+            return s3Url;
+        } catch (Exception e) {
+            log.error("Failed to upload Adoption Pet image to S3: {}", e.getMessage());
+            throw new RuntimeException("Adoption Pet S3 upload failed", e);
+        }
+    }
+
+    // Base64 이미지 업로드 메서드 (입양 펫용 - /adoption 폴더에 저장)
     public String uploadBase64Image(String base64Image) {
         try {
-            log.info("=== S3 Base64 이미지 업로드 시작 ===");
+            log.info("=== S3 Base64 이미지 업로드 시작 (입양 펫용) ===");
             log.info("Bucket: {}", bucketName);
 
             if (s3Client == null) {
                 log.warn("S3Client is null - returning mock URL");
-                return "https://mock-s3-bucket.s3.amazonaws.com/image.jpg";
+                return "https://mock-s3-bucket.s3.amazonaws.com/adoption/image.jpg";
             }
 
             // Base64 데이터에서 실제 이미지 데이터 추출
@@ -83,25 +195,26 @@ public class S3Service {
             byte[] imageBytes = java.util.Base64.getDecoder().decode(imageData);
             log.info("이미지 크기: {} bytes", imageBytes.length);
 
-            // 파일명 생성
+            // 파일명 생성 (/adoption 폴더에 저장)
             String fileName = generateFileName("image.jpg");
-            log.info("생성된 파일명: {}", fileName);
+            String adoptionKey = "adoption/" + fileName;
+            log.info("생성된 파일명: {}", adoptionKey);
 
             // S3에 업로드
             PutObjectRequest putObjectRequest = PutObjectRequest.builder()
                     .bucket(bucketName)
-                    .key(fileName)
+                    .key(adoptionKey)
                     .contentType("image/jpeg")
                     .build();
 
             s3Client.putObject(putObjectRequest, RequestBody.fromBytes(imageBytes));
 
-            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + fileName;
-            log.info("S3 업로드 성공: {}", s3Url);
+            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + adoptionKey;
+            log.info("S3 Base64 업로드 성공 (입양 펫): {}", s3Url);
             return s3Url;
         } catch (Exception e) {
-            log.error("S3 업로드 실패: {}", e.getMessage());
-            throw new RuntimeException("S3 upload failed", e);
+            log.error("S3 Base64 업로드 실패: {}", e.getMessage());
+            throw new RuntimeException("S3 Base64 upload failed", e);
         }
     }
 
@@ -135,6 +248,31 @@ public class S3Service {
         } catch (Exception e) {
             log.error("Failed to delete file from S3: {}", e.getMessage());
             throw new RuntimeException("S3 delete failed", e);
+        }
+    }
+
+    // 입양 펫 이미지 삭제 메서드 (/adoption 폴더에서 삭제)
+    public void deleteAdoptionPetImage(String fileName) {
+        try {
+            if (s3Client == null) {
+                log.warn("S3Client is null - cannot delete adoption pet image: {}", fileName);
+                return;
+            }
+            
+            // /adoption 폴더에서 삭제
+            String adoptionKey = "adoption/" + fileName;
+            log.info("Deleting adoption pet image from S3: {}", adoptionKey);
+            
+            DeleteObjectRequest deleteObjectRequest = DeleteObjectRequest.builder()
+                .bucket(bucketName)
+                .key(adoptionKey)
+                .build();
+            
+            s3Client.deleteObject(deleteObjectRequest);
+            log.info("Adoption pet image deleted successfully from S3: {}", adoptionKey);
+        } catch (Exception e) {
+            log.error("Failed to delete adoption pet image from S3: {}", e.getMessage());
+            throw new RuntimeException("Adoption pet S3 delete failed", e);
         }
     }
 } 

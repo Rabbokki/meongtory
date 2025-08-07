@@ -5,8 +5,6 @@ import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDate;
-
 @Getter
 @Setter
 public class AccountRegisterRequestDto {
@@ -27,6 +25,7 @@ public class AccountRegisterRequestDto {
 
     private String role; // ADMIN 또는 USER
 
+    // 회원가입 시 펫 정보 (MyPet 테이블에 저장됨)
     private PetType pet;
     private String petAge;
     private String petBreeds;

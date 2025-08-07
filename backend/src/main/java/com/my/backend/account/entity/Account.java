@@ -1,6 +1,7 @@
 package com.my.backend.account.entity;
 
 import com.my.backend.account.dto.AccountRegisterRequestDto;
+import com.my.backend.pet.entity.MyPet;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -34,29 +35,21 @@ public class Account extends BaseEntity {
     @Column(nullable = false)
     private String role;
 
-    @Enumerated(EnumType.STRING)
-    private PetType pet;
-
-    @Column(nullable = true)
-    private String petAge;
-
-    @Column(nullable = true)
-    private String petBreeds;
-
     @Column(nullable = true)
     private String provider;
 
     @Column(nullable = true)
     private String providerId;
 
+    // MyPet과의 관계 설정
+    @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<MyPet> myPets = new ArrayList<>();
+
     public Account(AccountRegisterRequestDto requestDto) {
         this.name = requestDto.getName();
         this.email = requestDto.getEmail();
         this.password = requestDto.getPassword();
         this.role = requestDto.getRole() != null ? requestDto.getRole() : "USER";
-        this.pet = requestDto.getPet();
-        this.petAge = requestDto.getPetAge();
-        this.petBreeds = requestDto.getPetBreeds();
     }
 
     // Google 로그인

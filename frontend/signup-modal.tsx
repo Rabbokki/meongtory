@@ -64,7 +64,7 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
         name,
         email,
         password,
-        pet: petType || null, // "강아지" 또는 "고양이" 전송
+        pet: petType === "강아지" ? "DOG" : petType === "고양이" ? "CAT" : null,
         petAge: petAge || null,
         petBreeds: petBreed || null,
       }, {

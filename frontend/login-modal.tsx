@@ -9,15 +9,16 @@ import { Label } from "@/components/ui/label";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import LogoutButton from "./components/ui/LogoutButton";
+
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSwitchToSignup: () => void;
+  onLoginSuccess?: () => void;
 }
 
-export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginSuccess }: LoginModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,6 +40,11 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
           setUserEmail(email);
           setIsLoggedIn(true);
           toast.success("OAuth 로그인 되었습니다");
+          
+          // 부모 컴포넌트에 로그인 성공 알림
+          if (onLoginSuccess) {
+            onLoginSuccess();
+          }
         })
         .catch(() => {
           localStorage.removeItem("accessToken");
@@ -82,6 +88,12 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
       setUserEmail(email);
       setIsLoggedIn(true);
       toast.success("로그인 성공");
+      
+      // 부모 컴포넌트에 로그인 성공 알림
+      if (onLoginSuccess) {
+        onLoginSuccess();
+      }
+      
       onClose();
     } catch (err: any) {
       if (err.response && err.response.data) {
@@ -107,22 +119,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
     setPassword("Test1234!");
   };
 
-  if (!isOpen && !isLoggedIn) {
-    return (
-      <div className="p-4">
-        <Button onClick={onClose}>로그인</Button>
-      </div>
-    );
-  }
-
-  if (isLoggedIn) {
-    return (
-      <div className="p-4">
-        <p>환영합니다, {userEmail}!</p>
-        <LogoutButton onLogout={handleLogout} />
-      </div>
-    );
-  }
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

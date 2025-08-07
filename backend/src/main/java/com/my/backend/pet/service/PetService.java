@@ -109,14 +109,14 @@ public class PetService {
                 pet.setImageUrl(s3ImageUrl);
                 log.info("S3 업로드 완료: {}", s3ImageUrl);
                 
-                // 기존 S3 이미지가 있으면 삭제
+                // 기존 S3 이미지가 있으면 삭제 (입양 펫용)
                 if (oldImageUrl != null && oldImageUrl.startsWith("https://")) {
                     try {
                         String fileName = oldImageUrl.substring(oldImageUrl.lastIndexOf("/") + 1);
-                        s3Service.deleteFile(fileName);
-                        log.info("기존 S3 이미지 삭제 완료: {}", fileName);
+                        s3Service.deleteAdoptionPetImage(fileName);
+                        log.info("기존 입양 펫 S3 이미지 삭제 완료: {}", fileName);
                     } catch (Exception e) {
-                        log.error("기존 S3 이미지 삭제 실패: {}", e.getMessage());
+                        log.error("기존 입양 펫 S3 이미지 삭제 실패: {}", e.getMessage());
                     }
                 }
             } catch (Exception e) {
@@ -179,15 +179,15 @@ public class PetService {
             throw new RuntimeException("입양신청 삭제 중 오류가 발생했습니다: " + e.getMessage());
         }
         
-        // S3 이미지 삭제
+        // S3 이미지 삭제 (입양 펫용)
         if (pet.getImageUrl() != null && pet.getImageUrl().startsWith("https://")) {
             try {
                 // URL에서 파일명 추출
                 String fileName = pet.getImageUrl().substring(pet.getImageUrl().lastIndexOf("/") + 1);
-                s3Service.deleteFile(fileName);
-                log.info("S3 이미지 삭제 완료: {}", fileName);
+                s3Service.deleteAdoptionPetImage(fileName);
+                log.info("입양 펫 S3 이미지 삭제 완료: {}", fileName);
             } catch (Exception e) {
-                log.error("S3 이미지 삭제 실패: {}", e.getMessage());
+                log.error("입양 펫 S3 이미지 삭제 실패: {}", e.getMessage());
                 // 삭제 실패해도 계속 진행
             }
         }

@@ -16,10 +16,10 @@ public class S3UploadController {
     @PostMapping("/upload")
     public ResponseEntity<String> uploadFile(@RequestParam("file") MultipartFile file) {
         try {
-            String fileName = file.getOriginalFilename();
+            String originalFileName = file.getOriginalFilename();
             byte[] fileData = file.getBytes();
             
-            String fileUrl = s3Service.uploadFile(fileName, fileData);
+            String fileUrl = s3Service.uploadFile(originalFileName, fileData);
             return ResponseEntity.ok(fileUrl);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("File upload failed: " + e.getMessage());

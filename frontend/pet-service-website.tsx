@@ -241,6 +241,7 @@ function NavigationHeader({
   onLogout: () => void
   onNavigateToMyPage: () => void
 }) {
+  console.log("NavigationHeader 렌더링 - isLoggedIn:", isLoggedIn, "isAdmin:", isAdmin)
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
@@ -391,6 +392,11 @@ export default function PetServiceWebsite() {
   const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // currentPage 상태 변경 감지
+  useEffect(() => {
+    console.log("currentPage 상태 변경됨:", currentPage)
+  }, [currentPage])
+
   // Check initial login state and fetch user info
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -470,7 +476,9 @@ export default function PetServiceWebsite() {
 
       const fetchUserInfo = async () => {
         try {
+          console.log("OAuth 사용자 정보 조회 시작...")
           const response = await axios.get("http://localhost:8080/api/accounts/me")
+          console.log("OAuth 사용자 정보 응답:", response)
           const { id, email, name, role } = response.data.data
           setCurrentUser({ id, email, name })
           setIsLoggedIn(true)
@@ -524,12 +532,25 @@ export default function PetServiceWebsite() {
 
       localStorage.setItem("accessToken", accessToken)
       localStorage.setItem("refreshToken", refreshToken)
-      setCurrentUser({ id: user.id, email: user.email, name: user.name })
+      
+      // 상태 업데이트를 동기적으로 처리
+      const userInfo = { id: user.id, email: user.email, name: user.name }
+      const isAdminUser = user.role === "ADMIN"
+      
+      // 모든 상태를 한 번에 업데이트
+      setCurrentUser(userInfo)
       setIsLoggedIn(true)
-      setIsAdmin(user.role === "ADMIN")
+      setIsAdmin(isAdminUser)
       setShowLoginModal(false)
+      
+      // 즉시 toast 표시
       toast.success("로그인 되었습니다", { duration: 5000 })
-      setCurrentPage(user.role === "ADMIN" ? "admin" : "home")
+      
+      // 페이지 변경도 즉시 실행
+      setCurrentPage(isAdminUser ? "admin" : "home")
+      
+      console.log("로그인 완료 - 상태 업데이트됨:", { userInfo, isLoggedIn: true, isAdmin: isAdminUser })
+      
     } catch (err: any) {
       console.error("로그인 실패:", err.response?.data?.message || err.message)
       const errorMessage =
@@ -625,16 +646,10 @@ export default function PetServiceWebsite() {
     }
 
     try {
-      const currentUserId = currentUser?.id || 1
-      const url = `/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      const url = `/api/carts?productId=${product.id}&quantity=1`
+      const response = await axios.post(url, null, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" }
       })
-
-      if (!response.ok) {
-        throw new Error(`장바구니 추가에 실패했습니다. (${response.status})`)
-      }
 
       await fetchCartItems()
       toast.success(`${product.name}을(를) 장바구니에 추가했습니다`, { duration: 5000 })
@@ -652,26 +667,42 @@ export default function PetServiceWebsite() {
   const fetchCartItems = async () => {
     if (!isLoggedIn) return
 
-    const currentUserId = currentUser?.id || 1
     try {
-      const response = await fetch(`/api/carts/${currentUserId}`)
-      if (!response.ok) {
-        throw new Error("장바구니 조회에 실패했습니다.")
+      const response = await axios.get(`/api/carts/my`)
+      const cartData = response.data
+      
+      // cartData가 배열인지 확인하고, 응답 구조에 따라 적절히 처리
+      let cartItems: CartItem[] = []
+      
+      if (Array.isArray(cartData)) {
+        cartItems = cartData
+          .sort((a: any, b: any) => a.cartId - b.cartId)
+          .map((item: any, index: number) => ({
+            id: item.cartId,
+            name: item.product.name,
+            brand: item.product.brand || "브랜드 없음",
+            price: item.product.price,
+            image: item.product.imageUrl || "/placeholder.svg",
+            category: item.product.category,
+            quantity: item.quantity,
+            order: index,
+          }))
+      } else if (cartData && Array.isArray(cartData.data)) {
+        // 백엔드에서 ResponseDto로 감싸서 보내는 경우
+        cartItems = cartData.data
+          .sort((a: any, b: any) => a.cartId - b.cartId)
+          .map((item: any, index: number) => ({
+            id: item.cartId,
+            name: item.product.name,
+            brand: item.product.brand || "브랜드 없음",
+            price: item.product.price,
+            image: item.product.imageUrl || "/placeholder.svg",
+            category: item.product.category,
+            quantity: item.quantity,
+            order: index,
+          }))
       }
-
-      const cartData = await response.json()
-      const cartItems: CartItem[] = cartData
-        .sort((a: any, b: any) => a.cartId - b.cartId)
-        .map((item: any, index: number) => ({
-          id: item.cartId,
-          name: item.product.name,
-          brand: item.product.brand || "브랜드 없음",
-          price: item.product.price,
-          image: item.product.imageUrl || "/placeholder.svg",
-          category: item.product.category,
-          quantity: item.quantity,
-          order: index,
-        }))
+      
       setCart(cartItems)
     } catch (error) {
       console.error("장바구니 조회 오류:", error)
@@ -681,8 +712,20 @@ export default function PetServiceWebsite() {
 
   const handleRemoveFromCart = async (cartId: number) => {
     try {
+      const accessToken = localStorage.getItem("accessToken")
+      const refreshToken = localStorage.getItem("refreshToken")
+      
+      const headers: any = {}
+      if (accessToken) {
+        headers["Access_Token"] = accessToken
+      }
+      if (refreshToken) {
+        headers["Refresh_Token"] = refreshToken
+      }
+      
       const response = await fetch(`/api/carts/${cartId}`, {
         method: "DELETE",
+        headers,
       })
 
       if (!response.ok) {
@@ -699,8 +742,20 @@ export default function PetServiceWebsite() {
 
   const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
     try {
+      const accessToken = localStorage.getItem("accessToken")
+      const refreshToken = localStorage.getItem("refreshToken")
+      
+      const headers: any = {}
+      if (accessToken) {
+        headers["Access_Token"] = accessToken
+      }
+      if (refreshToken) {
+        headers["Refresh_Token"] = refreshToken
+      }
+      
       const response = await fetch(`/api/carts/${cartId}?quantity=${quantity}`, {
         method: "PUT",
+        headers,
       })
 
       if (!response.ok) {
@@ -721,11 +776,22 @@ export default function PetServiceWebsite() {
     }
   }, [isLoggedIn])
 
-  const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
+  const createOrder = async (orderData: { totalPrice: number }) => {
     try {
+      const accessToken = localStorage.getItem("accessToken")
+      const refreshToken = localStorage.getItem("refreshToken")
+      
+      const headers: any = { "Content-Type": "application/json" }
+      if (accessToken) {
+        headers["Access_Token"] = accessToken
+      }
+      if (refreshToken) {
+        headers["Refresh_Token"] = refreshToken
+      }
+      
       const response = await fetch("/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify(orderData),
       })
 
@@ -752,8 +818,20 @@ export default function PetServiceWebsite() {
     }
 
     try {
+      const accessToken = localStorage.getItem("accessToken")
+      const refreshToken = localStorage.getItem("refreshToken")
+      
+      const headers: any = {}
+      if (accessToken) {
+        headers["Access_Token"] = accessToken
+      }
+      if (refreshToken) {
+        headers["Refresh_Token"] = refreshToken
+      }
+      
       const response = await fetch(`/api/orders/purchase-all/${currentUser.id}`, {
         method: "POST",
+        headers,
       })
 
       if (!response.ok) {
@@ -776,7 +854,18 @@ export default function PetServiceWebsite() {
     if (!isLoggedIn || !currentUser) return
 
     try {
-      const response = await fetch(`/api/orders/user/${currentUser.id}`)
+      const accessToken = localStorage.getItem("accessToken")
+      const refreshToken = localStorage.getItem("refreshToken")
+      
+      const headers: any = {}
+      if (accessToken) {
+        headers["Access_Token"] = accessToken
+      }
+      if (refreshToken) {
+        headers["Refresh_Token"] = refreshToken
+      }
+      
+      const response = await fetch(`/api/orders/user/${currentUser.id}`, { headers })
       if (!response.ok) {
         throw new Error("주문 조회에 실패했습니다.")
       }
@@ -821,8 +910,20 @@ export default function PetServiceWebsite() {
 
   const deleteOrder = async (orderId: number) => {
     try {
+      const accessToken = localStorage.getItem("accessToken")
+      const refreshToken = localStorage.getItem("refreshToken")
+      
+      const headers: any = {}
+      if (accessToken) {
+        headers["Access_Token"] = accessToken
+      }
+      if (refreshToken) {
+        headers["Refresh_Token"] = refreshToken
+      }
+      
       const response = await fetch(`/api/orders/${orderId}`, {
         method: "DELETE",
+        headers,
       })
 
       if (!response.ok) {
@@ -839,8 +940,20 @@ export default function PetServiceWebsite() {
 
   const updatePaymentStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
     try {
+      const accessToken = localStorage.getItem("accessToken")
+      const refreshToken = localStorage.getItem("refreshToken")
+      
+      const headers: any = {}
+      if (accessToken) {
+        headers["Access_Token"] = accessToken
+      }
+      if (refreshToken) {
+        headers["Refresh_Token"] = refreshToken
+      }
+      
       const response = await fetch(`/api/orders/${orderId}/status?status=${status}`, {
         method: "PUT",
+        headers,
       })
 
       if (!response.ok) {
@@ -1136,7 +1249,10 @@ export default function PetServiceWebsite() {
 
   // Render current page
   const renderCurrentPage = () => {
+    console.log("renderCurrentPage 호출됨, currentPage:", currentPage)
+    
     if (isLoading) {
+      console.log("로딩 중...")
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <p className="text-gray-600">로딩 중...</p>
@@ -1463,6 +1579,8 @@ export default function PetServiceWebsite() {
 
 
       case "myPage":
+        console.log("myPage case 실행됨")
+        console.log("currentUser:", currentUser)
         return (
           <MyPage
             currentUser={currentUser}
@@ -1594,7 +1712,7 @@ export default function PetServiceWebsite() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Toaster position="top-right" />
+      <Toaster position="bottom-right" />
       <NavigationHeader
         currentPage={currentPage}
         onNavigate={setCurrentPage}
@@ -1602,7 +1720,17 @@ export default function PetServiceWebsite() {
         isAdmin={isAdmin}
         onLogin={() => setShowLoginModal(true)}
         onLogout={handleLogout}
-        onNavigateToMyPage={() => setCurrentPage("myPage")}
+        onNavigateToMyPage={() => {
+          console.log("마이페이지 버튼 클릭됨")
+          console.log("현재 페이지:", currentPage)
+          setCurrentPage("myPage")
+          console.log("페이지를 myPage로 설정함")
+          
+          // 상태 변경 확인을 위한 setTimeout
+          setTimeout(() => {
+            console.log("setTimeout 후 현재 페이지:", currentPage)
+          }, 100)
+        }}
       />
 
       {renderCurrentPage()}
@@ -1613,10 +1741,39 @@ export default function PetServiceWebsite() {
         <LoginModal
           isOpen={showLoginModal}
           onClose={() => setShowLoginModal(false)}
-          onLogin={handleLogin}
           onSwitchToSignup={() => {
             setShowLoginModal(false)
             setShowSignupModal(true)
+          }}
+          onLoginSuccess={async () => {
+            console.log("LoginModal에서 로그인 성공 알림 받음")
+            // 모달 명시적으로 닫기
+            setShowLoginModal(false)
+            // 로그인 상태 강제 업데이트
+            setIsLoggedIn(true)
+            
+            // 사용자 정보 즉시 가져와서 isAdmin 상태 설정
+            try {
+              const accessToken = localStorage.getItem("accessToken")
+              if (accessToken) {
+                const response = await axios.get("http://localhost:8080/api/accounts/me", {
+                  headers: { "Access_Token": accessToken },
+                })
+                const { id, email, name, role } = response.data.data
+                setCurrentUser({ id, email, name })
+                setIsAdmin(role === "ADMIN")
+                console.log("로그인 후 사용자 정보 업데이트:", { id, email, name, role })
+              }
+            } catch (err) {
+              console.error("로그인 후 사용자 정보 조회 실패:", err)
+            }
+          }}
+          onLogoutSuccess={() => {
+            console.log("LoginModal에서 로그아웃 성공 알림 받음")
+            // 로그아웃 상태 강제 업데이트
+            setIsLoggedIn(false)
+            setIsAdmin(false)
+            setCurrentUser(null)
           }}
         />
       )}
