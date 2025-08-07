@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CreditCard, ShoppingCart, Shield, Sparkles, Package, CheckCircle } from "lucide-react";
 
 declare global {
   interface Window {
@@ -138,87 +138,204 @@ const PaymentPage: React.FC<PaymentPageProps> = ({
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <div className="max-w-2xl mx-auto">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-4">
-              {onBack && (
-                <Button variant="ghost" onClick={onBack} size="sm">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  돌아가기
-                </Button>
-              )}
-              <CardTitle className="text-2xl font-bold">
-                결제하기
-              </CardTitle>
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50">
+      {/* 배경 장식 */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-yellow-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+      </div>
+
+      <div className="relative container mx-auto p-6">
+        <div className="max-w-4xl mx-auto">
+          {/* 헤더 */}
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="p-3 bg-yellow-100 rounded-full">
+                <CreditCard className="w-8 h-8 text-yellow-600" />
+              </div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+                안전한 결제
+              </h1>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* 주문 상품 목록 */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">주문 상품</h3>
-              <div className="space-y-2">
-                {items.map((item, index) => (
-                  <div key={item.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      {item.image && (
-                        <img 
-                          src={item.image} 
-                          alt={item.name} 
-                          className="w-12 h-12 object-cover rounded"
-                        />
-                      )}
-                      <div>
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-gray-600">
-                          {item.price.toLocaleString()}원 × {item.quantity}개
-                        </p>
+            <p className="text-gray-600 text-lg">토스페이먼츠로 안전하고 간편하게 결제하세요</p>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            {/* 주문 상품 정보 */}
+            <div className="lg:col-span-2">
+              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b">
+                  <div className="flex items-center gap-3">
+                    <ShoppingCart className="w-6 h-6 text-yellow-600" />
+                    <CardTitle className="text-xl font-bold">주문 상품</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="space-y-4">
+                    {items.map((item, index) => (
+                      <div 
+                        key={item.id} 
+                        className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl border border-gray-200 hover:shadow-md transition-all duration-300"
+                      >
+                        <div className="flex items-center gap-4">
+                          {item.image ? (
+                            <img 
+                              src={item.image} 
+                              alt={item.name} 
+                              className="w-16 h-16 object-cover rounded-lg shadow-sm"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-lg flex items-center justify-center">
+                              <Package className="w-8 h-8 text-yellow-600" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-gray-800">{item.name}</p>
+                            <p className="text-sm text-gray-600">
+                              {item.price.toLocaleString()}원 × {item.quantity}개
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-lg text-gray-800">
+                            {(item.price * item.quantity).toLocaleString()}원
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* 총 금액 */}
+                  <div className="mt-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold text-gray-700">총 결제 금액</span>
+                      <div className="text-right">
+                        <span className="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+                          {totalAmount.toLocaleString()}원
+                        </span>
                       </div>
                     </div>
-                    <p className="font-bold">
-                      {(item.price * item.quantity).toLocaleString()}원
-                    </p>
                   </div>
-                ))}
-              </div>
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">총 결제 금액</span>
-                  <span className="text-2xl font-bold text-yellow-600">
-                    {totalAmount.toLocaleString()}원
-                  </span>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
 
-            {/* 주문 ID 입력 */}
-            <div className="space-y-2">
-              <Label htmlFor="orderId">주문 ID</Label>
-              <Input
-                id="orderId"
-                type="text"
-                placeholder="주문 ID를 입력하세요"
-                value={orderId}
-                onChange={(e) => setOrderId(e.target.value)}
-              />
-            </div>
+            {/* 결제 정보 */}
+            <div className="lg:col-span-1">
+              <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                <CardHeader className="bg-gradient-to-r from-yellow-50 to-orange-50 border-b">
+                  <div className="flex items-center gap-3">
+                    <Shield className="w-6 h-6 text-yellow-600" />
+                    <CardTitle className="text-xl font-bold">결제 정보</CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  {/* 주문 ID */}
+                  <div className="space-y-2">
+                    <Label htmlFor="orderId" className="text-sm font-medium text-gray-700">
+                      주문 ID
+                    </Label>
+                    <Input
+                      id="orderId"
+                      type="text"
+                      placeholder="주문 ID를 입력하세요"
+                      value={orderId}
+                      onChange={(e) => setOrderId(e.target.value)}
+                      className="border-gray-300 focus:border-yellow-500 focus:ring-yellow-500"
+                    />
+                  </div>
 
-            <Button
-              onClick={handlePayment}
-              disabled={loading || !sdkLoaded}
-              className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
-            >
-              {loading ? "결제 처리 중..." : !sdkLoaded ? "SDK 로딩 중..." : "결제하기"}
-            </Button>
+                  {/* 결제 버튼 */}
+                  <Button
+                    onClick={handlePayment}
+                    disabled={loading || !sdkLoaded}
+                    className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                        결제 처리 중...
+                      </div>
+                    ) : !sdkLoaded ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                        SDK 로딩 중...
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-5 h-5" />
+                        결제하기
+                      </div>
+                    )}
+                  </Button>
 
-            <div className="text-sm text-gray-500 text-center">
-              <p>실제 결제 시스템입니다.</p>
-              <p>결제 시 실제 금액이 청구됩니다.</p>
+                  {/* 안전 결제 안내 */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-green-800">
+                        <p className="font-medium mb-1">안전한 결제</p>
+                        <p className="text-green-700">토스페이먼츠의 보안 시스템으로 안전하게 결제됩니다.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 뒤로가기 버튼 */}
+                  {onBack && (
+                    <Button 
+                      variant="outline" 
+                      onClick={onBack} 
+                      className="w-full border-gray-300 text-gray-700 hover:bg-gray-50"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      돌아가기
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          {/* 하단 안내 */}
+          <div className="mt-8 text-center">
+            <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 border border-gray-200">
+              <p className="text-sm text-gray-600 mb-2">
+                💳 실제 결제 시스템입니다. 결제 시 실제 금액이 청구됩니다.
+              </p>
+              <p className="text-xs text-gray-500">
+                토스페이먼츠는 한국의 대표적인 결제 서비스입니다.
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
+
+      <style jsx>{`
+        @keyframes blob {
+          0% {
+            transform: translate(0px, 0px) scale(1);
+          }
+          33% {
+            transform: translate(30px, -50px) scale(1.1);
+          }
+          66% {
+            transform: translate(-20px, 20px) scale(0.9);
+          }
+          100% {
+            transform: translate(0px, 0px) scale(1);
+          }
+        }
+        .animate-blob {
+          animation: blob 7s infinite;
+        }
+        .animation-delay-2000 {
+          animation-delay: 2s;
+        }
+        .animation-delay-4000 {
+          animation-delay: 4s;
+        }
+      `}</style>
     </div>
   );
 };
