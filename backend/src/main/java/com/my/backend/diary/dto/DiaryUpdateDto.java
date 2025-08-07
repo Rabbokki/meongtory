@@ -6,7 +6,9 @@ import lombok.Setter;
 @Getter
 @Setter
 public class DiaryUpdateDto {
+    private String title;
     private String text;
     private String audioUrl;
     private String imageUrl;
 }
+

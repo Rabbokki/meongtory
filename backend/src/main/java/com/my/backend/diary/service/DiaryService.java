@@ -22,20 +22,35 @@ public class DiaryService {
     public DiaryResponseDto createDiary(DiaryRequestDto dto) {
         Diary diary = new Diary();
         diary.setUserId(dto.getUserId());
+        diary.setTitle(dto.getTitle());
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
         diary.setImageUrl(dto.getImageUrl());
+
+        System.out.println("📝 Saving Diary Entity: title = " + diary.getTitle());
+
         return DiaryResponseDto.from(diaryRepository.save(diary));
     }
 
+    public DiaryResponseDto getDiary(Long id) {
+        Diary diary = diaryRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
+        
+        if (diary.getIsDeleted()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found");
+        }
+        
+        return DiaryResponseDto.from(diary);
+    }
+
     public List<DiaryResponseDto> getUserDiaries(Long userId) {
-        return diaryRepository.findByUserId(userId).stream()
+        return diaryRepository.findByUserIdAndIsDeletedFalse(userId).stream()
                 .map(DiaryResponseDto::from)
                 .collect(Collectors.toList());
     }
 
     public List<DiaryResponseDto> getAllDiaries() {
-        return diaryRepository.findAll().stream()
+        return diaryRepository.findByIsDeletedFalse().stream()
                 .map(DiaryResponseDto::from)
                 .collect(Collectors.toList());
     }
@@ -43,7 +58,12 @@ public class DiaryService {
     public DiaryResponseDto updateDiary(Long id, DiaryUpdateDto dto) {
         Diary diary = diaryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
+        
+        if (diary.getIsDeleted()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found");
+        }
 
+        diary.setTitle(dto.getTitle());
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
         diary.setImageUrl(dto.getImageUrl());
@@ -53,7 +73,13 @@ public class DiaryService {
     public void deleteDiary(Long id) {
         Diary diary = diaryRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found"));
+        
+        if (diary.getIsDeleted()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Diary not found");
+        }
 
-        diaryRepository.delete(diary);
+        // Soft Delete: isDeleted를 true로 설정
+        diary.setIsDeleted(true);
+        diaryRepository.save(diary);
     }
 }
