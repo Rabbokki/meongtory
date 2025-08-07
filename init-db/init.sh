@@ -1,1 +1,0 @@
-﻿#!/bin/bashcp /docker-entrypoint-initdb.d/pg_hba.conf /var/lib/postgresql/data/pg_hba.confchmod 600 /var/lib/postgresql/data/pg_hba.conf

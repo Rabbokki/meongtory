@@ -1,6 +1,6 @@
 import torch
 import torchvision.transforms as transforms
-from torchvision.models import efficientnet_b4, EfficientNet_B4_Weights
+from torchvision.models import resnet50, ResNet50_Weights
 from PIL import Image
 import torch.nn.functional as F
 from dog_breeds import DOG_BREEDS
@@ -8,13 +8,13 @@ from dog_breeds import DOG_BREEDS
 class DogBreedClassifier:
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.model = efficientnet_b4(weights=EfficientNet_B4_Weights.IMAGENET1K_V1)
+        self.model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
         self.model.eval()
         self.model.to(self.device)
         
         self.transform = transforms.Compose([
-            transforms.Resize(380),  # EfficientNet-B4는 더 큰 입력 크기 사용
-            transforms.CenterCrop(380),
+            transforms.Resize(256),
+            transforms.CenterCrop(224),  # ResNet-50 최적 입력 크기
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                std=[0.229, 0.224, 0.225])
