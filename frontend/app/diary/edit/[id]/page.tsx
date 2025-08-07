@@ -9,10 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { updateDiary, fetchDiaries, fetchDiary } from "@/lib/api/diary";
+import { updateDiary, fetchDiaries, fetchDiary, uploadImageToS3 } from "@/lib/api/diary";
 import { useToast } from "@/components/ui/use-toast";
 import type { DiaryEntry } from "@/diary";
-import { Mic, MicOff, Play, Pause, X, Camera, ChevronLeft } from "lucide-react";
+import { Mic, MicOff, Play, Pause, X, Camera, ChevronLeft, ImageIcon } from "lucide-react";
 
 export default function DiaryEditPage() {
   const router = useRouter();
@@ -27,10 +27,14 @@ export default function DiaryEditPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchEntry = async () => {
@@ -179,6 +183,27 @@ export default function DiaryEditPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedImageFile(file);
+      
+      // 미리보기 URL 생성
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+    }
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImageFile(null);
+    setImagePreview(null);
+    setImageUrl(null);
+  };
+
   const handleSave = async () => {
     if (!entry) return;
 
@@ -192,20 +217,47 @@ export default function DiaryEditPage() {
     }
 
     try {
+      let finalImageUrl = imageUrl;
+
+      // 새로 선택된 이미지가 있으면 S3에 업로드
+      if (selectedImageFile) {
+        setIsUploading(true);
+        toast({
+          title: "이미지 업로드 중",
+          description: "이미지를 업로드하고 있습니다...",
+        });
+
+        try {
+          console.log("Uploading image to S3:", selectedImageFile.name);
+          const uploadedUrl = await uploadImageToS3(selectedImageFile);
+          finalImageUrl = uploadedUrl;
+          console.log("Image uploaded successfully:", uploadedUrl);
+        } catch (error) {
+          console.error("이미지 업로드 실패:", error);
+          toast({
+            title: "이미지 업로드 실패",
+            description: "이미지 업로드 중 오류가 발생했습니다.",
+            variant: "destructive",
+          });
+          return;
+        } finally {
+          setIsUploading(false);
+        }
+      }
+
+      const updateData = {
+        title,
+        text: content,
+        imageUrl: finalImageUrl || null,
+        audioUrl: audioUrl || null,
+      };
+
       console.log("Saving entry:", {
         diaryId: entry.diaryId,
-        title,
-        text: content,
-        imageUrl,
-        audioUrl
+        updateData
       });
 
-      const result = await updateDiary(entry.diaryId, {
-        title,
-        text: content,
-        imageUrl: imageUrl || null,
-        audioUrl: audioUrl || null,
-      });
+      const result = await updateDiary(entry.diaryId, updateData);
 
       console.log("Diary updated successfully:", result);
       
@@ -216,8 +268,21 @@ export default function DiaryEditPage() {
       
       // 메인 페이지로 이동하면서 성장일기 탭 활성화
       router.push("/?page=diary");
-    } catch (err) {
+    } catch (err: any) {
       console.error("수정 실패:", err);
+      
+      // 인증 관련 에러 처리
+      if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
+        toast({
+          title: "로그인 필요",
+          description: "로그인이 필요합니다. 다시 로그인해주세요.",
+          variant: "destructive",
+        });
+        // 로그인 페이지로 이동
+        window.location.href = "/login";
+        return;
+      }
+      
       toast({
         title: "수정 실패",
         description: "수정 중 오류가 발생했습니다.",
@@ -292,17 +357,56 @@ export default function DiaryEditPage() {
             {/* Image Upload Section */}
             <div className="space-y-2">
               <Label htmlFor="image-upload">사진 첨부 (선택 사항)</Label>
-              <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400">
-                <Camera className="h-8 w-8" />
-                <span className="ml-2">사진 첨부는 추후 구현 예정</span>
+              <div className="flex items-center space-x-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleImageClick}
+                  disabled={isUploading}
+                  className="flex items-center space-x-2"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  <span>이미지 선택</span>
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                {(imagePreview || imageUrl) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRemoveImage}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    이미지 제거
+                  </Button>
+                )}
               </div>
-              {imageUrl && (
+              
+              {/* Image Preview */}
+              {(imagePreview || imageUrl) && (
                 <div className="mt-4">
                   <img
-                    src={imageUrl}
-                    alt="기존 이미지"
+                    src={imagePreview || imageUrl || ""}
+                    alt="이미지 미리보기"
                     className="w-full h-32 object-cover rounded-md"
                   />
+                </div>
+              )}
+              
+              {!imagePreview && !imageUrl && (
+                <div 
+                  className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-400 hover:text-gray-500 transition-colors"
+                  onClick={handleImageClick}
+                >
+                  <Camera className="h-8 w-8" />
+                  <span className="ml-2">이미지를 선택하세요</span>
                 </div>
               )}
             </div>
@@ -379,8 +483,8 @@ export default function DiaryEditPage() {
               <Button variant="outline" onClick={handleCancel}>
                 취소
               </Button>
-              <Button onClick={handleSave}>
-                수정 완료
+              <Button onClick={handleSave} disabled={isUploading}>
+                {isUploading ? "업로드 중..." : "수정 완료"}
               </Button>
             </div>
           </CardContent>

@@ -15,9 +15,10 @@ interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSwitchToSignup: () => void;
+  onLoginSuccess?: () => void; // 추가된 prop
 }
 
-export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginModalProps) {
+export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginSuccess }: LoginModalProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,6 +40,10 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
           setUserEmail(email);
           setIsLoggedIn(true);
           toast.success("OAuth 로그인 되었습니다");
+          // OAuth 로그인 성공 시에도 콜백 호출
+          if (onLoginSuccess) {
+            onLoginSuccess();
+          }
         })
         .catch(() => {
           localStorage.removeItem("accessToken");
@@ -83,6 +88,10 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup }: LoginM
       setIsLoggedIn(true);
       toast.success("로그인 성공");
       onClose();
+      // 로그인 성공 콜백 호출
+      if (onLoginSuccess) {
+        onLoginSuccess();
+      }
     } catch (err: any) {
       if (err.response && err.response.data) {
         setError(err.response.data.message || "로그인 중 오류가 발생했습니다.");

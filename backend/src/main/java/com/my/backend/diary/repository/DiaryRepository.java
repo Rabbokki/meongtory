@@ -7,6 +7,6 @@ import java.util.List;
 
 public interface DiaryRepository extends JpaRepository<Diary, Long> {
     List<Diary> findByUserId(Long userId);
-    List<Diary> findByUserIdAndIsDeletedFalse(Long userId);
-    List<Diary> findByIsDeletedFalse();
+    List<Diary> findByUserIdAndIsDeletedFalseOrderByCreatedAtDesc(Long userId);
+    List<Diary> findByIsDeletedFalseOrderByCreatedAtDesc();
 }

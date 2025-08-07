@@ -59,9 +59,21 @@ export default function GrowthDiaryPage({
           console.log("Number of entries fetched:", data.length);
           setDiaryEntries(data as DiaryEntry[]);
         })
-        .catch((err) => {
+        .catch((err: any) => {
           console.error("일기 목록 불러오기 실패:", err);
           console.error("Error details:", err.message);
+          
+          // 인증 관련 에러 처리
+          if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
+            toast({
+              title: "로그인 필요",
+              description: "로그인이 필요합니다. 다시 로그인해주세요.",
+              variant: "destructive",
+            });
+            // 로그인 페이지로 이동
+            window.location.href = "/login";
+            return;
+          }
         });
     } else {
       fetchDiaries(Number(userId))
@@ -70,9 +82,21 @@ export default function GrowthDiaryPage({
           console.log("Number of entries fetched:", data.length);
           setDiaryEntries(data as DiaryEntry[]);
         })
-        .catch((err) => {
+        .catch((err: any) => {
           console.error("일기 목록 불러오기 실패:", err);
           console.error("Error details:", err.message);
+          
+          // 인증 관련 에러 처리
+          if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
+            toast({
+              title: "로그인 필요",
+              description: "로그인이 필요합니다. 다시 로그인해주세요.",
+              variant: "destructive",
+            });
+            // 로그인 페이지로 이동
+            window.location.href = "/login";
+            return;
+          }
         });
     }
   };
@@ -90,8 +114,21 @@ export default function GrowthDiaryPage({
         description: "삭제가 완료되었습니다.",
       });
       refetchDiaries();
-    } catch (err) {
+    } catch (err: any) {
       console.error("일기 삭제 실패:", err);
+      
+      // 인증 관련 에러 처리
+      if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
+        toast({
+          title: "로그인 필요",
+          description: "로그인이 필요합니다. 다시 로그인해주세요.",
+          variant: "destructive",
+        });
+        // 로그인 페이지로 이동
+        window.location.href = "/login";
+        return;
+      }
+      
       toast({
         title: "삭제 실패",
         description: "삭제 중 오류가 발생했습니다.",

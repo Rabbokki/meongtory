@@ -232,6 +232,7 @@ function NavigationHeader({
   onLogin,
   onLogout,
   onNavigateToMyPage,
+  onNavigateToDiary, // 성장일기 네비게이션 함수 추가
 }: {
   currentPage: string
   onNavigate: (page: string) => void
@@ -240,6 +241,7 @@ function NavigationHeader({
   onLogin: () => void
   onLogout: () => void
   onNavigateToMyPage: () => void
+  onNavigateToDiary: () => void // 성장일기 네비게이션 함수 타입 추가
 }) {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
@@ -269,7 +271,7 @@ function NavigationHeader({
               펫보험
             </button>
             <button
-              onClick={() => onNavigate("diary")}
+              onClick={() => onNavigateToDiary()}
               className={`text-sm font-medium transition-colors ${
                 currentPage === "diary" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
               }`}
@@ -390,6 +392,7 @@ export default function PetServiceWebsite() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoginFromDiary, setIsLoginFromDiary] = useState(false) // 성장일기에서 로그인 시도 여부
 
   // Check initial login state and fetch user info
   useEffect(() => {
@@ -1615,6 +1618,14 @@ export default function PetServiceWebsite() {
         onLogin={() => setShowLoginModal(true)}
         onLogout={handleLogout}
         onNavigateToMyPage={() => setCurrentPage("myPage")}
+        onNavigateToDiary={() => {
+          if (!isLoggedIn) {
+            setIsLoginFromDiary(true);
+            setShowLoginModal(true);
+          } else {
+            setCurrentPage("diary");
+          }
+        }}
       />
 
       {renderCurrentPage()}
@@ -1625,10 +1636,16 @@ export default function PetServiceWebsite() {
         <LoginModal
           isOpen={showLoginModal}
           onClose={() => setShowLoginModal(false)}
-          onLogin={handleLogin}
           onSwitchToSignup={() => {
             setShowLoginModal(false)
             setShowSignupModal(true)
+          }}
+          onLoginSuccess={() => {
+            // 성장일기에서 로그인한 경우에만 성장일기 페이지로 이동
+            if (isLoginFromDiary) {
+              setCurrentPage("diary");
+              setIsLoginFromDiary(false);
+            }
           }}
         />
       )}

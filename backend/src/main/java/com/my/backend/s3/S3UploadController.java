@@ -19,7 +19,8 @@ public class S3UploadController {
             String fileName = file.getOriginalFilename();
             byte[] fileData = file.getBytes();
             
-            String fileUrl = s3Service.uploadFile(fileName, fileData);
+            // 일기 이미지용 UUID 기반 업로드 사용
+            String fileUrl = s3Service.uploadDiaryImage(fileName, fileData);
             return ResponseEntity.ok(fileUrl);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("File upload failed: " + e.getMessage());

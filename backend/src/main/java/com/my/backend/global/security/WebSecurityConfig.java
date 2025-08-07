@@ -52,22 +52,25 @@ public class WebSecurityConfig {
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:3000")); // 명시적으로 허용
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH"));
-        configuration.setAllowedHeaders(Arrays.asList("*"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        configuration.setAllowedHeaders(Arrays.asList("*", "Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);
         configuration.addExposedHeader("Access_Token");
         configuration.addExposedHeader("Refresh_Token");
+        configuration.addExposedHeader("Authorization");
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
         httpSecurity
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/**", "/login/**", "/oauth2/**", "/file/**", "/test", "/ws/**", "/post/**").permitAll()
+                        .requestMatchers("/api/accounts/register", "/api/accounts/login", "/api/accounts/me", "/login/**", "/oauth2/**", "/file/**", "/test", "/ws/**", "/post/**").permitAll()
+                        .requestMatchers("/api/products/**").permitAll()
                         .requestMatchers("/api/travel-plans/**", "/chat").authenticated()
                         .requestMatchers("/api/**").permitAll()
                         .anyRequest().authenticated())
@@ -85,34 +88,6 @@ public class WebSecurityConfig {
         return httpSecurity.build();
     }
 
-//    @Bean
-//    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-//        httpSecurity
-//                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-//                .csrf(csrf -> csrf.disable())
-//                .formLogin(form -> form.disable())
-//                .authorizeHttpRequests(auth -> auth
-//                        .requestMatchers("/api/accounts/register", "/api/accounts/login", "/api/accounts/me").permitAll()
-//                        .requestMatchers("/login/**", "/oauth2/**").permitAll()
-//                        .requestMatchers("/file/**", "/test", "/ws/**", "/post/**").permitAll()
-//                        .requestMatchers("/api/diary/**").permitAll()
-//                        .requestMatchers("/api/products/**").permitAll()
-//                        .requestMatchers("/api/carts/**").permitAll()
-//                        .requestMatchers("/api/travel-plans/**", "/chat").authenticated()
-//                        .anyRequest().authenticated())
-//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//                .oauth2Login(oauth2 -> oauth2
-//                        .authorizationEndpoint(auth -> auth.baseUri("/oauth2/authorization"))
-//                        .redirectionEndpoint(redir -> redir.baseUri("/login/oauth2/code/*"))
-//                        .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
-//                        .successHandler(oauth2SuccessHandler)
-//                        .failureHandler((request, response, exception) -> {
-//                            String errorMessage = URLEncoder.encode("OAuth2 로그인 실패: " + exception.getMessage(), StandardCharsets.UTF_8);
-//                            log.error("OAuth2 authentication failed: {}", exception.getMessage(), exception);
-//                            response.sendRedirect("http://localhost:3000/?success=false&error=" + errorMessage);
-//                        }))
-//                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-//
-//        return httpSecurity.build();
-//    }
+
+
 }
