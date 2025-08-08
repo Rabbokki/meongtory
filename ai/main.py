@@ -1,10 +1,10 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import io
 import os
 import openai
-from model import DogBreedClassifier
+from breed.breed_api import router as breed_router
+from emotion.emotion_api import router as emotion_router
 
 app = FastAPI()
 
@@ -16,7 +16,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-classifier = DogBreedClassifier()
+app.include_router(breed_router)
+app.include_router(emotion_router)
 
 # OpenAI 설정
 openai.api_key = os.getenv("OPENAI_API_KEY", "")
@@ -31,12 +32,6 @@ class BackgroundStoryRequest(BaseModel):
     gender: str
     personality: str = ""
     userPrompt: str = ""
-
-@app.post("/predict")
-async def predict_dog_breed(file: UploadFile = File(...)):
-    image_bytes = io.BytesIO(await file.read())
-    result = classifier.predict(image_bytes)
-    return result
 
 @app.post("/generate-story")
 async def generate_background_story(request: BackgroundStoryRequest):
@@ -96,7 +91,3 @@ def build_story_prompt(request: BackgroundStoryRequest) -> str:
 @app.get("/")
 async def root():
     return {"message": "Dog Breed Classifier API"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=9000)
