@@ -94,3 +94,4 @@ docker-compose exec ai env | grep OPENAI
 - [ ] Docker 환경에서 환경 변수 전달 확인
 - [ ] Python 스크립트에서 환경 변수 로드 확인
 - [ ] 음성 변환 기능 테스트
+
