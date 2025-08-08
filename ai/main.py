@@ -5,6 +5,13 @@ import io
 import os
 import openai
 from model import DogBreedClassifier
+import tempfile
+import sys
+import os
+
+# transcribe.py 모듈을 import하기 위해 경로 추가
+sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
+from transcribe import transcribe_audio
 
 app = FastAPI()
 
@@ -66,6 +73,36 @@ async def generate_background_story(request: BackgroundStoryRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"스토리 생성 실패: {str(e)}")
+
+@app.post("/transcribe")
+async def transcribe_audio_endpoint(file: UploadFile = File(...)):
+    """
+    기존 transcribe.py의 함수를 사용하여 음성 파일을 텍스트로 변환합니다.
+    """
+    try:
+        # 임시 파일로 저장
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # 기존 transcribe.py의 함수 사용
+            transcribed_text = transcribe_audio(temp_file_path)
+            
+            # 임시 파일 삭제
+            os.unlink(temp_file_path)
+            
+            return {"transcript": transcribed_text}
+            
+        except Exception as e:
+            # 임시 파일 정리
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+            raise e
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"음성 변환 중 오류 발생: {str(e)}")
 
 def build_story_prompt(request: BackgroundStoryRequest) -> str:
     prompt = f"""다음 정보를 바탕으로 입양 동물의 감동적인 배경 스토리를 작성해주세요:
