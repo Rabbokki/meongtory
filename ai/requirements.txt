@@ -4,5 +4,13 @@ torch
 torchvision
 pillow
 python-multipart
-openai==0.28.1
+openai>=1.86.0
 requests
+langchain
+langchain-openai
+langchain-huggingface
+langchain-postgres
+psycopg2-binary
+sentence-transformers
+tqdm
+pgvector
