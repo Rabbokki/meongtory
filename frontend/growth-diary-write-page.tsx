@@ -185,7 +185,7 @@ export default function GrowthDiaryWritePage({
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: "audio/wav" });
+        const blob = new Blob(chunks, { type: "audio/webm" });
         const url = URL.createObjectURL(blob);
         setAudioUrl(url);
         stream.getTracks().forEach(track => track.stop());
@@ -211,8 +211,63 @@ export default function GrowthDiaryWritePage({
   };
 
   // 음성 녹음 중지
-  const stopRecording = () => {
+  const stopRecording = async () => {
     if (mediaRecorderRef.current && isRecording) {
+      // 녹음된 데이터를 저장할 변수
+      let recordedBlob: Blob | null = null;
+      
+      // ondataavailable 이벤트 핸들러 설정
+      const chunks: BlobPart[] = [];
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        chunks.push(event.data);
+      };
+
+      // onstop 이벤트 핸들러 설정
+      mediaRecorderRef.current.onstop = async () => {
+        recordedBlob = new Blob(chunks, { type: "audio/webm" });
+        const url = URL.createObjectURL(recordedBlob);
+        setAudioUrl(url);
+
+        try {
+          // FormData 생성
+          const formData = new FormData();
+          formData.append('audio', recordedBlob, 'recording.webm');
+
+          // 서버로 전송
+          const response = await fetch('/api/diary/voice', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error('음성 변환에 실패했습니다.');
+          }
+
+          const result = await response.json();
+          const transcribedText = result.transcript || result.text || result;
+
+          // 변환된 텍스트를 textarea에 추가
+          setContent(prevContent => {
+            const newContent = prevContent + (prevContent ? '\n\n' : '') + transcribedText;
+            return newContent;
+          });
+
+          toast({
+            title: "음성 변환 완료",
+            description: "음성이 텍스트로 변환되어 추가되었습니다.",
+          });
+
+        } catch (error) {
+          console.error('음성 변환 오류:', error);
+          toast({
+            title: "음성 변환 실패",
+            description: "음성을 텍스트로 변환하는 중 오류가 발생했습니다.",
+            variant: "destructive",
+          });
+        }
+      };
+
+      // 녹음 중지
       mediaRecorderRef.current.stop();
       setIsRecording(false);
 
@@ -413,6 +468,9 @@ export default function GrowthDiaryWritePage({
                   className="w-full"
                 />
               )}
+              <div className="text-sm text-gray-500">
+                💡 음성 녹음 후 자동으로 텍스트로 변환되어 내용에 추가됩니다.
+              </div>
             </div>
 
             {error && <div className="text-red-500 text-sm text-center">{error}</div>}

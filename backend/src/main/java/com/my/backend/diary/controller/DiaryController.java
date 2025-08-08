@@ -7,6 +7,7 @@ import com.my.backend.diary.service.DiaryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -64,5 +65,15 @@ public class DiaryController {
     public ResponseEntity<Void> deleteDiary(@PathVariable Long id) {
         diaryService.deleteDiary(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/voice")
+    public ResponseEntity<String> transcribeVoice(@RequestParam("audio") MultipartFile audioFile) {
+        try {
+            String transcribedText = diaryService.transcribeAudio(audioFile);
+            return ResponseEntity.ok(transcribedText);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("음성 변환에 실패했습니다: " + e.getMessage());
+        }
     }
 }

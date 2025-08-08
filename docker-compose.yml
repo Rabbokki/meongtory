@@ -34,8 +34,9 @@ services:
     volumes:
       - ./ai:/app
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
-    # environment:
-      # - OPENAI_API_KEY=${OPENAI_API_KEY}
+
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       # - OPENAI_MODEL=${OPENAI_MODEL}
     networks:
       - meongtory-network
