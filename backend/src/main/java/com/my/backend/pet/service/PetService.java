@@ -93,6 +93,7 @@ public class PetService {
         pet.setMedicalHistory(petDetails.getMedicalHistory());
         pet.setVaccinations(petDetails.getVaccinations());
         pet.setNotes(petDetails.getNotes());
+        pet.setSpecialNeeds(petDetails.getSpecialNeeds());
         pet.setPersonality(petDetails.getPersonality());
         pet.setRescueStory(petDetails.getRescueStory());
         pet.setAiBackgroundStory(petDetails.getAiBackgroundStory());

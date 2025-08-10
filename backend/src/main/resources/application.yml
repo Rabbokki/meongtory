@@ -95,8 +95,8 @@ logging:
 # 토스페이먼츠 설정
 toss:
   payments:
-    secret-key: ${TOSS_SECRET_KEY:test_sk_yZqmkKeP8gxnXQjXE5BO3bQRxB9l}
-    client-key: ${TOSS_CLIENT_KEY:test_ck_4yKeq5bgrp2mdOw6yOYJ3GX0lzW6}
+    secret-key: ${TOSS_SECRET_KEY}
+    client-key: ${TOSS_CLIENT_KEY}
 
 # Spring Boot Actuator 설정
 management:

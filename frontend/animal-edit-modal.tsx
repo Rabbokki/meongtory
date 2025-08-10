@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { X, Upload, Loader2 } from "lucide-react"
+import { X, Upload, Loader2, Sparkles } from "lucide-react"
 import { petApi, s3Api, handleApiError } from "./lib/api"
 import axios from "axios"
 
@@ -32,6 +32,16 @@ interface Pet {
   specialNeeds?: string
   dateRegistered: string
   adoptionStatus: "available" | "pending" | "adopted"
+  // 엔티티와 일치하도록 추가 필드들
+  weight?: number
+  microchipId?: string
+  medicalHistory?: string
+  vaccinations?: string
+  notes?: string
+  rescueStory?: string
+  aiBackgroundStory?: string
+  status?: string
+  type?: string
 }
 
 interface AnimalEditModalProps {
@@ -73,6 +83,15 @@ export default function AnimalEditModal({
         isVaccinated: selectedPet.isVaccinated,
         specialNeeds: selectedPet.specialNeeds,
         adoptionStatus: selectedPet.adoptionStatus,
+        weight: selectedPet.weight,
+        microchipId: selectedPet.microchipId,
+        medicalHistory: selectedPet.medicalHistory,
+        vaccinations: selectedPet.vaccinations,
+        notes: selectedPet.notes,
+        rescueStory: selectedPet.rescueStory,
+        aiBackgroundStory: selectedPet.aiBackgroundStory,
+        status: selectedPet.status,
+        type: selectedPet.type,
       })
       // 빈 문자열이나 undefined인 이미지는 제외
       const validImages = (selectedPet.images || []).filter(img => img && img.trim() !== '')
@@ -134,7 +153,7 @@ export default function AnimalEditModal({
       const result = response.data
       
       if (result.success) {
-        setEditAnimal(prev => ({ ...prev, specialNeeds: result.data.story }))
+        setEditAnimal(prev => ({ ...prev, description: result.data.story }))
       } else {
         throw new Error(result.message || '스토리 생성에 실패했습니다.')
       }
@@ -173,10 +192,10 @@ export default function AnimalEditModal({
         const imageUrl = imagePreviews[i]
         const imageFile = imageFiles[i]
         
-        if (imageFile && imageUrl.startsWith('data:')) {
-          // 새로 업로드된 이미지 (data URL)
+        if (imageFile && (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:'))) {
+          // 새로 업로드된 이미지 (data URL 또는 blob URL)
           try {
-            const uploadedUrl = await s3Api.uploadFile(imageFile)
+            const uploadedUrl = await s3Api.uploadAdoptionFile(imageFile)
             uploadedImageUrls.push(uploadedUrl)
           } catch (error) {
             console.error("이미지 업로드 실패:", error)
@@ -200,11 +219,19 @@ export default function AnimalEditModal({
         breed: editAnimal.breed,
         age: parseInt(editAnimal.age?.replace('살', '') || '0'),
         gender: editAnimal.gender === '수컷' ? 'MALE' : 'FEMALE',
-        weight: parseFloat(editAnimal.size?.replace('kg', '') || '0'),
+        weight: editAnimal.weight,
         location: editAnimal.location,
-        description: editAnimal.specialNeeds || editAnimal.description || "새로 등록된 반려동물입니다.",
-        medicalHistory: editAnimal.healthStatus,
+        microchipId: editAnimal.microchipId,
+        description: editAnimal.description || "새로 등록된 반려동물입니다.",
+        specialNeeds: editAnimal.specialNeeds || undefined,
+        medicalHistory: editAnimal.medicalHistory,
+        vaccinations: editAnimal.vaccinations,
+        notes: editAnimal.notes,
         personality: editAnimal.personality || '',
+        rescueStory: editAnimal.rescueStory,
+        aiBackgroundStory: editAnimal.aiBackgroundStory,
+        status: editAnimal.status || '보호중',
+        type: editAnimal.type,
         neutered: editAnimal.isNeutered,
         vaccinated: editAnimal.isVaccinated,
         imageUrl: uploadedImageUrls[0] || 
@@ -223,8 +250,8 @@ export default function AnimalEditModal({
       onUpdatePet(updatedPetForFrontend)
       onClose()
       alert("동물 정보가 성공적으로 수정되었습니다!")
-      // 페이지 새로고침 대신 상태 업데이트만 수행
-      // window.location.reload() 제거
+      // 페이지 새로고침으로 변경사항 즉시 반영
+      window.location.reload()
     } catch (error) {
       console.error("동물 정보 수정에 실패했습니다:", error)
       alert("동물 정보 수정에 실패했습니다.")
@@ -243,45 +270,47 @@ export default function AnimalEditModal({
         </DialogHeader>
         
         <div className="space-y-6">
-          {/* 기본 정보 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>기본 정보</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="name">이름 *</Label>
-                  <Input
-                    id="name"
-                    value={editAnimal.name || ""}
-                    onChange={(e) => setEditAnimal(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="동물 이름"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="breed">품종 *</Label>
-                  <Input
-                    id="breed"
-                    value={editAnimal.breed || ""}
-                    onChange={(e) => setEditAnimal(prev => ({ ...prev, breed: e.target.value }))}
-                    placeholder="품종"
-                  />
-                </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* 기본 정보 */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">기본 정보</h3>
+
+              <div>
+                <Label htmlFor="name">동물 이름 *</Label>
+                <Input
+                  id="name"
+                  value={editAnimal.name || ""}
+                  onChange={(e) => setEditAnimal(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="동물 이름을 입력하세요"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="breed">품종 *</Label>
+                <Input
+                  id="breed"
+                  value={editAnimal.breed || ""}
+                  onChange={(e) => setEditAnimal(prev => ({ ...prev, breed: e.target.value }))}
+                  placeholder="품종을 입력하세요"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="age">나이</Label>
                   <Input
                     id="age"
+                    type="number"
                     value={editAnimal.age || ""}
                     onChange={(e) => setEditAnimal(prev => ({ ...prev, age: e.target.value }))}
-                    placeholder="예: 2살"
+                    placeholder="나이"
                   />
                 </div>
                 <div>
                   <Label htmlFor="gender">성별</Label>
                   <Select value={editAnimal.gender || ""} onValueChange={(value) => setEditAnimal(prev => ({ ...prev, gender: value }))}>
                     <SelectTrigger>
-                      <SelectValue placeholder="성별 선택" />
+                      <SelectValue placeholder="성별" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="수컷">수컷</SelectItem>
@@ -289,223 +318,155 @@ export default function AnimalEditModal({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="size">크기</Label>
+                  <Label htmlFor="weight">체중 (kg)</Label>
                   <Input
-                    id="size"
-                    value={editAnimal.size || ""}
-                    onChange={(e) => setEditAnimal(prev => ({ ...prev, size: e.target.value }))}
-                    placeholder="예: 5kg"
+                    id="weight"
+                    type="number"
+                    step="0.1"
+                    value={editAnimal.weight || ""}
+                    onChange={(e) => setEditAnimal(prev => ({ ...prev, weight: parseFloat(e.target.value) || undefined }))}
+                    placeholder="체중"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="location">위치</Label>
+                  <Label htmlFor="location">지역</Label>
                   <Input
                     id="location"
                     value={editAnimal.location || ""}
                     onChange={(e) => setEditAnimal(prev => ({ ...prev, location: e.target.value }))}
-                    placeholder="보호소 위치"
+                    placeholder="지역을 입력하세요"
                   />
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* 건강 정보 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>건강 정보</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="healthStatus">건강 상태</Label>
-                  <Textarea
-                    id="healthStatus"
-                    value={editAnimal.healthStatus || ""}
-                    onChange={(e) => setEditAnimal(prev => ({ ...prev, healthStatus: e.target.value }))}
-                    placeholder="건강 상태 및 병력"
-                    rows={3}
-                  />
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isNeutered"
-                      checked={editAnimal.isNeutered || false}
-                      onChange={(e) => setEditAnimal(prev => ({ ...prev, isNeutered: e.target.checked }))}
-                    />
-                    <Label htmlFor="isNeutered">중성화 완료</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      id="isVaccinated"
-                      checked={editAnimal.isVaccinated || false}
-                      onChange={(e) => setEditAnimal(prev => ({ ...prev, isVaccinated: e.target.checked }))}
-                    />
-                    <Label htmlFor="isVaccinated">예방접종 완료</Label>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            {/* 의료 정보 */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-lg">의료 정보</h3>
 
-          {/* 성격 및 특별한 사항 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>성격 및 소개</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="personality">성격</Label>
+                <Label htmlFor="microchipId">마이크로칩 ID</Label>
                 <Input
-                  id="personality"
-                  value={editAnimal.personality || ""}
-                  onChange={(e) => setEditAnimal(prev => ({ 
-                    ...prev, 
-                    personality: e.target.value 
-                  }))}
-                  placeholder="예: 화려함, 당돌함"
+                  id="microchipId"
+                  value={editAnimal.microchipId || ""}
+                  onChange={(e) => setEditAnimal(prev => ({ ...prev, microchipId: e.target.value }))}
+                  placeholder="마이크로칩 ID"
                 />
               </div>
+
               <div>
-                <Label htmlFor="specialNeeds">동물 소개 (AI 생성)</Label>
-                <div className="space-y-2">
-                  <Textarea
-                    id="specialNeeds"
-                    value={editAnimal.specialNeeds || ""}
-                    onChange={(e) => setEditAnimal(prev => ({ ...prev, specialNeeds: e.target.value }))}
-                    placeholder="구조사항, 특이사항 등 간단히 작성해주세요"
-                    rows={3}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleGenerateAIStory}
-                    disabled={isGeneratingStory}
-                    className="w-full"
-                  >
-                    {isGeneratingStory ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        AI 소개 생성 중...
-                      </>
-                    ) : (
-                      "AI 소개 생성"
-                    )}
-                  </Button>
-                </div>
+                <Label htmlFor="medicalHistory">의료 기록</Label>
+                <Textarea
+                  id="medicalHistory"
+                  value={editAnimal.medicalHistory || ""}
+                  onChange={(e) => setEditAnimal(prev => ({ ...prev, medicalHistory: e.target.value }))}
+                  placeholder="의료 기록을 입력하세요 (예: 예방접종 완료, 중성화 수술 완료)"
+                  rows={3}
+                />
               </div>
-            </CardContent>
-          </Card>
+
+              <div>
+                <Label htmlFor="vaccinations">예방접종 기록</Label>
+                <Textarea
+                  id="vaccinations"
+                  value={editAnimal.vaccinations || ""}
+                  onChange={(e) => setEditAnimal(prev => ({ ...prev, vaccinations: e.target.value }))}
+                  placeholder="예방접종 기록을 입력하세요"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
 
           {/* 이미지 업로드 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>이미지</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="space-y-4">
+            <h3 className="font-semibold text-lg">동물 사진</h3>
+            <div className="space-y-2">
+              <Label htmlFor="image-upload">사진 첨부 (선택 사항)</Label>
+              <Input 
+                id="image-upload" 
+                type="file" 
+                multiple 
+                accept="image/*" 
+                onChange={handleImageUpload} 
+              />
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {imagePreviews.filter(preview => preview && preview.trim() !== '').map((preview, index) => (
-                  <div key={index} className="relative">
+                  <div key={index} className="relative w-full h-32 rounded-md overflow-hidden group">
                     <img
                       src={preview}
                       alt={`Preview ${index + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
+                      className="w-full h-full object-cover"
                     />
                     <Button
                       type="button"
-                      size="sm"
                       variant="destructive"
-                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      size="icon"
+                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
                       onClick={() => handleRemoveImage(index)}
                     >
-                      <X className="h-3 w-3" />
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ))}
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="image-upload"
-                    multiple
-                  />
-                  <label htmlFor="image-upload" className="cursor-pointer flex flex-col items-center">
-                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-500">이미지 추가</span>
-                  </label>
-                </div>
+                {imagePreviews.filter(preview => preview && preview.trim() !== '').length === 0 && (
+                  <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400">
+                    <Upload className="h-8 w-8" />
+                    <p className="text-sm ml-2">동물 사진을 업로드하세요</p>
+                  </div>
+                )}
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
-          {/* 연락처 정보 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>연락처 정보</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="contact">연락처</Label>
-                  <Input
-                    id="contact"
-                    value={editAnimal.contact || ""}
-                    onChange={(e) => setEditAnimal(prev => ({ ...prev, contact: e.target.value }))}
-                    placeholder="연락처"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="adoptionFee">입양비</Label>
-                  <Input
-                    id="adoptionFee"
-                    type="number"
-                    value={editAnimal.adoptionFee || ""}
-                    onChange={(e) => setEditAnimal(prev => ({ ...prev, adoptionFee: parseInt(e.target.value) || 0 }))}
-                    placeholder="입양비"
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 입양 상태 */}
-          <Card>
-            <CardHeader>
-              <CardTitle>입양 상태</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Select 
-                value={editAnimal.adoptionStatus || "available"} 
-                onValueChange={(value) => setEditAnimal(prev => ({ ...prev, adoptionStatus: value as "available" | "pending" | "adopted" }))}
+          {/* AI Background Story Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">동물 소개 (AI 생성)</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleGenerateAIStory}
+                disabled={isGeneratingStory}
+                className="text-purple-600 border-purple-200 hover:bg-purple-50 bg-transparent"
               >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">입양 가능</SelectItem>
-                  <SelectItem value="pending">입양 대기</SelectItem>
-                  <SelectItem value="adopted">입양 완료</SelectItem>
-                </SelectContent>
-              </Select>
-            </CardContent>
-          </Card>
+                <Sparkles className="w-4 h-4 mr-2" />
+                {isGeneratingStory ? "생성 중..." : "AI 소개 생성"}
+              </Button>
+            </div>
+            <Textarea
+              id="description"
+              value={editAnimal.description || ""}
+              onChange={(e) => setEditAnimal(prev => ({ ...prev, description: e.target.value }))}
+              placeholder="AI가 생성한 동물의 소개가 여기에 표시됩니다..."
+              rows={4}
+              className="bg-purple-50 border-purple-200"
+            />
+          </div>
 
-          {/* 버튼 */}
+          {/* Additional Notes */}
+          <div>
+            <Label htmlFor="notes">추가 메모</Label>
+            <Textarea
+              id="notes"
+              value={editAnimal.notes || ""}
+              onChange={(e) => setEditAnimal(prev => ({ ...prev, notes: e.target.value }))}
+              placeholder="추가 메모를 입력하세요"
+              rows={3}
+            />
+          </div>
+
+          {/* Action Buttons */}
           <div className="flex justify-end space-x-4">
             <Button variant="outline" onClick={onClose}>
               취소
             </Button>
-            <Button 
-              onClick={handleSubmitEdit} 
-              disabled={isSaving || !editAnimal.name || !editAnimal.breed}
-              className="bg-yellow-400 hover:bg-yellow-500 text-black"
-            >
+            <Button onClick={handleSubmitEdit} className="bg-yellow-400 hover:bg-yellow-500 text-black" disabled={isSaving}>
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -516,6 +477,8 @@ export default function AnimalEditModal({
               )}
             </Button>
           </div>
+
+
         </div>
       </DialogContent>
     </Dialog>

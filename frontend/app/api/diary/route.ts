@@ -4,6 +4,7 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:808
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('Frontend API route called');
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     
@@ -11,13 +12,20 @@ export async function GET(request: NextRequest) {
       ? `${BACKEND_URL}/api/diary/user/${userId}`
       : `${BACKEND_URL}/api/diary`;
 
+    console.log('Backend URL:', url);
+    console.log('Access Token:', request.headers.get('Access_Token'));
+    console.log('All headers:', Object.fromEntries(request.headers.entries()));
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Authorization': request.headers.get('Authorization') || '',
+        'Access_Token': request.headers.get('Access_Token') || '',
         'Content-Type': 'application/json',
       },
     });
+
+    console.log('Backend response status:', response.status);
+    console.log('Backend response headers:', Object.fromEntries(response.headers.entries()));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -26,6 +34,7 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
+    console.log('Backend response data:', data);
     return NextResponse.json(data);
   } catch (error) {
     console.error('API route error:', error);
@@ -40,7 +49,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch(`${BACKEND_URL}/api/diary`, {
       method: 'POST',
       headers: {
-        'Authorization': request.headers.get('Authorization') || '',
+        'Access_Token': request.headers.get('Access_Token') || '',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),

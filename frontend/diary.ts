@@ -7,6 +7,7 @@ export interface DiaryEntry {
   title: string;  
   text: string;
   imageUrl?: string | null;
+  images?: string[] | null;
   audioUrl?: string | null;
   createdAt: string;
   updatedAt: string;

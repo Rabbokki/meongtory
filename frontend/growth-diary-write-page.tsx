@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"; // Label 컴포넌트 추가
 import { Card, CardContent } from "@/components/ui/card"; // Card 컴포넌트 추가
 import Image from "next/image";
 import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-react"; // 음성 관련 아이콘 추가
-import { createDiary, uploadImageToS3 } from "@/lib/api/diary"
+import { createDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/api/diary"
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 
@@ -47,10 +47,17 @@ export default function GrowthDiaryWritePage({
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log("=== handleSubmit called ===");
     e.preventDefault();
     setError("");
 
+    console.log("Title:", title);
+    console.log("Content:", content);
+    console.log("Title trimmed:", title.trim());
+    console.log("Content trimmed:", content.trim());
+
     if (!title.trim() || !content.trim()) {
+      console.log("=== Validation failed ===");
       setError("제목과 내용을 모두 입력해주세요.");
       toast({
         title: "입력 오류",
@@ -60,15 +67,29 @@ export default function GrowthDiaryWritePage({
       return;
     }
 
+    console.log("=== Validation passed, proceeding with diary creation ===");
+
     // 현재 로그인된 사용자의 실제 ID 가져오기
+    console.log("Getting userId from localStorage...");
     const userId = localStorage.getItem("userId");
+    console.log("userId from localStorage:", userId);
+    console.log("currentUserId prop:", currentUserId);
+    
+    let finalUserId = userId;
     if (!userId) {
-      toast({
-        title: "로그인 필요",
-        description: "로그인이 필요합니다.",
-        variant: "destructive",
-      });
-      return;
+      console.log("No userId found in localStorage, using currentUserId prop");
+      finalUserId = currentUserId?.toString();
+      console.log("Using currentUserId as userId:", finalUserId);
+      
+      if (!finalUserId) {
+        console.log("No userId available");
+        toast({
+          title: "로그인 필요",
+          description: "로그인이 필요합니다.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
@@ -98,23 +119,52 @@ export default function GrowthDiaryWritePage({
         setIsUploading(false);
       }
 
-      console.log("Creating diary with data:", {
-        userId: Number(userId),
-        title,
-        text: content,
-        imageUrl: uploadedImageUrls[0] || null,
-        audioUrl: audioUrl || null,
-      });
-
-      const result = await createDiary({
-        userId: Number(userId),
+      // 오디오 파일을 S3에 업로드
+      let uploadedAudioUrl: string | undefined = undefined;
+      if (audioUrl && audioUrl.startsWith('blob:')) {
+        try {
+          // blob URL에서 File 객체 생성
+          const response = await fetch(audioUrl);
+          const blob = await response.blob();
+          const audioFile = new File([blob], 'recording.webm', { type: 'audio/webm' });
+          
+          setIsUploading(true);
+          toast({
+            title: "오디오 업로드 중",
+            description: "오디오 파일을 업로드하고 있습니다...",
+          });
+          
+          uploadedAudioUrl = await uploadAudioToS3(audioFile);
+          setIsUploading(false);
+        } catch (error) {
+          console.error("오디오 업로드 실패:", error);
+          toast({
+            title: "오디오 업로드 실패",
+            description: "오디오 파일 업로드 중 오류가 발생했습니다.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        uploadedAudioUrl = audioUrl;
+      }
+      
+      const diaryData = {
+        userId: Number(finalUserId),
         title: title,  
         text: content,
-        imageUrl: uploadedImageUrls[0] || null,
-        audioUrl: audioUrl || null,
-      });
+        imageUrl: uploadedImageUrls[0] || undefined,
+        audioUrl: uploadedAudioUrl,
+      };
+
+      console.log("Creating diary with data:", diaryData);
+      console.log("Calling createDiary API...");
+
+      const result = await createDiary(diaryData);
 
       console.log("Diary created successfully:", result);
+      console.log("Result type:", typeof result);
+      console.log("Result keys:", Object.keys(result));
 
       // 성공 토스트 메시지 표시
       toast({
@@ -122,8 +172,11 @@ export default function GrowthDiaryWritePage({
         description: "작성이 완료되었습니다!",
       });
       
+      console.log("=== Diary creation completed, calling onBack ===");
+      
       // 약간의 지연 후 뒤로가기 (토스트 메시지가 보이도록)
       setTimeout(() => {
+        console.log("=== Executing onBack callback ===");
         onBack();
       }, 1000);
     } catch (err: any) {
@@ -197,14 +250,13 @@ export default function GrowthDiaryWritePage({
 
       // 녹음 시간 타이머 시작
       recordingTimerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
     } catch (error) {
-      console.error("Error accessing microphone:", error);
-      setError("마이크 접근 권한이 필요합니다.");
+      console.error("녹음 시작 실패:", error);
       toast({
-        title: "마이크 접근 오류",
-        description: "마이크 접근 권한이 필요합니다.",
+        title: "녹음 실패",
+        description: "마이크 권한이 필요합니다.",
         variant: "destructive",
       });
     }
@@ -279,7 +331,7 @@ export default function GrowthDiaryWritePage({
     }
   };
 
-  // 음성 재생/일시정지
+  // 오디오 재생/일시정지 토글
   const toggleAudioPlayback = () => {
     if (audioRef.current) {
       if (isPlaying) {
@@ -291,7 +343,7 @@ export default function GrowthDiaryWritePage({
     }
   };
 
-  // 음성 삭제
+  // 오디오 제거
   const removeAudio = () => {
     setAudioUrl("");
     setIsPlaying(false);
@@ -301,7 +353,7 @@ export default function GrowthDiaryWritePage({
     }
   };
 
-  // 녹음 시간 포맷팅
+  // 시간 포맷팅 (초를 MM:SS 형식으로)
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -322,168 +374,168 @@ export default function GrowthDiaryWritePage({
         </div>
 
         <Card className="p-6">
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="title">제목</Label>
-              <Input
-                id="title"
-                placeholder="제목을 입력하세요"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="content">내용</Label>
-              <Textarea
-                id="content"
-                placeholder="내용을 입력하세요"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                rows={10}
-                required
-              />
-            </div>
-
-            {/* Image Upload Section */}
-            <div className="space-y-2">
-              <Label htmlFor="image-upload">사진 첨부 (선택 사항)</Label>
-              <div className="flex items-center space-x-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleImageClick}
-                  disabled={isUploading}
-                  className="flex items-center space-x-2"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  <span>{images.length === 0 ? "선택된 파일 없음" : `${images.length}개 파일 선택됨`}</span>
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  id="image-upload"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
+          <form onSubmit={handleSubmit}>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="title">제목</Label>
+                <Input
+                  id="title"
+                  placeholder="제목을 입력하세요"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
                 />
               </div>
-              
-              {/* Image Preview Grid */}
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {images.map((imageSrc, index) => (
-                  <div key={index} className="relative w-full h-32 rounded-md overflow-hidden group">
-                    <img
-                      src={imageSrc || "/placeholder.svg"}
-                      alt={`Uploaded preview ${index + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleRemoveImage(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))}
-                {images.length === 0 && (
-                  <div 
-                    className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-400 hover:text-gray-500 transition-colors"
-                    onClick={handleImageClick}
-                  >
-                    <ImageIcon className="h-8 w-8" />
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* 음성 녹음 섹션 */}
-            <div className="space-y-2">
-              <Label>음성 일기 (선택 사항)</Label>
-              <div className="flex items-center space-x-4 p-4 border rounded-lg bg-gray-50">
-                {!audioUrl ? (
-                  <div className="flex items-center space-x-2">
-                    {!isRecording ? (
+              <div className="space-y-2">
+                <Label htmlFor="content">내용</Label>
+                <Textarea
+                  id="content"
+                  placeholder="내용을 입력하세요"
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  rows={10}
+                  required
+                />
+              </div>
+
+              {/* Image Upload Section */}
+              <div className="space-y-2">
+                <Label htmlFor="image-upload">사진 첨부 (선택 사항)</Label>
+                <div className="flex items-center space-x-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleImageClick}
+                    disabled={isUploading}
+                    className="flex items-center space-x-2"
+                  >
+                    <ImageIcon className="h-4 w-4" />
+                    <span>{images.length === 0 ? "선택된 파일 없음" : `${images.length}개 파일 선택됨`}</span>
+                  </Button>
+                  <input
+                    ref={fileInputRef}
+                    id="image-upload"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </div>
+                
+                {/* Image Preview Grid */}
+                <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {images.map((imageSrc, index) => (
+                    <div key={index} className="relative w-full h-32 rounded-md overflow-hidden group">
+                      <img
+                        src={imageSrc || "/placeholder.svg"}
+                        alt={`Uploaded preview ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
                       <Button
                         type="button"
-                        onClick={startRecording}
-                        className="bg-red-500 hover:bg-red-600 text-white"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleRemoveImage(index)}
                       >
-                        <Mic className="h-4 w-4 mr-2" />
-                        녹음 시작
+                        <X className="h-4 w-4" />
                       </Button>
-                    ) : (
-                      <div className="flex items-center space-x-2">
+                    </div>
+                  ))}
+                  {images.length === 0 && (
+                    <div 
+                      className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-400 hover:text-gray-500 transition-colors"
+                      onClick={handleImageClick}
+                    >
+                      <ImageIcon className="h-8 w-8" />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 음성 녹음 섹션 */}
+              <div className="space-y-2">
+                <Label>음성 일기 (선택 사항)</Label>
+                <div className="flex items-center space-x-4 p-4 border rounded-lg bg-gray-50">
+                  {!audioUrl ? (
+                    <div className="flex items-center space-x-2">
+                      {!isRecording ? (
                         <Button
                           type="button"
-                          onClick={stopRecording}
-                          className="bg-gray-500 hover:bg-gray-600 text-white"
+                          onClick={startRecording}
+                          className="bg-red-500 hover:bg-red-600 text-white"
                         >
-                          <MicOff className="h-4 w-4 mr-2" />
-                          녹음 중지
+                          <Mic className="h-4 w-4 mr-2" />
+                          녹음 시작
                         </Button>
-                        <span className="text-sm text-gray-600">
-                          녹음 중... {formatTime(recordingTime)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      type="button"
-                      onClick={toggleAudioPlayback}
-                      className="bg-blue-500 hover:bg-blue-600 text-white"
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-4 w-4 mr-2" />
                       ) : (
-                        <Play className="h-4 w-4 mr-2" />
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            type="button"
+                            onClick={stopRecording}
+                            className="bg-gray-500 hover:bg-gray-600 text-white"
+                          >
+                            <MicOff className="h-4 w-4 mr-2" />
+                            녹음 중지
+                          </Button>
+                          <span className="text-sm text-gray-600">
+                            녹음 중... {formatTime(recordingTime)}
+                          </span>
+                        </div>
                       )}
-                      {isPlaying ? "일시정지" : "재생"}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={removeAudio}
-                      variant="outline"
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      삭제
-                    </Button>
-                    <span className="text-sm text-gray-600">음성 녹음 완료</span>
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        type="button"
+                        onClick={toggleAudioPlayback}
+                        className="bg-blue-500 hover:bg-blue-600 text-white"
+                      >
+                        {isPlaying ? (
+                          <Pause className="h-4 w-4 mr-2" />
+                        ) : (
+                          <Play className="h-4 w-4 mr-2" />
+                        )}
+                        {isPlaying ? "일시정지" : "재생"}
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={removeAudio}
+                        variant="outline"
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        삭제
+                      </Button>
+                      <span className="text-sm text-gray-600">음성 녹음 완료</span>
+                    </div>
+                  )}
+                </div>
+                {audioUrl && (
+                  <audio
+                    ref={audioRef}
+                    src={audioUrl}
+                    onEnded={() => setIsPlaying(false)}
+                    className="w-full"
+                  />
                 )}
+                <div className="text-sm text-gray-500">
+                  💡 음성 녹음 후 자동으로 텍스트로 변환되어 내용에 추가됩니다.
+                </div>
               </div>
-              {audioUrl && (
-                <audio
-                  ref={audioRef}
-                  src={audioUrl}
-                  onEnded={() => setIsPlaying(false)}
-                  className="w-full"
-                />
-              )}
-              <div className="text-sm text-gray-500">
-                💡 음성 녹음 후 자동으로 텍스트로 변환되어 내용에 추가됩니다.
-              </div>
-            </div>
 
-            {error && <div className="text-red-500 text-sm text-center">{error}</div>}
+              {error && <div className="text-red-500 text-sm text-center">{error}</div>}
 
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isUploading}
-            >
-              {isUploading ? "업로드 중..." : "작성 완료"}
-            </Button>
-
-          </CardContent>
+              <Button
+                type="submit"
+                disabled={isUploading}
+              >
+                {isUploading ? "업로드 중..." : "작성 완료"}
+              </Button>
+            </CardContent>
+          </form>
         </Card>
       </div>
     </div>

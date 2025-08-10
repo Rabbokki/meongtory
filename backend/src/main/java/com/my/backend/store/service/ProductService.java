@@ -95,8 +95,8 @@ public class ProductService {
         if (product.getImageUrl() != null && product.getImageUrl().startsWith("data:")) {
             System.out.println("Base64 이미지 감지됨 - S3 업로드 시작");
             try {
-                // Base64 이미지를 S3에 업로드하고 URL 반환
-                String s3ImageUrl = s3Service.uploadBase64Image(product.getImageUrl());
+                // Base64 이미지를 S3에 업로드하고 URL 반환 (스토어 상품용)
+                String s3ImageUrl = s3Service.uploadProductBase64Image(product.getImageUrl());
                 product.setImageUrl(s3ImageUrl);
                 System.out.println("S3 업로드 완료: " + s3ImageUrl);
             } catch (Exception e) {

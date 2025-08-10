@@ -165,6 +165,35 @@ public class S3Service {
         }
     }
 
+    // 일기 오디오 업로드 메서드
+    public String uploadDiaryAudio(String originalFileName, byte[] fileData) {
+        try {
+            if (s3Client == null) {
+                log.warn("S3Client is null - returning mock URL");
+                String mockFileName = generateDiaryAudioFileName(originalFileName);
+                return "https://mock-s3-bucket.s3.amazonaws.com/" + mockFileName;
+            }
+
+            String fileName = generateDiaryAudioFileName(originalFileName);
+            log.info("Uploading diary audio: {} to S3 bucket: {}", fileName, bucketName);
+
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(fileName)
+                    .contentType("audio/webm")
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileData));
+
+            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + fileName;
+            log.info("Diary audio uploaded successfully: {}", s3Url);
+            return s3Url;
+        } catch (Exception e) {
+            log.error("Failed to upload diary audio to S3: {}", e.getMessage());
+            throw new RuntimeException("S3 upload failed", e);
+        }
+    }
+
     // Base64 이미지 업로드 메서드 (입양 펫용)
     public String uploadBase64Image(String base64Image) {
         try {
@@ -200,6 +229,48 @@ public class S3Service {
 
             String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + adoptionKey;
             log.info("S3 Base64 업로드 성공 (입양 펫): {}", s3Url);
+            return s3Url;
+        } catch (Exception e) {
+            log.error("S3 Base64 업로드 실패: {}", e.getMessage());
+            throw new RuntimeException("S3 Base64 upload failed", e);
+        }
+    }
+
+    // 스토어 상품용 Base64 이미지 업로드 메서드 (/products 폴더에 저장)
+    public String uploadProductBase64Image(String base64Image) {
+        try {
+            log.info("=== S3 Base64 이미지 업로드 시작 (스토어 상품용) ===");
+            log.info("Bucket: {}", bucketName);
+
+            if (s3Client == null) {
+                log.warn("S3Client is null - returning mock URL");
+                return "https://mock-s3-bucket.s3.amazonaws.com/products/image.jpg";
+            }
+
+            String[] parts = base64Image.split(",");
+            if (parts.length != 2) {
+                log.error("Base64 형식 오류: {}", base64Image.substring(0, Math.min(100, base64Image.length())));
+                throw new IllegalArgumentException("Invalid Base64 image format");
+            }
+
+            String imageData = parts[1];
+            byte[] imageBytes = java.util.Base64.getDecoder().decode(imageData);
+            log.info("이미지 크기: {} bytes", imageBytes.length);
+
+            String fileName = generateFileName("image.jpg");
+            String productKey = "products/" + fileName;
+            log.info("생성된 파일명: {}", productKey);
+
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(productKey)
+                    .contentType("image/jpeg")
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(imageBytes));
+
+            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + productKey;
+            log.info("S3 Base64 업로드 성공 (스토어 상품): {}", s3Url);
             return s3Url;
         } catch (Exception e) {
             log.error("S3 Base64 업로드 실패: {}", e.getMessage());
@@ -282,6 +353,17 @@ public class S3Service {
             extension = ".jpg";
         }
         return "diary/" + UUID.randomUUID().toString() + extension;
+    }
+
+    // 일기 오디오용 UUID 기반 파일명 생성 메서드
+    private String generateDiaryAudioFileName(String originalFileName) {
+        String extension = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+        } else {
+            extension = ".webm";
+        }
+        return "diary/audio/" + UUID.randomUUID().toString() + extension;
     }
 
     // 기존 파일명 생성 메서드 (호환성용)

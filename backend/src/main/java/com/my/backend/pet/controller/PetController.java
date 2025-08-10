@@ -72,7 +72,22 @@ public class PetController {
         log.info("Raw request body: {}", requestBody);
         
         try {
-            Pet petDetails = new ObjectMapper().readValue(requestBody, Pet.class);
+            // JSON을 Map으로 파싱하여 personality 배열을 문자열로 변환
+            ObjectMapper objectMapper = new ObjectMapper();
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> petMap = objectMapper.readValue(requestBody, java.util.Map.class);
+            
+            // personality가 배열인 경우 문자열로 변환
+            if (petMap.containsKey("personality") && petMap.get("personality") instanceof java.util.List) {
+                java.util.List<?> personalityList = (java.util.List<?>) petMap.get("personality");
+                String personalityString = objectMapper.writeValueAsString(personalityList);
+                petMap.put("personality", personalityString);
+            }
+            
+            // 변환된 Map을 다시 JSON으로 직렬화
+            String modifiedRequestBody = objectMapper.writeValueAsString(petMap);
+            
+            Pet petDetails = objectMapper.readValue(modifiedRequestBody, Pet.class);
             log.info("Parsed pet data - name: {}, breed: {}, personality: {}, imageUrl: {}", 
                     petDetails.getName(), petDetails.getBreed(), petDetails.getPersonality(), petDetails.getImageUrl());
             log.info("Full pet details: {}", petDetails);

@@ -24,7 +24,7 @@ export default function DiaryEntryDetail({ entry, onBack, onUpdate, onDelete, cu
 const [editedEntry, setEditedEntry] = useState({
   title: entry.title || "",
   content: entry.text || "",
-  images: entry.images && entry.images.length > 0 ? entry.images : [], // imageUrl 제거
+  images: entry.images && entry.images.length > 0 ? entry.images : [],
 });
 
 
@@ -81,18 +81,18 @@ const [editedEntry, setEditedEntry] = useState({
   const removeImage = (index: number) => {
     setEditedEntry((prev) => ({
       ...prev,
-      images: prev.images.filter((_, i) => i !== index),
+      images: prev.images.filter((_: string, i: number) => i !== index),
     }));
   };
 
   const handleSave = () => {
-    const updatedEntry: DiaryEntry = {
-      ...entry,
-      title: editedEntry.title,
-      text: editedEntry.content,
-      images: editedEntry.images,
-      audioUrl,
-    };
+      const updatedEntry: DiaryEntry = {
+    ...entry,
+    title: editedEntry.title,
+    text: editedEntry.content,
+    images: editedEntry.images,
+    audioUrl: audioUrl || null,
+  };
     onUpdate(updatedEntry);
     setIsEditing(false);
   };
@@ -203,7 +203,7 @@ const handleCancel = () => {
 
                   {editedEntry.images.length > 0 && (
                     <div className="grid grid-cols-3 gap-2 mt-2">
-                      {editedEntry.images.map((image, index) => (
+                      {editedEntry.images.map((image: string, index: number) => (
                         <div key={index} className="relative">
                           <Image
                             src={image || "/placeholder.svg"}
@@ -247,7 +247,7 @@ const handleCancel = () => {
                   <div>
                     <h4 className="font-semibold mb-2">사진</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                      {entry.images.map((image, index) => (
+                      {entry.images.map((image: string, index: number) => (
                         <Image
                           key={index}
                           src={image || "/placeholder.svg"}

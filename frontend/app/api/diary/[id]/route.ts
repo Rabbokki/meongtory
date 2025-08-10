@@ -10,7 +10,7 @@ export async function GET(
     const response = await fetch(`${BACKEND_URL}/api/diary/${params.id}`, {
       method: 'GET',
       headers: {
-        'Authorization': request.headers.get('Authorization') || '',
+        'Access_Token': request.headers.get('Access_Token') || '',
         'Content-Type': 'application/json',
       },
     });
@@ -40,7 +40,7 @@ export async function PUT(
     console.log('Backend URL:', BACKEND_URL);
     console.log('Diary ID:', params.id);
     console.log('Request body:', body);
-    console.log('Authorization header:', request.headers.get('Authorization'));
+    console.log('Access_Token header:', request.headers.get('Access_Token'));
     
     const backendUrl = `${BACKEND_URL}/api/diary/${params.id}`;
     console.log('Full backend URL:', backendUrl);
@@ -48,7 +48,7 @@ export async function PUT(
     const response = await fetch(backendUrl, {
       method: 'PUT',
       headers: {
-        'Authorization': request.headers.get('Authorization') || '',
+        'Access_Token': request.headers.get('Access_Token') || '',
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(body),
@@ -91,7 +91,7 @@ export async function DELETE(
     const response = await fetch(`${BACKEND_URL}/api/diary/${params.id}`, {
       method: 'DELETE',
       headers: {
-        'Authorization': request.headers.get('Authorization') || '',
+        'Access_Token': request.headers.get('Access_Token') || '',
         'Content-Type': 'application/json',
       },
     });

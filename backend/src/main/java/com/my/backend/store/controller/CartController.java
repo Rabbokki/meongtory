@@ -19,6 +19,25 @@ public class CartController {
     private final CartService cartService;
 
     /**
+     * 현재 로그인한 사용자의 장바구니 목록을 조회 (DTO 반환)
+     *
+     * @return 현재 사용자의 장바구니 항목 리스트 (DTO)
+     *
+     * 예: GET /api/carts
+     */
+    @GetMapping
+    public List<CartDto> getCurrentUserCart() {
+        // SecurityContext에서 현재 사용자 정보 가져오기
+        org.springframework.security.core.Authentication authentication = 
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        com.my.backend.global.security.user.UserDetailsImpl userDetails = 
+            (com.my.backend.global.security.user.UserDetailsImpl) authentication.getPrincipal();
+        Long userId = userDetails.getAccount().getId();
+        
+        return cartService.getCartDtoByUserId(userId);
+    }
+
+    /**
      * 특정 사용자의 장바구니 목록을 조회 (DTO 반환)
      *
      * @param userId 사용자 ID

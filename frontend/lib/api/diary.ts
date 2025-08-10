@@ -1,5 +1,7 @@
 // lib/api/diary.ts
-import type { DiaryEntry } from "../../diary";
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:8080/api';
 
 // Access Token 가져오기 + 로그인 체크 함수
 function getAccessTokenOrRedirect(): string {
@@ -12,9 +14,9 @@ function getAccessTokenOrRedirect(): string {
 }
 
 // 공통 401 에러 처리 함수
-async function handleUnauthorized(res: Response) {
+async function handleUnauthorized(res: any) {
   if (res.status === 401) {
-    const errorText = await res.text();
+    const errorText = res.data || res.statusText;
     console.error("Unauthorized:", errorText);
     
     // 토큰 제거
@@ -26,196 +28,246 @@ async function handleUnauthorized(res: Response) {
   }
 }
 
-// 개별 일기 가져오기
-export async function fetchDiary(id: number): Promise<DiaryEntry> {
-  const accessToken = getAccessTokenOrRedirect();
-
-  const res = await fetch(`/api/diary/${id}`, {
-    method: "GET",
-    headers: {
-      Authorization: `${accessToken}`,
-    },
-  });
-
-  console.log("Fetch diary response status:", res.status);
-
-  if (res.status === 401) {
-    await handleUnauthorized(res);
-  }
-
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error response:", text);
-    throw new Error(`Failed to fetch diary: ${res.status}`);
-  }
-
-  const contentType = res.headers.get("Content-Type");
-  if (!contentType || !contentType.includes("application/json")) {
-    const text = await res.text();
-    console.error("Non-JSON response:", text);
-    throw new Error("Received non-JSON response from server");
-  }
-
-  const json = await res.json();
-  console.log("Fetched diary:", json);
-  return json;
-}
-
-// 일기 목록 가져오기
-export async function fetchDiaries(userId?: number): Promise<DiaryEntry[]> {
-  const accessToken = getAccessTokenOrRedirect();
-
-  const url = userId
-    ? `/api/diary/user/${userId}`
-    : `/api/diary`;
-
-  const res = await fetch(url, {
-    method: "GET",
-    headers: {
-      Authorization: `${accessToken}`, // Bearer 제거
-    },
-  });
-
-  console.log("Response status:", res.status);
-  console.log("Response headers:", res.headers.get("Content-Type"));
-
-  if (res.status === 401) {
-    await handleUnauthorized(res);
-  }
-
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error response:", text);
-    throw new Error(`Failed to fetch diaries: ${res.status}`);
-  }
-
-  const contentType = res.headers.get("Content-Type");
-  if (!contentType || !contentType.includes("application/json")) {
-    const text = await res.text();
-    console.error("Non-JSON response:", text);
-    throw new Error("Received non-JSON response from server");
-  }
-
-  const json = await res.json();
-  console.log("Fetched diaries:", json);
-  return json;
-}
-
-// 일기 생성하기
-export async function createDiary(data: {
+export interface DiaryEntry {
+  diaryId: number;
   userId: number;
   title: string;
   text: string;
   audioUrl?: string;
   imageUrl?: string;
-}) {
-  const accessToken = getAccessTokenOrRedirect();
-
-  const res = await fetch(`/api/diary`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `${accessToken}`,
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (res.status === 401) await handleUnauthorized(res);
-
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error:", text);
-    throw new Error(`Failed to create diary: ${res.status}`);
-  }
-
-  return res.json();
+  createdAt: string;
+  updatedAt: string;
 }
 
-// 일기 수정하기
-export async function updateDiary(id: number, data: any) {
-  const accessToken = getAccessTokenOrRedirect();
+export interface CreateDiaryRequest {
+  userId: number;
+  title: string;
+  text: string;
+  audioUrl?: string;
+  imageUrl?: string;
+}
 
-  console.log("=== Frontend UpdateDiary Debug ===");
-  console.log("Updating diary with data:", { id, data });
-  console.log("API URL:", `/api/diary/${id}`);
-  console.log("Access token:", accessToken ? "Present" : "Missing");
+export interface UpdateDiaryRequest {
+  title?: string;
+  text?: string;
+  audioUrl?: string;
+  imageUrl?: string;
+}
+
+export async function fetchDiaries(): Promise<DiaryEntry[]> {
+  console.log("=== fetchDiaries called ===");
+  
+  const accessToken = getAccessTokenOrRedirect();
+  console.log("Access token obtained:", accessToken ? "Yes" : "No");
+
+  const url = `${API_BASE_URL}/diary`;
+
+  console.log("Making request to:", url);
+  console.log("Request headers:", {
+    "Access_Token": accessToken, 
+  });
 
   try {
-    const res = await fetch(`/api/diary/${id}`, {
-      method: "PUT",
+    const response = await axios.get(url, {
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `${accessToken}`,
+        "Access_Token": accessToken, 
       },
-      body: JSON.stringify(data),
     });
 
-    console.log("Update diary response status:", res.status);
-    console.log("Update diary response headers:", Object.fromEntries(res.headers.entries()));
-
-    if (res.status === 401) await handleUnauthorized(res);
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("API error response:", text);
-      
-      // JSON 응답인지 확인
-      try {
-        const errorData = JSON.parse(text);
-        console.error("Parsed error data:", errorData);
-        throw new Error(`Failed to update diary: ${res.status} - ${errorData.error || errorData.details || text}`);
-      } catch (parseError) {
-        throw new Error(`Failed to update diary: ${res.status} - ${text}`);
-      }
+    console.log("=== fetchDiaries success ===");
+    console.log("Response status:", response.status);
+    console.log("Response headers:", response.headers["content-type"]);
+    console.log("Raw response data:", response.data);
+    console.log("Data type:", typeof response.data);
+    console.log("Is array:", Array.isArray(response.data));
+    console.log("Data length:", response.data?.length);
+    
+    return response.data;
+  } catch (error: any) {
+    console.error("=== fetchDiaries error ===");
+    console.error("API error response:", error.response?.data);
+    console.error("Error details:", error);
+    console.error("Error status:", error.response?.status);
+    
+    if (error.response?.status === 401) {
+      await handleUnauthorized(error.response);
     }
-
-    const result = await res.json();
-    console.log("Update diary success result:", result);
-    return result;
-  } catch (error) {
-    console.error("Update diary error:", error);
-    throw error;
+    
+    throw new Error(`Failed to fetch diaries: ${error.response?.status || error.message}`);
   }
 }
 
-// 일기 삭제하기
-export async function deleteDiary(id: number) {
+export async function fetchDiary(diaryId: number): Promise<DiaryEntry> {
+  console.log("=== fetchDiary called ===");
+  console.log("Diary ID:", diaryId);
+  console.log("API_BASE_URL:", API_BASE_URL);
+  
   const accessToken = getAccessTokenOrRedirect();
+  console.log("Access token obtained:", accessToken ? "Yes" : "No");
 
-  const res = await fetch(`/api/diary/${id}`, {
-    method: "DELETE",
-    headers: {
-      Authorization: `${accessToken}`,
-    },
+  const url = `${API_BASE_URL}/diary/${diaryId}`;
+  console.log("Making GET request to:", url);
+  console.log("Request headers:", {
+    "Access_Token": accessToken,
   });
 
-  if (res.status === 401) await handleUnauthorized(res);
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        "Access_Token": accessToken,
+      },
+    });
 
-  if (!res.ok) {
-    const text = await res.text();
-    console.error("API error:", text);
-    throw new Error(`Failed to delete diary: ${res.status}`);
+    console.log("=== fetchDiary success ===");
+    console.log("Response status:", response.status);
+    console.log("Response data:", response.data);
+    
+    return response.data;
+  } catch (error: any) {
+    console.error("=== fetchDiary error ===");
+    console.error("Error fetching diary:", error);
+    console.error("Error response:", error.response);
+    console.error("Error status:", error.response?.status);
+    console.error("Error message:", error.message);
+    
+    if (error.response?.status === 401) {
+      await handleUnauthorized(error.response);
+    }
+    
+    throw new Error(`Failed to fetch diary: ${error.response?.status || error.message}`);
   }
-
-  return res.ok;
 }
 
-// S3 이미지 업로드 함수
+export async function createDiary(diaryData: CreateDiaryRequest): Promise<DiaryEntry> {
+  console.log("=== createDiary called ===");
+  console.log("API_BASE_URL:", API_BASE_URL);
+  console.log("diaryData:", diaryData);
+  
+  const accessToken = getAccessTokenOrRedirect();
+  console.log("Access token obtained:", accessToken ? "Yes" : "No");
+
+  try {
+    console.log("Making POST request to:", `${API_BASE_URL}/diary`);
+    console.log("Request headers:", {
+      "Access_Token": accessToken,
+      "Content-Type": "application/json",
+    });
+    
+    const response = await axios.post(`${API_BASE_URL}/diary`, diaryData, {
+      headers: {
+        "Access_Token": accessToken,
+        "Content-Type": "application/json",
+      },
+    });
+
+    console.log("=== createDiary success ===");
+    console.log("Response status:", response.status);
+    console.log("Response data:", response.data);
+    
+    return response.data;
+  } catch (error: any) {
+    console.error("=== createDiary error ===");
+    console.error("Error creating diary:", error);
+    console.error("Error response:", error.response);
+    console.error("Error message:", error.message);
+    
+    if (error.response?.status === 401) {
+      await handleUnauthorized(error.response);
+    }
+    
+    throw new Error(`Failed to create diary: ${error.response?.status || error.message}`);
+  }
+}
+
+export async function updateDiary(diaryId: number, diaryData: UpdateDiaryRequest): Promise<DiaryEntry> {
+  const accessToken = getAccessTokenOrRedirect();
+
+  try {
+    const response = await axios.put(`${API_BASE_URL}/diary/${diaryId}`, diaryData, {
+      headers: {
+        "Access_Token": accessToken,
+        "Content-Type": "application/json",
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Error updating diary:", error);
+    
+    if (error.response?.status === 401) {
+      await handleUnauthorized(error.response);
+    }
+    
+    throw new Error(`Failed to update diary: ${error.response?.status || error.message}`);
+  }
+}
+
+export async function deleteDiary(diaryId: number): Promise<void> {
+  const accessToken = getAccessTokenOrRedirect();
+
+  try {
+    await axios.delete(`${API_BASE_URL}/diary/${diaryId}`, {
+      headers: {
+        "Access_Token": accessToken,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error deleting diary:", error);
+    
+    if (error.response?.status === 401) {
+      await handleUnauthorized(error.response);
+    }
+    
+    throw new Error(`Failed to delete diary: ${error.response?.status || error.message}`);
+  }
+}
+
 export async function uploadImageToS3(file: File): Promise<string> {
+  const accessToken = getAccessTokenOrRedirect();
   const formData = new FormData();
   formData.append('file', file);
 
-  const res = await fetch(`/api/s3/upload`, {
-    method: "POST",
-    body: formData,
-  });
+  try {
+    const response = await axios.post(`${API_BASE_URL}/s3/upload/diary`, formData, {
+      headers: {
+        "Access_Token": accessToken,
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
-  if (!res.ok) {
-    const errorData = await res.json();
-    console.error("S3 upload error:", errorData);
-    throw new Error(`Failed to upload image: ${errorData.error || res.statusText}`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error uploading image:", error);
+    
+    if (error.response?.status === 401) {
+      await handleUnauthorized(error.response);
+    }
+    
+    throw new Error(`Failed to upload image: ${error.response?.status || error.message}`);
   }
+}
 
-  const result = await res.json();
-  return result.url;
+export async function uploadAudioToS3(file: File): Promise<string> {
+  const accessToken = getAccessTokenOrRedirect();
+  const formData = new FormData();
+  formData.append('file', file);
+
+  try {
+    const response = await axios.post(`${API_BASE_URL}/diary/audio`, formData, {
+      headers: {
+        "Access_Token": accessToken,
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return response.data;
+  } catch (error: any) {
+    console.error("Error uploading audio:", error);
+    
+    if (error.response?.status === 401) {
+      await handleUnauthorized(error.response);
+    }
+    
+    throw new Error(`Failed to upload audio: ${error.response?.status || error.message}`);
+  }
 }

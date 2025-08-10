@@ -146,7 +146,7 @@ export default function AdoptionPage({
       adoptionFee: 0,
       isNeutered: apiPet.neutered || false,
       isVaccinated: apiPet.vaccinated || false,
-      specialNeeds: apiPet.rescueStory || '',
+      specialNeeds: apiPet.specialNeeds || '',
       dateRegistered: new Date().toISOString().split('T')[0],
       adoptionStatus: apiPet.adopted ? 'adopted' : 'available'
     }

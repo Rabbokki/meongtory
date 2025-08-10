@@ -40,7 +40,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String accessToken = jwtUtil.getHeaderToken(request, "Access_Token");
         String refreshToken = jwtUtil.getHeaderToken(request, "Refresh_Token");
 
-        log.info("Request URI: {}", request.getRequestURI());
         log.info("Access Token from header: {}", accessToken);
         log.info("Refresh Token from header: {}", refreshToken);
         log.info("Raw Access_Token from header: {}", request.getHeader("Access_Token"));

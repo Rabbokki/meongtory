@@ -1,5 +1,6 @@
 package com.my.backend.diary.entity;
 
+import com.my.backend.account.entity.Account;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,7 +19,9 @@ public class Diary {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long diaryId;
 
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "account_id", nullable = false)
+    private Account user;
 
     @Column(nullable = false, length = 255)
     private String title;

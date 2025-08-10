@@ -708,7 +708,38 @@ export default function PetServiceWebsite() {
 
     try {
       console.log('장바구니 조회 시작...')
-      const response = await axios.get(`http://localhost:8080/api/carts/${currentUserId}`, {
+      
+      // accessToken에서 사용자 ID 추출
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        console.log('Access token이 없습니다.');
+        return;
+      }
+
+      let userId: number | null = null;
+      try {
+        const tokenParts = accessToken.split('.');
+        if (tokenParts.length === 3) {
+          const payload = JSON.parse(atob(tokenParts[1]));
+          console.log('JWT payload:', payload);
+          // JWT에서 사용자 ID를 직접 가져올 수 없으므로, 백엔드에서 사용자 정보를 가져와야 함
+          // 임시로 currentUser?.id 사용
+          userId = currentUser?.id || null;
+        }
+      } catch (error) {
+        console.error('JWT 파싱 오류:', error);
+        userId = currentUser?.id || null;
+      }
+
+      if (!userId) {
+        console.log('사용자 ID를 찾을 수 없습니다.');
+        return;
+      }
+
+      const response = await axios.get(`http://localhost:8080/api/carts`, {
+        headers: {
+          "Access_Token": accessToken,
+        },
         timeout: 5000
       })
       if (response.status !== 200) {
@@ -1413,6 +1444,18 @@ export default function PetServiceWebsite() {
   const renderCurrentPage = () => {
     console.log("renderCurrentPage 호출됨, currentPage:", currentPage)
     
+    // URL 파라미터 확인 (SSR 안전)
+    let page = null;
+    let editId = null;
+    
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      page = urlParams.get("page");
+      editId = urlParams.get("edit");
+    }
+    
+    console.log("URL params - page:", page, "edit:", editId);
+    
     if (isLoading) {
       console.log("로딩 중...")
       return (
@@ -1544,35 +1587,23 @@ export default function PetServiceWebsite() {
         )
 
       case "diary":
-        if (selectedDiaryEntry) {
-          return (
-            <DiaryEntryDetail
-              entry={selectedDiaryEntry}
-              onBack={() => setSelectedDiaryEntry(null)}
-              onUpdate={handleUpdateDiaryEntry}
-              onDelete={handleDeleteDiaryEntry}
-              currentUserEmail={currentUser?.email}
-            />
-          )
+        // 수정 모드인지 확인
+        if (editId) {
+          console.log("Diary edit mode detected for ID:", editId);
+          // 수정 페이지로 리다이렉트
+          window.location.href = `/diary/edit/${editId}`;
+          return null;
         }
+        
         return (
           <GrowthDiaryPage
-            entries={diaryEntries.filter((entry) => entry.ownerEmail === currentUser?.email)}
-            onViewEntry={setSelectedDiaryEntry}
+            entries={[]}
+            onViewEntry={() => {}}
             onClose={() => setCurrentPage("home")}
-            onAddEntry={(entryData) => {
-              const newEntry: DiaryEntry = {
-                id: diaryEntries.length + 1,
-                ...entryData,
-                date: new Date().toISOString().split("T")[0],
-                ownerEmail: currentUser?.email,
-              }
-              setDiaryEntries((prev) => [...prev, newEntry])
-              toast.success("성장일기가 등록되었습니다", { duration: 5000 })
-            }}
+            onAddEntry={() => {}}
             isLoggedIn={isLoggedIn}
-            currentUserId={currentUser?.email}
-            onNavigateToWrite={() => setCurrentPage("growthDiaryWrite")}
+            currentUserId={currentUser?.id?.toString()}
+            onNavigateToWrite={() => {}}
           />
         )
 
@@ -1894,6 +1925,10 @@ export default function PetServiceWebsite() {
           setTimeout(() => {
             console.log("setTimeout 후 현재 페이지:", currentPage)
           }, 100)
+        }}
+        onNavigateToDiary={() => {
+          console.log("성장일기 버튼 클릭됨")
+          setCurrentPage("diary")
         }}
       />
 

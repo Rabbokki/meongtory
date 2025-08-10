@@ -102,12 +102,26 @@ export const petApi = {
 
 // S3 API 함수들
 export const s3Api = {
-  // 파일 업로드
+  // 파일 업로드 (일반)
   uploadFile: async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
 
     const response = await axios.post(`${API_BASE_URL}/s3/upload`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    
+    return response.data;
+  },
+
+  // 입양 펫 이미지 업로드
+  uploadAdoptionFile: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await axios.post(`${API_BASE_URL}/s3/upload/adoption`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },

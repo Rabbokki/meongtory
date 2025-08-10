@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { updateDiary, fetchDiaries, fetchDiary, uploadImageToS3 } from "@/lib/api/diary";
+import { updateDiary, fetchDiaries, fetchDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/api/diary";
 import { useToast } from "@/components/ui/use-toast";
 import type { DiaryEntry } from "@/diary";
 import { Mic, MicOff, Play, Pause, X, Camera, ChevronLeft, ImageIcon, Edit, Check, RotateCcw } from "lucide-react";
@@ -41,6 +41,7 @@ export default function DiaryEditPage() {
   const [originalContent, setOriginalContent] = useState("");
   const [voiceChanged, setVoiceChanged] = useState(false);
   const [newAudioBlob, setNewAudioBlob] = useState<Blob | null>(null);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -55,10 +56,14 @@ export default function DiaryEditPage() {
         setIsLoading(true);
         console.log("Fetching entry with params:", params);
         
-        const userId = localStorage.getItem("userId");
+                // 로그인 상태 확인 (accessToken만 확인)
         const accessToken = localStorage.getItem("accessToken");
 
-        if (!userId || !accessToken) {
+        console.log("=== Login check ===");
+        console.log("accessToken from localStorage:", accessToken ? "exists" : "not found");
+
+        if (!accessToken) {
+          console.log("Login required, redirecting...");
           toast({
             title: "로그인 필요",
             description: "로그인이 필요합니다.",
@@ -70,7 +75,7 @@ export default function DiaryEditPage() {
 
         // params.id가 배열일 수 있으므로 첫 번째 요소를 사용
         const diaryId = Array.isArray(params.id) ? params.id[0] : params.id;
-        console.log("Diary ID:", diaryId, "User ID:", userId);
+        console.log("Diary ID:", diaryId);
 
         if (!diaryId) {
           toast({
@@ -83,26 +88,41 @@ export default function DiaryEditPage() {
         }
 
         // 개별 일기 데이터 가져오기
-        const foundEntry = await fetchDiary(Number(diaryId));
-        console.log("Found entry:", foundEntry);
+        console.log("Calling fetchDiary with ID:", Number(diaryId));
+        console.log("Access token available:", !!accessToken);
+        
+        try {
+          const foundEntry = await fetchDiary(Number(diaryId));
+          console.log("Found entry:", foundEntry);
+          console.log("Found entry type:", typeof foundEntry);
+          console.log("Found entry keys:", foundEntry ? Object.keys(foundEntry) : "null");
 
-        if (foundEntry) {
-          setEntry(foundEntry);
-          setTitle(foundEntry.title || "");
-          setContent(foundEntry.text || "");
-          setImageUrl(foundEntry.imageUrl || null);
-          setAudioUrl(foundEntry.audioUrl || null);
-          console.log("Entry data set:", {
-            title: foundEntry.title,
-            content: foundEntry.text,
-            imageUrl: foundEntry.imageUrl,
-            audioUrl: foundEntry.audioUrl
-          });
-        } else {
-          console.log("Entry not found for ID:", diaryId);
+          if (foundEntry) {
+            setEntry(foundEntry);
+            setTitle(foundEntry.title || "");
+            setContent(foundEntry.text || "");
+            setImageUrl(foundEntry.imageUrl || null);
+            setAudioUrl(foundEntry.audioUrl || null);
+            console.log("Entry data set successfully:", {
+              title: foundEntry.title,
+              content: foundEntry.text,
+              imageUrl: foundEntry.imageUrl,
+              audioUrl: foundEntry.audioUrl
+            });
+          } else {
+            console.log("Entry not found for ID:", diaryId);
+            toast({
+              title: "일기를 찾을 수 없습니다",
+              description: "요청하신 일기를 찾을 수 없습니다.",
+              variant: "destructive",
+            });
+            router.push("/?page=diary");
+          }
+        } catch (error) {
+          console.error("Error fetching diary:", error);
           toast({
-            title: "일기를 찾을 수 없습니다",
-            description: "요청하신 일기를 찾을 수 없습니다.",
+            title: "일기 불러오기 실패",
+            description: "일기를 불러오는 중 오류가 발생했습니다.",
             variant: "destructive",
           });
           router.push("/?page=diary");
@@ -305,8 +325,11 @@ export default function DiaryEditPage() {
       const result = await response.json();
       const transcribedText = result.transcript || result.text || result;
 
-      // 변환된 텍스트로 본문을 덮어쓰기
-      setContent(transcribedText.trim());
+      // 변환된 텍스트를 기존 내용에 추가
+      setContent(prevContent => {
+        const newContent = prevContent + (prevContent ? '\n\n' : '') + transcribedText;
+        return newContent;
+      });
 
       toast({
         title: "음성 변환 완료",
@@ -379,7 +402,7 @@ export default function DiaryEditPage() {
     setImageUrl(null);
   };
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!entry) return;
 
     if (!title.trim() || !content.trim()) {
@@ -390,6 +413,13 @@ export default function DiaryEditPage() {
       });
       return;
     }
+
+    // 수정 확인 모달 표시
+    setShowSaveConfirm(true);
+  };
+
+  const confirmSave = async () => {
+    if (!entry) return;
 
     try {
       let finalImageUrl = imageUrl;
@@ -420,11 +450,39 @@ export default function DiaryEditPage() {
         }
       }
 
+      // 오디오 파일을 S3에 업로드
+      let finalAudioUrl = voiceChanged ? (audioUrl || undefined) : (entry.audioUrl || undefined);
+      if (voiceChanged && audioUrl && audioUrl.startsWith('blob:')) {
+        try {
+          // blob URL에서 File 객체 생성
+          const response = await fetch(audioUrl);
+          const blob = await response.blob();
+          const audioFile = new File([blob], 'recording.webm', { type: 'audio/webm' });
+          
+          setIsUploading(true);
+          toast({
+            title: "오디오 업로드 중",
+            description: "오디오 파일을 업로드하고 있습니다...",
+          });
+          
+          finalAudioUrl = await uploadAudioToS3(audioFile);
+          setIsUploading(false);
+        } catch (error) {
+          console.error("오디오 업로드 실패:", error);
+          toast({
+            title: "오디오 업로드 실패",
+            description: "오디오 파일 업로드 중 오류가 발생했습니다.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       const updateData = {
         title,
         text: content,
-        imageUrl: finalImageUrl || null,
-        audioUrl: voiceChanged ? (audioUrl || null) : entry.audioUrl,
+        imageUrl: finalImageUrl || undefined,
+        audioUrl: finalAudioUrl,
       };
 
       console.log("Saving entry:", {
@@ -464,7 +522,13 @@ export default function DiaryEditPage() {
         description: "수정 중 오류가 발생했습니다.",
         variant: "destructive",
       });
+    } finally {
+      setShowSaveConfirm(false);
     }
+  };
+
+  const cancelSave = () => {
+    setShowSaveConfirm(false);
   };
 
   const handleCancel = () => {
@@ -777,6 +841,22 @@ export default function DiaryEditPage() {
                 {isUploading ? "업로드 중..." : "수정 완료"}
               </Button>
             </div>
+
+            {/* 수정 확인 모달 */}
+            {showSaveConfirm && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <Card className="w-full max-w-md mx-4">
+                  <CardContent className="p-6">
+                    <h3 className="text-lg font-bold mb-4">일기 수정</h3>
+                    <p className="text-gray-600 mb-6">정말로 이 일기를 수정하시겠습니까?<br />⚠️ 수정된 내용은 저장 후 복구할 수 없습니다.</p>
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={cancelSave}>취소</Button>
+                      <Button onClick={confirmSave} className="bg-blue-600 text-white hover:bg-blue-700">수정</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
