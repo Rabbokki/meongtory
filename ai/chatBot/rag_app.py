@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+ï»¿from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -9,23 +9,22 @@ import os
 import logging
 import psycopg2
 
-# ·Î±ë ¼³Á¤
+# ë¡œê¹… ì„¤ì •
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-# È¯°æ º¯¼ö
+# í™˜ê²½ ë³€ìˆ˜
 DB_USER = os.getenv("DB_USER", "jjj")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "1q2w3e4r!")
 DB_HOST = os.getenv("DB_HOST", "db")
 DB_NAME = os.getenv("DB_NAME", "meong")
-# SQLAlchemy¿ë DSN
 CONNECTION_STRING = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
-# ÀÓº£µù ¸ğµ¨
+# ì„ë² ë”© ëª¨ë¸
 try:
     embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     logger.info("HuggingFaceEmbeddings initialized successfully")
@@ -33,7 +32,7 @@ except Exception as e:
     logger.error(f"Failed to initialize HuggingFaceEmbeddings: {e}")
     raise HTTPException(status_code=500, detail="Embedding initialization failed")
 
-# PGVector ÃÊ±âÈ­
+# PGVector ì´ˆê¸°í™”
 try:
     vectorstore = PGVector(
         connection=CONNECTION_STRING,
@@ -47,15 +46,15 @@ except Exception as e:
     logger.error(f"Failed to initialize PGVector: {e}")
     raise HTTPException(status_code=500, detail="Vectorstore initialization failed")
 
-# »ùÇÃ µ¥ÀÌÅÍ »ğÀÔ
+# ìƒ˜í”Œ ë°ì´í„° ì‚½ì…
 def initialize_vectorstore():
     try:
         logger.debug("Starting initialize_vectorstore")
         logger.info("Checking for existing data in chatbot_vectors")
-        existing_docs = vectorstore.similarity_search("°­¾ÆÁö ÀÔ¾ç", k=1)
+        existing_docs = vectorstore.similarity_search("ê°•ì•„ì§€ ì…ì–‘", k=1)
         logger.debug(f"Existing docs: {existing_docs}")
 
-        # ±âÁ¸ µ¥ÀÌÅÍ È®ÀÎ ¹× »èÁ¦
+        # ê¸°ì¡´ ë°ì´í„° í™•ì¸ ë° ì‚­ì œ
         with psycopg2.connect(
             host=DB_HOST,
             port=5432,
@@ -65,9 +64,9 @@ def initialize_vectorstore():
         ) as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT COUNT(*) 
-                    FROM langchain_pg_embedding e 
-                    JOIN langchain_pg_collection c ON e.collection_id = c.uuid 
+                    SELECT COUNT(*)
+                    FROM langchain_pg_embedding e
+                    JOIN langchain_pg_collection c ON e.collection_id = c.uuid
                     WHERE c.name = %s
                 """, ("chatbot_vectors",))
                 count = cur.fetchone()[0]
@@ -76,7 +75,7 @@ def initialize_vectorstore():
                 if count > 0:
                     logger.info("Deleting existing data in chatbot_vectors")
                     cur.execute("""
-                        DELETE FROM langchain_pg_embedding 
+                        DELETE FROM langchain_pg_embedding
                         WHERE collection_id = (
                             SELECT uuid FROM langchain_pg_collection WHERE name = %s
                         )
@@ -84,19 +83,19 @@ def initialize_vectorstore():
                     conn.commit()
                     logger.info("Existing data deleted")
 
-        # »ùÇÃ µ¥ÀÌÅÍ »ğÀÔ
+        # ìƒ˜í”Œ ë°ì´í„° ì‚½ì…
         logger.info("Inserting sample data into chatbot_vectors")
         sample_docs = [
             Document(
-                page_content="°­¾ÆÁö ÀÔ¾ç ÀıÂ÷´Â µ¿¹°º¸È£¼Ò ¹æ¹®, ½ÅºĞÁõ Á¦Ãâ, ÀÔ¾ç ½ÅÃ»¼­ ÀÛ¼º, ¸é´ã, ÀÔ¾çºñ ³³ºÎ ¼øÀ¸·Î ÁøÇàµË´Ï´Ù.",
+                page_content="ê°•ì•„ì§€ ì…ì–‘ ì ˆì°¨ëŠ” ë™ë¬¼ë³´í˜¸ì†Œ ë°©ë¬¸, ì‹ ë¶„ì¦ ì œì¶œ, ì…ì–‘ ì‹ ì²­ì„œ ì‘ì„±, ë©´ë‹´, ì…ì–‘ë¹„ ë‚©ë¶€ ìˆœìœ¼ë¡œ ì§„í–‰ë©ë‹ˆë‹¤.",
                 metadata={"source": "adoption_guide"}
             ),
             Document(
-                page_content="°í¾çÀÌ ÀÔ¾ç ½Ã °í·ÁÇØ¾ß ÇÒ Á¡Àº Áı È¯°æ, »ç·á ¼±ÅÃ, °Ç°­ °ËÁø ÁÖ±âÀÔ´Ï´Ù.",
+                page_content="ê³ ì–‘ì´ ì…ì–‘ ì‹œ ê³ ë ¤í•´ì•¼ í•  ì ì€ ì§‘ í™˜ê²½, ì‚¬ë£Œ ì„ íƒ, ê±´ê°• ê²€ì§„ ì£¼ê¸°ì…ë‹ˆë‹¤.",
                 metadata={"source": "cat_adoption"}
             ),
             Document(
-                page_content="¾Ö¿Ïµ¿¹° °Ç°­ °ü¸®¸¦ À§ÇØ Á¤±âÀûÀÎ ¿¹¹æÁ¢Á¾°ú ±¸ÃæÁ¦ Åõ¿©°¡ Áß¿äÇÕ´Ï´Ù.",
+                page_content="ì• ì™„ë™ë¬¼ ê±´ê°• ê´€ë¦¬ë¥¼ ìœ„í•´ ì •ê¸°ì ì¸ ì˜ˆë°©ì ‘ì¢…ê³¼ êµ¬ì¶©ì œ íˆ¬ì—¬ê°€ ì¤‘ìš”í•©ë‹ˆë‹¤.",
                 metadata={"source": "pet_care"}
             )
         ]
@@ -106,7 +105,7 @@ def initialize_vectorstore():
         logger.error(f"Failed to insert sample data: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Sample data insertion failed: {str(e)}")
 
-# OpenAI ¸ğµ¨
+# OpenAI ëª¨ë¸
 try:
     llm = ChatOpenAI(
         api_key=OPENAI_API_KEY,
@@ -117,11 +116,10 @@ except Exception as e:
     logger.error(f"Failed to initialize ChatOpenAI: {e}")
     raise HTTPException(status_code=500, detail="LLM initialization failed")
 
-# ÇÁ·ÒÇÁÆ® ÅÛÇÃ¸´
 prompt_template = PromptTemplate(
     input_variables=["context", "query"],
-    template="""You are ¸ÛÅä¸® µµ¿ì¹Ì, a chatbot for a pet All-in-One platform. 
-    Answer in Korean, using a friendly tone. 
+    template="""You are ë©í† ë¦¬ ë„ìš°ë¯¸, a chatbot for a pet All-in-One platform.
+    Answer in Korean, using a friendly tone.
     Context: {context}
     Question: {query}
     Answer:"""
@@ -130,19 +128,24 @@ prompt_template = PromptTemplate(
 class QueryRequest(BaseModel):
     query: str
 
-@app.post("/rag")
-async def rag_endpoint(request: QueryRequest):
+async def process_rag_query(query: str):
     try:
-        logger.info(f"Processing query: {request.query}")
-        results = vectorstore.similarity_search(request.query, k=5)
+        logger.info(f"Processing query: {query}")
+        results = vectorstore.similarity_search(query, k=5)
         context = "\n".join([doc.page_content for doc in results])
-        prompt = prompt_template.format(context=context, query=request.query)
+        prompt = prompt_template.format(context=context, query=query)
         response = llm.invoke(prompt)
-        logger.info("Query processed successfully")
+        logger.info(f"Query response: {response.content}")
         return {"answer": response.content}
     except Exception as e:
-        logger.error(f"Error processing query: {e}")
-        raise HTTPException(status_code=500, detail="Query processing failed")
+        logger.error(f"Error processing query: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Query processing failed: {str(e)}")
 
-# ¼­¹ö ½ÃÀÛ ½Ã vectorstore ÃÊ±âÈ­
-initialize_vectorstore()
+@app.post("/rag")
+async def rag_endpoint(request: QueryRequest):
+    return await process_rag_query(request.query)
+
+# ì„œë²„ ì‹œì‘ ì‹œ vectorstore ì´ˆê¸°í™” (ì¤‘ë³µ ì‹¤í–‰ ë°©ì§€)
+if not hasattr(app, 'vectorstore_initialized'):
+    initialize_vectorstore()
+    app.vectorstore_initialized = True

@@ -19,7 +19,7 @@ services:
       context: ./ai
       dockerfile: Dockerfile
     ports:
-      - "9000:9000"
+      - "9500:9000"
     volumes:
       - ./ai:/app
     environment:

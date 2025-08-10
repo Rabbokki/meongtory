@@ -6,7 +6,12 @@ import os
 import openai
 from openai import OpenAI
 from model import DogBreedClassifier
-from chatBot.rag_app import app as rag_app, initialize_vectorstore  # rag_app과 initialize_vectorstore 임포트
+from chatBot.rag_app import process_rag_query
+import logging
+
+# 로깅 설정
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
@@ -19,20 +24,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# rag_app 마운트
-app.mount("/rag", rag_app)
-
-# startup 이벤트에서 initialize_vectorstore 호출
-@app.on_event("startup")
-async def startup_event():
-    initialize_vectorstore()
-
 classifier = DogBreedClassifier()
 
 # OpenAI 설정
 openai.api_key = os.getenv("OPENAI_API_KEY", "")
 if not openai.api_key:
-    print("Warning: OPENAI_API_KEY not set")
+    logger.warning("OPENAI_API_KEY not set")
 
 class BackgroundStoryRequest(BaseModel):
     petName: str
@@ -41,6 +38,9 @@ class BackgroundStoryRequest(BaseModel):
     gender: str
     personality: str = ""
     userPrompt: str = ""
+
+class QueryRequest(BaseModel):
+    query: str
 
 @app.post("/predict")
 async def predict_dog_breed(file: UploadFile = File(...)):
@@ -69,7 +69,19 @@ async def generate_background_story(request: BackgroundStoryRequest):
             "message": "배경 스토리가 성공적으로 생성되었습니다."
         }
     except Exception as e:
+        logger.error(f"Story generation failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"스토리 생성 실패: {str(e)}")
+
+@app.post("/rag")
+async def rag_endpoint(request: QueryRequest):
+    try:
+        logger.info(f"Received query: {request.query}")
+        response = await process_rag_query(request.query)
+        logger.info(f"Query response: {response['answer']}")
+        return response
+    except Exception as e:
+        logger.error(f"Error processing RAG query: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"RAG endpoint failed: {str(e)}")
 
 def build_story_prompt(request: BackgroundStoryRequest) -> str:
     prompt = f"""다음 정보를 바탕으로 입양 동물의 감동적인 배경 스토리를 작성해주세요:
