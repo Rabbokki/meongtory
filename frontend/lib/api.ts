@@ -45,58 +45,139 @@ export const petApi = {
     limit?: number;
     lastId?: number;
   }): Promise<Pet[]> => {
-    const params = new URLSearchParams();
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          params.append(key, value.toString());
-        }
-      });
-    }
+    try {
+      const params = new URLSearchParams();
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            params.append(key, value.toString());
+          }
+        });
+      }
 
-    const response = await axios.get(`${API_BASE_URL}/pets?${params.toString()}`);
-    return response.data;
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/pets?${params.toString()}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 펫 생성
   createPet: async (petData: Omit<Pet, 'petId'>): Promise<Pet> => {
-    const response = await axios.post(`${API_BASE_URL}/pets`, petData, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    return response.data;
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.post(`${API_BASE_URL}/pets`, petData, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 펫 수정
   updatePet: async (petId: number, petData: Partial<Pet>): Promise<Pet> => {
-    const response = await axios.put(`${API_BASE_URL}/pets/${petId}`, petData, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    return response.data;
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.put(`${API_BASE_URL}/pets/${petId}`, petData, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 펫 삭제
   deletePet: async (petId: number): Promise<void> => {
-    await axios.delete(`${API_BASE_URL}/pets/${petId}`);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.delete(`${API_BASE_URL}/pets/${petId}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 펫 이미지 URL 업데이트
   updatePetImageUrl: async (petId: number, imageUrl: string): Promise<Pet> => {
-    const response = await axios.patch(`${API_BASE_URL}/pets/${petId}/image-url`, null, {
-      params: { imageUrl },
-    });
-    return response.data;
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.patch(`${API_BASE_URL}/pets/${petId}/image-url`, null, {
+        params: { imageUrl },
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 펫 입양 상태 업데이트
   updateAdoptionStatus: async (petId: number, adopted: boolean): Promise<Pet> => {
-    const response = await axios.patch(`${API_BASE_URL}/pets/${petId}/adoption-status`, null, {
-      params: { adopted },
-    });
-    return response.data;
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.patch(`${API_BASE_URL}/pets/${petId}/adoption-status`, null, {
+        params: { adopted },
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 };
 
@@ -104,40 +185,75 @@ export const petApi = {
 export const s3Api = {
   // 파일 업로드 (일반)
   uploadFile: async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append('file', file);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('access_token');
 
-    const response = await axios.post(`${API_BASE_URL}/s3/upload`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    
-    return response.data;
+      const response = await axios.post(`${API_BASE_URL}/s3/upload`, formData, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'multipart/form-data',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 입양 펫 이미지 업로드
   uploadAdoptionFile: async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append('file', file);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const token = localStorage.getItem('access_token');
 
-    const response = await axios.post(`${API_BASE_URL}/s3/upload/adoption`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    
-    return response.data;
+      const response = await axios.post(`${API_BASE_URL}/s3/upload/adoption`, formData, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'multipart/form-data',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 파일 삭제
   deleteFile: async (fileName: string): Promise<void> => {
-    const response = await axios.delete(`${API_BASE_URL}/s3/delete`, {
-      params: { fileName },
-    });
-    
-    if (response.status !== 200) {
-      throw new Error(`Failed to delete file: ${response.statusText}`);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.delete(`${API_BASE_URL}/s3/delete`, {
+        params: { fileName },
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      if (response.status !== 200) {
+        throw new Error(`Failed to delete file: ${response.statusText}`);
+      }
+    } catch (error) {
+      throw handleApiError(error);
     }
   },
 };
@@ -146,84 +262,239 @@ export const s3Api = {
 export const userApi = {
   // 현재 로그인한 사용자 정보 가져오기
   getCurrentUser: async (): Promise<any> => {
-    const response = await axios.get(`${API_BASE_URL}/accounts/me`)
-    return response.data.data
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/accounts/me`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
-}
+};
 
 // 입양신청 API 함수들
 export const adoptionRequestApi = {
   // 입양신청 생성
   createAdoptionRequest: async (requestData: {
-    petId: number
-    applicantName: string
-    contactNumber: string
-    email: string
-    message: string
-  }): Promise<any> => {
-    const response = await axios.post(`${API_BASE_URL}/adoption-requests`, requestData)
-    return response.data
-  },
-
-  // 관리자용 전체 입양신청 조회
-  getAdoptionRequests: async (): Promise<any[]> => {
-    const response = await axios.get(`${API_BASE_URL}/adoption-requests`)
-    return response.data.data
-  },
-
-  // 사용자별 입양신청 조회
-  getUserAdoptionRequests: async (): Promise<any[]> => {
-    const response = await axios.get(`${API_BASE_URL}/adoption-requests/user`)
-    return response.data.data
-  },
-
-  // 특정 입양신청 조회
-  getAdoptionRequest: async (requestId: number): Promise<any> => {
-    const response = await axios.get(`${API_BASE_URL}/adoption-requests/${requestId}`)
-    return response.data.data
-  },
-
-  // 입양신청 상태 변경
-  updateAdoptionRequestStatus: async (requestId: number, status: string): Promise<any> => {
-    const response = await axios.put(`${API_BASE_URL}/adoption-requests/${requestId}/status`, {
-      status: status
-    })
-    return response.data
-  },
-
-  // 입양신청 수정
-  updateAdoptionRequest: async (requestId: number, data: {
+    petId: number;
     applicantName: string;
     contactNumber: string;
     email: string;
     message: string;
   }): Promise<any> => {
-    const response = await axios.put(`${API_BASE_URL}/adoption-requests/${requestId}`, data)
-    return response.data
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.post(`${API_BASE_URL}/adoption-requests`, requestData, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  // 관리자용 전체 입양신청 조회
+  getAdoptionRequests: async (): Promise<any[]> => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/adoption-requests`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  // 사용자별 입양신청 조회
+  getUserAdoptionRequests: async (): Promise<any[]> => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/adoption-requests/user`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  // 특정 입양신청 조회
+  getAdoptionRequest: async (requestId: number): Promise<any> => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/adoption-requests/${requestId}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  // 입양신청 상태 변경
+  updateAdoptionRequestStatus: async (requestId: number, status: string): Promise<any> => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.put(
+        `${API_BASE_URL}/adoption-requests/${requestId}/status`,
+        { status },
+        {
+          headers: {
+            Authorization: token ? `Bearer ${token}` : '',
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+        }
+      );
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+
+  // 입양신청 수정
+  updateAdoptionRequest: async (
+    requestId: number,
+    data: {
+      applicantName: string;
+      contactNumber: string;
+      email: string;
+      message: string;
+    }
+  ): Promise<any> => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.put(`${API_BASE_URL}/adoption-requests/${requestId}`, data, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 상태별 입양신청 조회
   getAdoptionRequestsByStatus: async (status: string): Promise<any[]> => {
-    const response = await axios.get(`${API_BASE_URL}/adoption-requests/status/${status}`)
-    return response.data.data
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/adoption-requests/status/${status}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
-}
+};
 
 // 상품 API 함수들
 export const productApi = {
   // 모든 상품 조회
   getProducts: async (): Promise<any[]> => {
-    const response = await axios.get(`${API_BASE_URL}/products`);
-    return response.data;
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/products`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('상품 목록 조회 실패:', error);
+      throw handleApiError(error);
+    }
   },
 
   // 특정 상품 조회
   getProduct: async (productId: number): Promise<any> => {
     console.log('상품 조회 요청:', `${API_BASE_URL}/products/${productId}`);
     console.log('요청할 productId:', productId, '타입:', typeof productId);
-    
+
     try {
-      const response = await axios.get(`${API_BASE_URL}/products/${productId}`);
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/products/${productId}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
       console.log('상품 조회 성공:', response.data);
       return response.data;
     } catch (error) {
@@ -234,43 +505,166 @@ export const productApi = {
           statusText: error.response?.statusText,
           data: error.response?.data,
           url: error.config?.url,
-          method: error.config?.method
+          method: error.config?.method,
         });
       }
-      throw error;
+      throw handleApiError(error);
     }
   },
 
   // 상품 생성
   createProduct: async (productData: any): Promise<any> => {
-    const response = await axios.post(`${API_BASE_URL}/products`, productData, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    return response.data;
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.post(`${API_BASE_URL}/products`, productData, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 상품 수정
   updateProduct: async (productId: number, productData: any): Promise<any> => {
-    const response = await axios.put(`${API_BASE_URL}/products/${productId}`, productData, {
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    return response.data;
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.put(`${API_BASE_URL}/products/${productId}`, productData, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data;
+    } catch (error) {
+      throw handleApiError(error);
+    }
   },
 
   // 상품 삭제
   deleteProduct: async (productId: number): Promise<void> => {
-    await axios.delete(`${API_BASE_URL}/products/${productId}`);
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.delete(`${API_BASE_URL}/products/${productId}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+    } catch (error) {
+      throw handleApiError(error);
+    }
+  },
+};
+
+// 네이버 API 함수들
+export const naverApi = {
+  // 네이버 상품 검색 (GET)
+  searchProducts: async (params: {
+    query: string;
+    display?: number;
+    start?: number;
+    sort?: string;
+  }): Promise<any> => {
+    try {
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+
+      const token = localStorage.getItem('access_token');
+      const response = await axios.get(`${API_BASE_URL}/naver/products/search?${searchParams.toString()}`, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error('네이버 상품 검색 실패:', error);
+      throw handleApiError(error);
+    }
+  },
+
+  // 네이버 상품 검색 (POST)
+  searchProductsPost: async (requestData: {
+    query: string;
+    display?: number;
+    start?: number;
+    sort?: string;
+  }): Promise<any> => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const response = await axios.post(`${API_BASE_URL}/naver/products/search`, requestData, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+      });
+
+      if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+        throw new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+      }
+
+      return response.data.data || response.data;
+    } catch (error) {
+      console.error('네이버 상품 검색 (POST) 실패:', error);
+      throw handleApiError(error);
+    }
   },
 };
 
 // 에러 처리 유틸리티
-export const handleApiError = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
+export const handleApiError = (error: unknown): Error => {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status;
+    const data = error.response?.data;
+
+    if (status === 401) {
+      return new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+    } else if (status === 403) {
+      return new Error('접근이 거부되었습니다.');
+    } else if (status === 404) {
+      return new Error('요청한 리소스를 찾을 수 없습니다.');
+    } else if (typeof data === 'string' && data.includes('<!DOCTYPE html>')) {
+      return new Error('인증이 필요합니다. 로그인 페이지로 이동합니다.');
+    } else if (data?.message) {
+      return new Error(data.message);
+    } else {
+      return new Error(`서버 오류: ${status || '알 수 없음'}`);
+    }
   }
-  return '알 수 없는 오류가 발생했습니다.';
-}; 
+
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new Error('알 수 없는 오류가 발생했습니다.');
+};

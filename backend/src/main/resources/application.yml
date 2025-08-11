@@ -98,6 +98,13 @@ toss:
     secret-key: ${TOSS_SECRET_KEY:}
     client-key: ${TOSS_CLIENT_KEY:}
 
+# 네이버 API 설정
+naver:
+  api:
+    client-id: ${NAVER_API_CLIENT_ID:}
+    client-secret: ${NAVER_API_CLIENT_SECRET:}
+    base-url: https://openapi.naver.com/v1/search/shop.json
+
 # Spring Boot Actuator 설정
 management:
   endpoints:

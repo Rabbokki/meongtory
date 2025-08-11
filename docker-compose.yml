@@ -34,7 +34,6 @@ services:
     volumes:
       - ./ai:/app
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
-
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
@@ -59,6 +58,8 @@ services:
       - KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
       - NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
       - NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
+      - NAVER_API_CLIENT_ID=${NAVER_SHOP_CLIENT_ID}
+      - NAVER_API_CLIENT_SECRET=${NAVER_SHOP_CLIENT_SECRET}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_S3_REGION=${AWS_S3_REGION}
