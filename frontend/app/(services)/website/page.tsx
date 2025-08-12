@@ -39,67 +39,8 @@ import { getCurrentKSTDate } from "@/lib/utils"
 // Types
 
 import type { Pet } from "@/types/pets"
-
-interface Product {
-  id: number
-  name: string
-  brand: string
-  price: number
-  image: string
-  category: string
-  description: string
-  tags: string[]
-  stock: number
-  petType?: "dog" | "cat" | "all"
-  registrationDate: string
-  registeredBy: string
-}
-
-interface WishlistItem {
-  id: number
-  name: string
-  brand: string
-  price: number
-  image: string
-  category: string
-}
-
-interface CartItem {
-  id: number
-  name: string
-  brand: string
-  price: number
-  image: string
-  category: string
-  quantity: number
-  order: number
-  product?: {
-    productId: number
-    name: string
-    description: string
-    price: number
-    stock: number
-    imageUrl: string
-    category: string
-    targetAnimal: string
-    registrationDate: string
-    registeredBy: string
-  }
-}
-
-interface Insurance {
-  id: number
-  company: string
-  planName: string
-  monthlyPremium: number
-  coverage: string[]
-  deductible: number
-  maxPayout: number
-  ageLimit: string
-  description: string
-  rating: number
-  isPopular?: boolean
-}
+import type { Product, WishlistItem, CartItem } from "@/types/store"
+import type { Insurance } from "@/types/insurance"
 
 interface DiaryEntry {
   id: number

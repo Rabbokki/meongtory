@@ -1,29 +1,110 @@
+// 스토어 관련 타입들
+
 export interface Product {
   id: number
   name: string
+  brand: string
   price: number
   image: string
   category: string
   description: string
   tags: string[]
   stock: number
+  petType?: "dog" | "cat" | "all"
   registrationDate: string
   registeredBy: string
 }
 
+export interface WishlistItem {
+  id: number
+  name: string
+  brand: string
+  price: number
+  image: string
+  category: string
+}
+
 export interface CartItem {
+  id: number
+  name: string
+  brand: string
+  price: number
+  image: string
+  category: string
+  quantity: number
+  order: number
+  product?: {
+    productId: number
+    name: string
+    description: string
+    price: number
+    stock: number
+    imageUrl: string
+    category: string
+    targetAnimal: string
+    registrationDate: string
+    registeredBy: string
+  }
+}
+
+export interface Order {
+  id: number
+  userId: number
+  orderDate: string
+  status: "pending" | "completed" | "cancelled"
+  totalAmount: number
+  items: OrderItem[]
+}
+
+export interface OrderItem {
   id: number
   productId: number
   productName: string
   price: number
   quantity: number
-  image: string
+  orderDate: string
+  status: "completed" | "pending" | "cancelled"
+  ImageUrl: string
 }
 
-export interface Order {
-  id: number
-  items: CartItem[]
-  totalAmount: number
-  orderDate: string
-  status: "pending" | "completed" | "cancelled"
+// 스토어 페이지 Props
+export interface StorePageProps {
+  onClose: () => void
+  onAddToWishlist: (product: Product) => void
+  isInWishlist: (productId: number) => boolean
+  isAdmin?: boolean
+  isLoggedIn?: boolean
+  onNavigateToStoreRegistration?: () => void
+  products?: Product[]
+  onViewProduct?: (productId: number) => void
+}
+
+export interface StoreProductDetailPageProps {
+  productId: number
+  onBack: () => void
+  onAddToWishlist: (product: Product) => void
+  onAddToCart: (product: Product) => void
+  onBuyNow: (product: Product) => void
+  isInWishlist: (productId: number) => boolean
+  isInCart: (productId: number) => boolean
+}
+
+export interface StoreProductRegistrationPageProps {
+  isAdmin: boolean
+  onAddProduct: (product: Product) => void
+  onClose: () => void
+}
+
+export interface StoreProductEditPageProps {
+  productId: number
+  onBack: () => void
+  onSave: (product: Product) => void
+}
+
+export interface CartPageProps {
+  cartItems: CartItem[]
+  onRemoveFromCart: (itemId: number) => void
+  onUpdateQuantity: (itemId: number, quantity: number) => void
+  onCheckout: () => void
+  onClose: () => void
 } 
