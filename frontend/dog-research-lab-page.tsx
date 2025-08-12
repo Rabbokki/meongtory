@@ -116,7 +116,7 @@ export default function DogResearchLabPage() {
       const formData = new FormData()
       formData.append('image', uploadedFile)
 
-      const response = await axios.post('/api/ai/predict-breed', formData, {
+      const response = await axios.post('http://localhost:9000/predict', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -124,26 +124,15 @@ export default function DogResearchLabPage() {
 
       const result = response.data
 
-      if (result.success) {
-        // AI 결과를 기존 인터페이스에 맞게 변환
-        const aiResult = result.data
-        const breedInfo = getBreedInfo(aiResult.breed)
-        
-        setIdentificationResult({
-          breed: aiResult.breed,
-          confidence: Math.round(aiResult.confidence),
-          characteristics: breedInfo.characteristics,
-          description: breedInfo.description,
-        })
-      } else {
-        // 에러 발생 시 기본값 설정
-        setIdentificationResult({
-          breed: "분석 실패",
-          confidence: 0,
-          characteristics: ["분석 실패"],
-          description: "이미지 분석에 실패했습니다. 다시 시도해주세요.",
-        })
-      }
+      // Python AI 서버는 직접 결과를 반환하므로 success 체크 불필요
+      const breedInfo = getBreedInfo(result.breed)
+      
+      setIdentificationResult({
+        breed: result.breed,
+        confidence: Math.round(result.confidence),
+        characteristics: breedInfo.characteristics,
+        description: breedInfo.description,
+      })
     } catch (error) {
       console.error('품종 분석 오류:', error)
       setIdentificationResult({

@@ -27,9 +27,7 @@ public class ContractSection extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String content; // 조항 내용
     
-    @Column(nullable = false)
-    @Builder.Default
-    private Boolean isRequired = false;
+
     
     @Column(nullable = false)
     private Integer orderNum;

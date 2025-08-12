@@ -19,7 +19,7 @@ public class ContractSectionDto {
     private Long id;
     private String title;
     private String content;
-    private Boolean isRequired;
+
     private Integer order;
     private List<String> options;
     
@@ -28,7 +28,7 @@ public class ContractSectionDto {
                 .id(section.getId())
                 .title(section.getTitle())
                 .content(section.getContent())
-                .isRequired(section.getIsRequired())
+
                 .order(section.getOrderNum())
                 .options(section.getOptions() != null ? List.of(section.getOptions().split(",")) : null)
                 .build();

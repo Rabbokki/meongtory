@@ -12,7 +12,7 @@ public interface ContractSectionRepository extends JpaRepository<ContractSection
     
     List<ContractSection> findByTemplateIdOrderByOrderNum(Long templateId);
     
-    List<ContractSection> findByTemplateIdAndIsRequired(Long templateId, Boolean isRequired);
+
     
     List<ContractSection> findByTemplateOrderByOrderNum(ContractTemplate template);
 } 

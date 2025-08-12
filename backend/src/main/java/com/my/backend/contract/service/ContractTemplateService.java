@@ -80,7 +80,6 @@ public class ContractTemplateService {
                     return ContractSection.builder()
                         .title(sectionDto.getTitle())
                         .content(sectionDto.getContent())
-                        .isRequired(sectionDto.getIsRequired() != null ? sectionDto.getIsRequired() : false)
                         .orderNum(sectionDto.getOrder() != null ? sectionDto.getOrder() : 1)
                         .template(finalTemplate)
                         .build();
@@ -118,7 +117,7 @@ public class ContractTemplateService {
                         // 기존 section 업데이트
                         existingSection.setTitle(sectionDto.getTitle());
                         existingSection.setContent(sectionDto.getContent());
-                        existingSection.setIsRequired(sectionDto.getIsRequired() != null ? sectionDto.getIsRequired() : false);
+
                         if (sectionDto.getOrder() != null) {
                             existingSection.setOrderNum(sectionDto.getOrder());
                         }
@@ -128,7 +127,6 @@ public class ContractTemplateService {
                         return ContractSection.builder()
                             .title(sectionDto.getTitle())
                             .content(sectionDto.getContent())
-                            .isRequired(sectionDto.getIsRequired() != null ? sectionDto.getIsRequired() : false)
                             .orderNum(sectionDto.getOrder() != null ? sectionDto.getOrder() : 1)
                             .template(template)
                             .build();
