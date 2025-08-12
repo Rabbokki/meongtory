@@ -15,6 +15,7 @@ import { ArrowLeft } from "lucide-react"
 import { petApi, s3Api, Pet as ApiPet, handleApiError } from "@/lib/api"
 import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import axios from "axios"
+import { useToast } from "@/hooks/use-toast"
 
 interface AnimalRecord {
   id: string
@@ -43,6 +44,7 @@ interface AnimalRegistrationPageProps {
 }
 
 export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPet, onClose }: AnimalRegistrationPageProps) {
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [showNewRegistrationForm, setShowNewRegistrationForm] = useState(false)
   const [selectedDate, setSelectedDate] = useState<Date>()
@@ -190,6 +192,28 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
       return record
     }))
     handleCloseEditModal()
+  }
+
+  const handleDeletePet = async (animalId: string, petName: string) => {
+    if (confirm(`정말로 "${petName}"을(를) 삭제하시겠습니까?`)) {
+      try {
+        // REG005 -> 5로 변환
+        const petId = parseInt(animalId.replace('REG', ''))
+        await axios.delete(`http://localhost:8080/api/pets/${petId}`)
+        setAnimalRecords(prev => prev.filter(record => record.id !== animalId))
+        toast({
+          title: "성공",
+          description: "동물이 삭제되었습니다.",
+        })
+      } catch (error) {
+        console.error("동물 삭제 실패:", error)
+        toast({
+          title: "오류",
+          description: "동물 삭제에 실패했습니다.",
+          variant: "destructive",
+        })
+      }
+    }
   }
 
   const handleGenerateAIStory = async () => {
@@ -731,9 +755,22 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <div className="pointer-events-none">
-                        <Badge className="bg-green-100 text-green-800 cursor-default font-medium">계약서 생성됨</Badge>
-                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                        onClick={() => handleEditPet(animal)}
+                      >
+                        정보 수정
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeletePet(animal.id, animal.name)}
+                      >
+                        삭제
+                      </Button>
                     </div>
                   </div>
 
@@ -810,24 +847,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
                     </div>
                   )}
 
-                  <div className="mt-8 flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      className="border-gray-300 text-gray-700 hover:bg-gray-50"
-                      onClick={() => handleEditPet(animal)}
-                    >
-                      정보 수정
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                      onClick={() => handleGenerateContract(animal.id)}
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      계약서 보기
-                    </Button>
-                  </div>
+
                 </CardContent>
               </Card>
             ))
