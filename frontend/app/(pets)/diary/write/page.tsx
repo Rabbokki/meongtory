@@ -190,7 +190,8 @@ export default function GrowthDiaryWritePage({
           variant: "destructive",
         });
         // 로그인 페이지로 이동
-        window.location.href = "/login";
+        // 로그인 모달 표시 대신 홈으로 이동
+        window.location.href = "/";
         return;
       }
       
