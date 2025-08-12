@@ -9,27 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChevronDown, Plus } from "lucide-react"
 import { petApi, handleApiError } from "@/lib/api"
 
-interface Pet {
-  id: number
-  name: string
-  breed: string
-  age: string
-  gender: string
-  size: string
-  personality: string
-  healthStatus: string
-  description: string
-  images: string[]
-  location: string
-  contact: string
-  adoptionFee: number
-  isNeutered: boolean
-  isVaccinated: boolean
-  specialNeeds?: string
-  dateRegistered: string
-  adoptionStatus: "available" | "pending" | "adopted"
-  ownerEmail?: string
-}
+import type { Pet } from "@/types/pets"
 
 interface AdoptionPageProps {
   isAdmin?: boolean

@@ -33,36 +33,7 @@ interface AnimalRecord {
   images?: string[]
 }
 
-interface Pet {
-  id: number
-  name: string
-  breed: string
-  age: string
-  gender: string
-  size: string
-  personality: string
-  healthStatus: string
-  description: string
-  images: string[]
-  location: string
-  contact: string
-  adoptionFee: number
-  isNeutered: boolean
-  isVaccinated: boolean
-  specialNeeds?: string
-  dateRegistered: string
-  adoptionStatus: "available" | "pending" | "adopted"
-  ownerEmail?: string
-  weight?: number
-  microchipId?: string
-  medicalHistory?: string
-  vaccinations?: string
-  notes?: string
-  rescueStory?: string
-  aiBackgroundStory?: string
-  status?: string
-  type?: string
-}
+import type { Pet } from "@/types/pets"
 
 interface AnimalRegistrationPageProps {
   isAdmin: boolean

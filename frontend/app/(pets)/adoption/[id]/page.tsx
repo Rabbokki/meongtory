@@ -9,27 +9,7 @@ import { ArrowLeft, Heart, Share2, MapPin, Calendar, Weight, Stethoscope, User }
 import AdoptionRequestModal from "@/components/modals/adoption-request-modal"
 import { adoptionRequestApi } from "@/lib/api"
 
-interface Pet {
-  id: number
-  name: string
-  breed: string
-  age: string
-  gender: string
-  size: string
-  personality: string
-  healthStatus: string
-  description: string
-  images: string[]
-  location: string
-  contact: string
-  adoptionFee: number
-  isNeutered: boolean
-  isVaccinated: boolean
-  specialNeeds?: string
-  dateRegistered: string
-  adoptionStatus: "available" | "pending" | "adopted"
-  ownerEmail?: string
-}
+import type { Pet } from "@/types/pets"
 
 interface FormField {
   id: string

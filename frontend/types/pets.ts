@@ -1,3 +1,4 @@
+// 입양용 반려동물 (보호소에서 보호 중인 동물)
 export interface Pet {
   id: number
   name: string
@@ -5,7 +6,7 @@ export interface Pet {
   age: string
   gender: string
   size: string
-  personality: string
+  personality: string[]  // 배열로 통일 (여러 성격 특성을 가질 수 있음)
   healthStatus: string
   description: string
   images: string[]
@@ -27,6 +28,21 @@ export interface Pet {
   aiBackgroundStory?: string
   status?: string
   type?: string
+}
+
+// 사용자가 소유한 반려동물
+export interface MyPet {
+  id: number
+  name: string
+  breed: string
+  age: number
+  gender: 'MALE' | 'FEMALE' | 'UNKNOWN'
+  type: string
+  weight?: number
+  imageUrl?: string
+  userId: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface AnimalRecord {

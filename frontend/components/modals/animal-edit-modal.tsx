@@ -13,36 +13,7 @@ import { X, Upload, Loader2, Sparkles } from "lucide-react"
 import { petApi, s3Api, handleApiError } from "@/lib/api"
 import axios from "axios"
 
-interface Pet {
-  id: number
-  name: string
-  breed: string
-  age: string
-  gender: string
-  size: string
-  personality: string
-  healthStatus: string
-  description: string
-  images: string[]
-  location: string
-  contact: string
-  adoptionFee: number
-  isNeutered: boolean
-  isVaccinated: boolean
-  specialNeeds?: string
-  dateRegistered: string
-  adoptionStatus: "available" | "pending" | "adopted"
-  // 엔티티와 일치하도록 추가 필드들
-  weight?: number
-  microchipId?: string
-  medicalHistory?: string
-  vaccinations?: string
-  notes?: string
-  rescueStory?: string
-  aiBackgroundStory?: string
-  status?: string
-  type?: string
-}
+import type { Pet } from "@/types/pets"
 
 interface AnimalEditModalProps {
   isOpen: boolean

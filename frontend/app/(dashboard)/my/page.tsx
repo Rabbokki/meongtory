@@ -23,27 +23,7 @@ interface User {
   name: string
 }
 
-interface Pet {
-  id: number
-  name: string
-  breed: string
-  age: string
-  gender: string
-  size: string
-  personality: string[]
-  healthStatus: string
-  description: string
-  images: string[]
-  location: string
-  contact: string
-  adoptionFee: number
-  isNeutered: boolean
-  isVaccinated: boolean
-  specialNeeds?: string
-  dateRegistered: string
-  adoptionStatus: "available" | "pending" | "adopted"
-  ownerEmail?: string
-}
+import type { MyPet } from "@/types/pets"
 
 interface AdoptionInquiry {
   id: number
@@ -86,7 +66,7 @@ interface OrderItem {
 
 interface MyPageProps {
   currentUser: User | null
-  userPets: Pet[]
+  userPets: MyPet[]
   userAdoptionInquiries: AdoptionInquiry[]
   userOrders: OrderItem[]
   onClose: () => void
