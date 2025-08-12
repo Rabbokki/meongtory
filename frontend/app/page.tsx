@@ -1,4 +1,4 @@
-import Component from "../pet-service-website"
+import Component from "./(services)/website/page"
 
 export default function Page() {
   return <Component />

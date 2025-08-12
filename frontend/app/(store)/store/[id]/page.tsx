@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, ShoppingCart, Star } from "lucide-react"
 import Image from "next/image"
 import { productApi } from "@/lib/api"
-import PaymentPage from "./PaymentPage"
+import PaymentPage from "../../payment/page"
 
 interface Product {
   id: number

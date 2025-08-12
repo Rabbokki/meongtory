@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Plus, Edit, Mic, Trash2 } from "lucide-react"
 import { fetchDiaries, deleteDiary } from "@/lib/api/diary"
 import { useToast } from "@/components/ui/use-toast"
-import GrowthDiaryWritePage from "./growth-diary-write-page"
+import GrowthDiaryWritePage from "./write/page"
 
 interface DiaryEntry {
   diaryId: number;
