@@ -6,8 +6,25 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // KST로 날짜를 포맷팅하는 함수
-export function formatToKST(date: string | Date): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date
+export function formatToKST(date: string | Date | null | undefined): string {
+  if (!date) {
+    return "날짜 없음"
+  }
+  
+  let dateObj: Date
+  
+  if (typeof date === 'string') {
+    dateObj = new Date(date)
+  } else if (date instanceof Date) {
+    dateObj = date
+  } else {
+    return "날짜 없음"
+  }
+  
+  // 유효한 날짜인지 확인
+  if (isNaN(dateObj.getTime())) {
+    return "날짜 없음"
+  }
   
   // KST 시간대로 변환 (UTC+9)
   const kstDate = new Date(dateObj.getTime() + (9 * 60 * 60 * 1000))
@@ -21,8 +38,25 @@ export function formatToKST(date: string | Date): string {
 }
 
 // KST로 날짜와 시간을 포맷팅하는 함수
-export function formatToKSTWithTime(date: string | Date): string {
-  const dateObj = typeof date === 'string' ? new Date(date) : date
+export function formatToKSTWithTime(date: string | Date | null | undefined): string {
+  if (!date) {
+    return "날짜 없음"
+  }
+  
+  let dateObj: Date
+  
+  if (typeof date === 'string') {
+    dateObj = new Date(date)
+  } else if (date instanceof Date) {
+    dateObj = date
+  } else {
+    return "날짜 없음"
+  }
+  
+  // 유효한 날짜인지 확인
+  if (isNaN(dateObj.getTime())) {
+    return "날짜 없음"
+  }
   
   // KST 시간대로 변환 (UTC+9)
   const kstDate = new Date(dateObj.getTime() + (9 * 60 * 60 * 1000))

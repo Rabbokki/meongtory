@@ -91,7 +91,10 @@ public class ContractGenerationService {
         if (requestDto.getCustomSections() != null && !requestDto.getCustomSections().isEmpty()) {
             content.append("추가 조항:\n");
             for (var section : requestDto.getCustomSections()) {
-                content.append(section.getTitle()).append("\n\n");
+                String title = (String) section.get("title");
+                if (title != null) {
+                    content.append(title).append("\n\n");
+                }
             }
         }
         

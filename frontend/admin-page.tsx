@@ -427,7 +427,7 @@ export default function AdminPage({
       request.status === "PENDING" ? "대기중" : 
       request.status === "CONTACTED" ? "연락완료" : 
       request.status === "APPROVED" ? "승인" : "거절",
-              formatToKST(request.createdAt),
+              request.createdAt ? formatToKST(request.createdAt) : "날짜 없음",
       request.message,
       request.userId
     ])
@@ -957,7 +957,8 @@ export default function AdminPage({
         title: section.title,
         isRequired: section.required,
         order: index + 1,
-        type: "TEXT"
+        content: "",
+        options: null
       }))
       
       const templateData = {
@@ -1083,7 +1084,8 @@ export default function AdminPage({
         title: section.title,
         isRequired: section.required,
         order: index + 1,
-        type: "TEXT"
+        content: "",
+        options: null
       }))
       
       const templateData = {
@@ -1576,8 +1578,8 @@ export default function AdminPage({
                           </div>
                           
                           <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>신청일: {formatToKST(request.createdAt)}</span>
-                            <span>수정일: {formatToKST(request.updatedAt)}</span>
+                            <span>신청일: {request.createdAt ? formatToKST(request.createdAt) : "날짜 없음"}</span>
+                            <span>수정일: {request.updatedAt ? formatToKST(request.updatedAt) : "날짜 없음"}</span>
                           </div>
                         </div>
                         
@@ -1744,8 +1746,8 @@ export default function AdminPage({
                           </div>
                           <p className="text-sm text-gray-600 mb-4">{request.message}</p>
                           <p className="text-xs text-gray-500">
-                            신청일: {formatToKST(request.createdAt)}
-                            {request.status === "PENDING" && (
+                            신청일: {request.createdAt ? formatToKST(request.createdAt) : "날짜 없음"}
+                            {request.status === "PENDING" && request.createdAt && (
                               <span className="ml-2 text-red-600">
                                 ({Math.floor((new Date().getTime() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60))}시간 경과)
                               </span>
@@ -2060,7 +2062,7 @@ export default function AdminPage({
                           <div>
                             <h4 className="font-medium">{contract.contractName || "계약서"}</h4>
                             <p className="text-sm text-gray-600">
-                              {formatToKST(contract.generatedAt)} 생성
+                              {contract.generatedAt ? formatToKST(contract.generatedAt) : "날짜 없음"} 생성
                             </p>
                             <p className="text-xs text-gray-500">
                               생성자: {contract.generatedBy || "관리자"}
@@ -2268,18 +2270,6 @@ export default function AdminPage({
                           </div>
                         </div>
                       </Card>
-                      
-                      {/* 항목 사이에 추가 버튼 */}
-                      <div className="flex justify-center my-2">
-                        <Button 
-                          onClick={() => addSectionAtIndex(index + 1)}
-                          className="bg-green-500 hover:bg-green-600 text-white text-sm"
-                          size="sm"
-                        >
-                          <Plus className="h-3 w-3 mr-1" />
-                          항목 추가
-                        </Button>
-                      </div>
                     </div>
                   ))}
                   
@@ -2332,11 +2322,15 @@ export default function AdminPage({
       <Dialog open={showContractViewModal} onOpenChange={setShowContractViewModal}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>계약서 보기</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              계약서 상세 보기
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6">
             {selectedPetForContract && (
-              <div className="space-y-4">
+              <div className="space-y-6">
+                {/* 동물 정보 */}
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <h4 className="font-medium mb-3 text-gray-800">동물 정보</h4>
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -2359,8 +2353,9 @@ export default function AdminPage({
                   </div>
                 </div>
 
+                {/* 계약서 내용 */}
                 <div className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-3">
                     <h4 className="font-medium">계약서 내용</h4>
                     <div className="flex gap-2">
                       <Button 
@@ -2370,13 +2365,13 @@ export default function AdminPage({
                         onClick={() => handleDownloadContract(0)}
                       >
                         <FileText className="h-4 w-4 mr-1" />
-                        PDF
+                        PDF 다운로드
                       </Button>
                     </div>
                   </div>
                   <div className="bg-white p-4 rounded border max-h-96 overflow-y-auto">
                     {generatedContract ? (
-                      <div className="whitespace-pre-wrap text-sm">{generatedContract}</div>
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">{generatedContract}</div>
                     ) : (
                       <div className="text-center py-8 text-gray-500">
                         <p>계약서 내용을 불러올 수 없습니다.</p>
@@ -2385,8 +2380,12 @@ export default function AdminPage({
                   </div>
                 </div>
 
-                <div className="flex justify-center">
-                  <Button variant="outline" onClick={() => setShowContractViewModal(false)}>
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => {
+                    setShowContractViewModal(false)
+                    setSelectedPetForContract(null)
+                    setGeneratedContract(null)
+                  }}>
                     닫기
                   </Button>
                 </div>
@@ -2821,180 +2820,7 @@ export default function AdminPage({
         </DialogContent>
       </Dialog>
 
-      {/* 생성된 계약서 보기 모달 */}
-      <Dialog open={showContractViewModal} onOpenChange={setShowContractViewModal}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              생성된 계약서 상세 보기
-            </DialogTitle>
-          </DialogHeader>
-          
-          {selectedContractForView && (
-            <div className="space-y-6">
-              {/* 계약서 기본 정보 */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium mb-2">계약서 정보</h4>
-                <div className="text-sm space-y-1">
-                  <p><strong>계약서명:</strong> {selectedContractForView.contractName || "계약서"}</p>
-                  <p><strong>생성일:</strong> {formatToKST(selectedContractForView.generatedAt)}</p>
-                  <p><strong>생성자:</strong> {selectedContractForView.generatedBy || "관리자"}</p>
-                  {selectedContractForView.template && (
-                    <p><strong>사용 템플릿:</strong> {selectedContractForView.template.name}</p>
-                  )}
-                </div>
-              </div>
 
-              {/* 입양견 정보 */}
-              {selectedContractForView.petInfo && (() => {
-                try {
-                  const petInfo = JSON.parse(selectedContractForView.petInfo)
-                  const entries = Object.entries(petInfo).filter(([key, value]) => value && String(value).trim() !== '')
-                  if (entries.length === 0) return null
-                  
-                  const keyMapping: { [key: string]: string } = {
-                    name: "이름",
-                    breed: "품종",
-                    age: "나이",
-                    gender: "성별",
-                    size: "크기",
-                    personality: "성격",
-                    healthStatus: "건강상태",
-                    description: "설명",
-                    location: "위치",
-                    contact: "연락처",
-                    adoptionFee: "입양비",
-                    isNeutered: "중성화",
-                    isVaccinated: "예방접종",
-                    specialNeeds: "특별관리사항",
-                    dateRegistered: "등록일"
-                  }
-                  
-                  return (
-                    <div>
-                      <h4 className="font-medium mb-2">입양견 정보</h4>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="text-sm text-gray-900 space-y-1">
-                          {entries.map(([key, value]) => (
-                            <div key={key} className="flex">
-                              <span className="font-medium w-24">{keyMapping[key] || key}:</span>
-                              <span>{String(value)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                } catch {
-                  if (!selectedContractForView.petInfo || selectedContractForView.petInfo.trim() === '') return null
-                  return (
-                    <div>
-                      <h4 className="font-medium mb-2">입양견 정보</h4>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="text-sm text-gray-900">
-                          {selectedContractForView.petInfo}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
-              })()}
-
-              {/* 신청자 정보 */}
-              {selectedContractForView.userInfo && (() => {
-                try {
-                  const userInfo = JSON.parse(selectedContractForView.userInfo)
-                  const entries = Object.entries(userInfo).filter(([key, value]) => value && String(value).trim() !== '')
-                  if (entries.length === 0) return null
-                  
-                  const keyMapping: { [key: string]: string } = {
-                    name: "이름",
-                    phone: "연락처",
-                    email: "이메일",
-                    address: "주소",
-                    age: "나이",
-                    occupation: "직업",
-                    experience: "반려동물 경험",
-                    reason: "입양 이유",
-                    livingEnvironment: "거주 환경",
-                    familyMembers: "가족 구성원"
-                  }
-                  
-                  return (
-                    <div>
-                      <h4 className="font-medium mb-2">신청자 정보</h4>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="text-sm text-gray-900 space-y-1">
-                          {entries.map(([key, value]) => (
-                            <div key={key} className="flex">
-                              <span className="font-medium w-24">{keyMapping[key] || key}:</span>
-                              <span>{String(value)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                } catch {
-                  if (!selectedContractForView.userInfo || selectedContractForView.userInfo.trim() === '') return null
-                  return (
-                    <div>
-                      <h4 className="font-medium mb-2">신청자 정보</h4>
-                      <div className="bg-gray-50 p-4 rounded-lg">
-                        <div className="text-sm text-gray-900">
-                          {selectedContractForView.userInfo}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                }
-              })()}
-
-              {/* 추가 정보 */}
-              {selectedContractForView.additionalInfo && selectedContractForView.additionalInfo.trim() !== '' && (
-                <div>
-                  <h4 className="font-medium mb-2">추가 정보</h4>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <div className="text-sm text-gray-900">
-                      {selectedContractForView.additionalInfo}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 계약서 내용 */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium">계약서 내용</h4>
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownloadContract(selectedContractForView.id)}
-                    >
-                      <FileText className="h-4 w-4 mr-1" />
-                      PDF 다운로드
-                    </Button>
-                  </div>
-                </div>
-                <div className="bg-white border rounded-lg p-4 max-h-96 overflow-y-auto">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{selectedContractForView.content}</div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <Button variant="outline" onClick={() => {
-              setShowContractViewModal(false)
-              setSelectedContractForView(null)
-            }}>
-              닫기
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* 계약서 수정 모달 */}
       <Dialog open={showContractEditModal} onOpenChange={setShowContractEditModal}>
@@ -3013,7 +2839,7 @@ export default function AdminPage({
                 <h4 className="font-medium mb-2">계약서 정보</h4>
                 <div className="text-sm space-y-1">
                   <p><strong>계약서명:</strong> {editingContract.contractName || "계약서"}</p>
-                  <p><strong>생성일:</strong> {formatToKST(editingContract.generatedAt)}</p>
+                  <p><strong>생성일:</strong> {editingContract.generatedAt ? formatToKST(editingContract.generatedAt) : "날짜 없음"}</p>
                   <p><strong>생성자:</strong> {editingContract.generatedBy || "관리자"}</p>
                   {editingContract.template && (
                     <p><strong>사용 템플릿:</strong> {editingContract.template.name}</p>

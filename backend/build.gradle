@@ -51,8 +51,6 @@ dependencies {
     
     // PDF 생성
     implementation 'org.apache.pdfbox:pdfbox:2.0.29'
-    
-
 }
 
 tasks.named('test') {

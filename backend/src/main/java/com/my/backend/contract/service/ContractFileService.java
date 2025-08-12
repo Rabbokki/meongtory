@@ -6,9 +6,6 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
-import org.apache.poi.xwpf.usermodel.XWPFDocument;
-import org.apache.poi.xwpf.usermodel.XWPFParagraph;
-import org.apache.poi.xwpf.usermodel.XWPFRun;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -130,33 +127,5 @@ public class ContractFileService {
         result = result.replaceAll("\\s+", " ").trim();
         
         return result;
-    }
-    
-
-    
-
-    
-    public byte[] generateWord(String content) throws IOException {
-        try (XWPFDocument document = new XWPFDocument()) {
-            // 제목 추가
-            XWPFParagraph titleParagraph = document.createParagraph();
-            XWPFRun titleRun = titleParagraph.createRun();
-            titleRun.setText("계약서");
-            titleRun.setBold(true);
-            titleRun.setFontSize(16);
-            
-            // 내용 추가
-            String[] lines = content.split("\n");
-            for (String line : lines) {
-                XWPFParagraph paragraph = document.createParagraph();
-                XWPFRun run = paragraph.createRun();
-                run.setText(line);
-                run.setFontSize(12);
-            }
-            
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            document.write(baos);
-            return baos.toByteArray();
-        }
     }
 }
