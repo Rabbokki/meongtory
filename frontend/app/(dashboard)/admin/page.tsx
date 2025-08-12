@@ -187,6 +187,7 @@ export default function AdminPage({
   const [contractTemplates, setContractTemplates] = useState<any[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null)
   const [showContractViewModal, setShowContractViewModal] = useState(false)
+  const [showGeneratedContractViewModal, setShowGeneratedContractViewModal] = useState(false)
   const [selectedPetForContract, setSelectedPetForContract] = useState<Pet | null>(null)
   const [isGeneratingContract, setIsGeneratingContract] = useState(false)
   const [generatedContract, setGeneratedContract] = useState<string | null>(null)
@@ -1001,7 +1002,7 @@ export default function AdminPage({
       if (response.data.success) {
         const contract = response.data.data
         setSelectedContractForView(contract)
-        setShowContractViewModal(true)
+        setShowGeneratedContractViewModal(true)
       } else {
         alert("계약서를 불러오는데 실패했습니다.")
       }
@@ -2959,6 +2960,84 @@ export default function AdminPage({
               <Edit className="h-4 w-4 mr-2" />
               계약서 수정
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 생성된 계약서 보기 모달 */}
+      <Dialog open={showGeneratedContractViewModal} onOpenChange={setShowGeneratedContractViewModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              생성된 계약서 상세 보기
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {selectedContractForView && (
+              <div className="space-y-6">
+                {/* 계약서 정보 */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-3 text-gray-800">계약서 정보</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">계약서명:</span>
+                      <span className="text-gray-900">{selectedContractForView.contractName || "계약서"}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">생성일:</span>
+                      <span className="text-gray-900">{selectedContractForView.generatedAt ? formatToKST(selectedContractForView.generatedAt) : "날짜 없음"}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-20">생성자:</span>
+                      <span className="text-gray-900">{selectedContractForView.generatedBy || "관리자"}</span>
+                    </div>
+                    {selectedContractForView.template && (
+                      <div className="flex items-center">
+                        <span className="font-medium text-gray-700 w-20">사용 템플릿:</span>
+                        <span className="text-gray-900">{selectedContractForView.template.name}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 계약서 내용 */}
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-medium">계약서 내용</h4>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        className="bg-white text-black border border-gray-300 hover:bg-gray-50"
+                        onClick={() => handleDownloadContract(selectedContractForView.id)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        PDF 다운로드
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded border max-h-96 overflow-y-auto">
+                    {selectedContractForView.content ? (
+                      <div className="whitespace-pre-wrap text-sm leading-relaxed">{selectedContractForView.content}</div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>계약서 내용을 불러올 수 없습니다.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => {
+                    setShowGeneratedContractViewModal(false)
+                    setSelectedContractForView(null)
+                  }}>
+                    닫기
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
