@@ -33,7 +33,7 @@ import GrowthDiaryWritePage from "./growth-diary-write-page"
 
 import axios from "axios"
 import { Toaster, toast } from "react-hot-toast"
-import { getCurrentKSTDate } from "./lib/utils"
+import { getCurrentKSTDate } from "@/lib/utils"
 
 
 // Types

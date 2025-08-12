@@ -13,9 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
-import { formatToKST } from "./lib/utils"
-import { adoptionRequestApi, userApi } from "./lib/api"
-import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "./lib/api/mypet"
+import { formatToKST } from "@/lib/utils"
+import { adoptionRequestApi, userApi } from "@/lib/api"
+import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "@/lib/api/mypet"
 import { Edit, X, Plus, Trash2, Camera } from "lucide-react"
 
 interface User {

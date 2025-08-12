@@ -7,7 +7,7 @@ import { Input } from "./components/ui/input"
 import { Label } from "./components/ui/label"
 import { Textarea } from "./components/ui/textarea"
 import { X, Plus, Trash2, User } from "lucide-react"
-import { userApi } from "./lib/api"
+import { userApi } from "@/lib/api"
 
 interface Pet {
   id: number

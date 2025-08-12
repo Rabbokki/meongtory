@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { X, Upload, Loader2, Sparkles } from "lucide-react"
-import { petApi, s3Api, handleApiError } from "./lib/api"
+import { petApi, s3Api, handleApiError } from "@/lib/api"
 import axios from "axios"
 
 interface Pet {

@@ -12,8 +12,8 @@ import { Search, Plus, FileText, Sparkles, Upload, X, Loader2 } from "lucide-rea
 import { format } from "date-fns"
 import { ko } from "date-fns/locale"
 import { ArrowLeft } from "lucide-react"
-import { petApi, s3Api, Pet as ApiPet, handleApiError } from "./lib/api"
-import AnimalEditModal from "./animal-edit-modal"
+import { petApi, s3Api, Pet as ApiPet, handleApiError } from "@/lib/api"
+import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import axios from "axios"
 
 interface AnimalRecord {

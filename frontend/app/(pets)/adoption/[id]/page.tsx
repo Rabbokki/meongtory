@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Heart, Share2, MapPin, Calendar, Weight, Stethoscope, User } from "lucide-react"
-import AdoptionRequestModal from "./adoption-request-modal"
-import { adoptionRequestApi } from "./lib/api"
+import AdoptionRequestModal from "@/components/modals/adoption-request-modal"
+import { adoptionRequestApi } from "@/lib/api"
 
 interface Pet {
   id: number
