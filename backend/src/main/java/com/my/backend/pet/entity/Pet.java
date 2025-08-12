@@ -63,8 +63,11 @@ public class Pet {
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
     
+    @Column(name = "special_needs", columnDefinition = "TEXT")
+    private String specialNeeds;
+    
     @Column(name = "personality", columnDefinition = "TEXT")
-    private String personality; // JSON 형태로 저장
+    private String personality; // JSON 형태로 저장 (배열을 문자열로 변환하여 저장)
     
     @Column(name = "rescue_story", columnDefinition = "TEXT")
     private String rescueStory;

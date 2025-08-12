@@ -1,9 +1,11 @@
 package com.my.backend.store.entity;
 
+import com.my.backend.account.entity.Account;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
 @Table(name = "orders")
@@ -15,7 +17,9 @@ public class Order {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer orderId;
 
-    private Integer userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private Account user;
 
     @Column(nullable = false)
     private Integer totalPrice;
@@ -23,9 +27,10 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentStatus paymentStatus = PaymentStatus.PENDING;
 
-    private LocalDateTime orderedAt = LocalDateTime.now();
+    @Column(nullable = false)
+    private LocalDateTime orderedAt;
 
-    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.REMOVE, fetch = FetchType.LAZY)
     private List<OrderItem> orderItems;
 
     public enum PaymentStatus {

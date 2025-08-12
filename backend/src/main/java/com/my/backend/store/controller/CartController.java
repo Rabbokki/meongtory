@@ -21,7 +21,26 @@ public class CartController {
     private final CartService cartService;
 
     /**
-     * 현재 로그인한 사용자의 장바구니 목록을 조회
+     * 현재 로그인한 사용자의 장바구니 목록을 조회 (DTO 반환)
+     *
+     * @return 현재 사용자의 장바구니 항목 리스트 (DTO)
+     *
+     * 예: GET /api/carts
+     */
+    @GetMapping
+    public List<CartDto> getCurrentUserCart() {
+        // SecurityContext에서 현재 사용자 정보 가져오기
+        org.springframework.security.core.Authentication authentication = 
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        com.my.backend.global.security.user.UserDetailsImpl userDetails = 
+            (com.my.backend.global.security.user.UserDetailsImpl) authentication.getPrincipal();
+        Long userId = userDetails.getAccount().getId();
+        
+        return cartService.getCartDtoByUserId(userId);
+    }
+
+    /**
+     * 현재 로그인한 사용자의 장바구니 목록을 조회 (기존 /my 엔드포인트)
      *
      * @return 현재 사용자의 장바구니 항목 리스트 (DTO)
      *
@@ -29,26 +48,14 @@ public class CartController {
      */
     @GetMapping("/my")
     public List<CartDto> getMyCart() {
-        // 현재 로그인한 사용자의 ID를 가져오기
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            // 인증되지 않은 경우 빈 리스트 반환
-            return List.of();
-        }
+        // SecurityContext에서 현재 사용자 정보 가져오기
+        org.springframework.security.core.Authentication authentication = 
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        com.my.backend.global.security.user.UserDetailsImpl userDetails = 
+            (com.my.backend.global.security.user.UserDetailsImpl) authentication.getPrincipal();
+        Long userId = userDetails.getAccount().getId();
         
-        // Principal에서 사용자 ID 추출 (실제 구현에 따라 다를 수 있음)
-        String principal = authentication.getPrincipal().toString();
-        Integer currentUserId;
-        
-        try {
-            // Principal이 사용자 ID인 경우
-            currentUserId = Integer.parseInt(principal);
-        } catch (NumberFormatException e) {
-            // Principal이 사용자 ID가 아닌 경우 (예: 이메일), 기본값 사용
-            currentUserId = 1;
-        }
-        
-        return cartService.getCartDtoByUserId(currentUserId);
+        return cartService.getCartDtoByUserId(userId);
     }
 
     /**
@@ -60,7 +67,7 @@ public class CartController {
      * 예: GET /api/carts/1
      */
     @GetMapping("/{userId}")
-    public List<CartDto> getCartByUserId(@PathVariable Integer userId) {
+    public List<CartDto> getCartByUserId(@PathVariable Long userId) {
         return cartService.getCartDtoByUserId(userId);
     }
 
@@ -76,7 +83,7 @@ public class CartController {
      * 예: POST /api/carts?userId=1&productId=3&quantity=2
      */
     @PostMapping
-    public CartDto addToCart(@RequestParam Integer userId,
+    public CartDto addToCart(@RequestParam Long userId,
                              @RequestParam Integer productId,
                              @RequestParam(required = false) Integer quantity) {
         Cart cart = cartService.addToCart(userId, productId, quantity);

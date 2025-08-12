@@ -40,8 +40,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
           setUserEmail(email);
           setIsLoggedIn(true);
           toast.success("OAuth 로그인 되었습니다");
-          
-          // 부모 컴포넌트에 로그인 성공 알림
+
           if (onLoginSuccess) {
             onLoginSuccess();
           }
@@ -95,6 +94,10 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
       }
       
       onClose();
+      // 로그인 성공 콜백 호출
+      if (onLoginSuccess) {
+        onLoginSuccess();
+      }
     } catch (err: any) {
       if (err.response && err.response.data) {
         setError(err.response.data.message || "로그인 중 오류가 발생했습니다.");

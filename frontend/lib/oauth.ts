@@ -1,12 +1,13 @@
 // OAuth 로그인 유틸리티 함수들
+import axios from "axios"
 
 let oauthConfig: any = null
 
 async function getOAuthConfig() {
   if (!oauthConfig) {
     try {
-      const response = await fetch('/api/oauth-config')
-      oauthConfig = await response.json()
+      const response = await axios.get('/api/oauth-config')
+      oauthConfig = response.data
     } catch (error) {
       console.error('Failed to load OAuth config:', error)
       // 폴백 설정

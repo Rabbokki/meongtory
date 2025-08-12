@@ -41,69 +41,114 @@ export default function GrowthDiaryPage({
 }: GrowthDiaryPageProps) {
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([]);
   const [isWriteMode, setIsWriteMode] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [diaryToDelete, setDiaryToDelete] = useState<number | null>(null);
   const router = useRouter();
   const { toast } = useToast();
 
   const refetchDiaries = () => {
-    console.log("Fetching diaries for currentUserId:", currentUserId);
+    console.log("=== refetchDiaries called ===");
+    console.log("Fetching diaries for current user");
     
-    // currentUserId가 이메일인 경우, localStorage에서 실제 userId를 가져옴
-    const userId = localStorage.getItem("userId");
-    console.log("Using userId from localStorage:", userId);
-    
-    if (!userId) {
-      console.log("No userId found, fetching all diaries");
-      fetchDiaries()
-        .then((data) => {
-          console.log("Setting diary entries:", data);
-          console.log("Number of entries fetched:", data.length);
-          setDiaryEntries(data as DiaryEntry[]);
-        })
-        .catch((err) => {
-          console.error("일기 목록 불러오기 실패:", err);
-          console.error("Error details:", err.message);
-        });
-    } else {
-      fetchDiaries(Number(userId))
-        .then((data) => {
-          console.log("Setting diary entries:", data);
-          console.log("Number of entries fetched:", data.length);
-          setDiaryEntries(data as DiaryEntry[]);
-        })
-        .catch((err) => {
-          console.error("일기 목록 불러오기 실패:", err);
-          console.error("Error details:", err.message);
-        });
-    }
+    fetchDiaries()
+      .then((data) => {
+        console.log("=== fetchDiaries success ===");
+        console.log("Raw data received:", data);
+        console.log("Data type:", typeof data);
+        console.log("Is array:", Array.isArray(data));
+        console.log("Number of entries fetched:", data.length);
+        console.log("Setting diary entries:", data);
+        setDiaryEntries(data as DiaryEntry[]);
+      })
+      .catch((err: any) => {
+        console.error("=== fetchDiaries error ===");
+        console.error("일기 목록 불러오기 실패:", err);
+        console.error("Error details:", err.message);
+        
+        // 인증 관련 에러 처리
+        if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
+          toast({
+            title: "로그인 필요",
+            description: "로그인이 필요합니다. 다시 로그인해주세요.",
+            variant: "destructive",
+          });
+          // 로그인 페이지로 이동
+          window.location.href = "/login";
+          return;
+        }
+      });
   };
 
   const handleEdit = (diaryId: number) => {
-    router.push(`/diary/edit/${diaryId}`);
+    console.log("=== handleEdit called ===");
+    console.log("Diary ID:", diaryId);
+    console.log("Current URL:", window.location.href);
+    
+    // 항상 직접 수정 페이지로 이동
+    console.log("Redirecting to diary edit page");
+    window.location.href = `/diary/edit/${diaryId}`;
   };
 
   const handleDelete = async (diaryId: number) => {
+    // 삭제할 일기 ID를 설정하고 확인 모달 표시
+    setDiaryToDelete(diaryId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!diaryToDelete) return;
+
     try {
-      await deleteDiary(diaryId);
-      console.log(`Diary ${diaryId} deleted successfully`);
+      await deleteDiary(diaryToDelete);
+      console.log(`Diary ${diaryToDelete} deleted successfully`);
       toast({
         title: "삭제 완료",
         description: "삭제가 완료되었습니다.",
       });
       refetchDiaries();
-    } catch (err) {
+    } catch (err: any) {
       console.error("일기 삭제 실패:", err);
+      
+      // 인증 관련 에러 처리
+      if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
+        toast({
+          title: "로그인 필요",
+          description: "로그인이 필요합니다. 다시 로그인해주세요.",
+          variant: "destructive",
+        });
+        // 로그인 페이지로 이동
+        window.location.href = "/login";
+        return;
+      }
+      
       toast({
         title: "삭제 실패",
         description: "삭제 중 오류가 발생했습니다.",
         variant: "destructive",
       });
+    } finally {
+      setShowDeleteConfirm(false);
+      setDiaryToDelete(null);
     }
   };
 
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setDiaryToDelete(null);
+  };
+
   useEffect(() => {
+    console.log("=== useEffect triggered ===");
     console.log("Current userId:", currentUserId, "isLoggedIn:", isLoggedIn);
+    console.log("Calling refetchDiaries from useEffect");
     refetchDiaries();
   }, [currentUserId, isLoggedIn]);
+
+  // isLoggedIn 상태 변경 시 로그
+  useEffect(() => {
+    console.log("=== isLoggedIn changed ===");
+    console.log("isLoggedIn:", isLoggedIn);
+  }, [isLoggedIn]);
 
   // URL 파라미터 변경 시에도 데이터 새로고침
   useEffect(() => {
@@ -154,7 +199,10 @@ export default function GrowthDiaryPage({
     return (
       <GrowthDiaryWritePage
         onBack={() => {
+          console.log("=== onBack callback executed ===");
+          console.log("Setting isWriteMode to false");
           setIsWriteMode(false);
+          console.log("Calling refetchDiaries");
           refetchDiaries();
         }}
         currentUserId={Number(currentUserId)}
@@ -166,7 +214,14 @@ export default function GrowthDiaryPage({
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">성장일기</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">성장일기</h1>
+            {isLoggedIn && (
+              <p className="text-sm text-gray-600 mt-1">
+                {localStorage.getItem("userRole") === "ADMIN" ? "관리자 모드 - 모든 사용자의 일기를 볼 수 있습니다" : "내 일기 목록"}
+              </p>
+            )}
+          </div>
           {isLoggedIn && (
             <Button
               onClick={() => setIsWriteMode(true)}
@@ -186,9 +241,16 @@ export default function GrowthDiaryPage({
                   <div className="flex flex-col md:flex-row gap-4">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
-                        <h2 className="text-xl font-bold text-gray-900">
-                          {entry.title || "(제목 없음)"}
-                        </h2>
+                        <div>
+                          <h2 className="text-xl font-bold text-gray-900">
+                            {entry.title || "(제목 없음)"}
+                          </h2>
+                          {localStorage.getItem("userRole") === "ADMIN" && (
+                            <p className="text-sm text-gray-500">
+                              작성자 ID: {entry.userId}
+                            </p>
+                          )}
+                        </div>
                         <div className="flex gap-2">
                           {isLoggedIn && (
                             <>
@@ -196,6 +258,8 @@ export default function GrowthDiaryPage({
                                 size="sm" 
                                 variant="ghost" 
                                 onClick={(e) => {
+                                  console.log("=== Edit button clicked ===");
+                                  console.log("Entry diaryId:", entry.diaryId);
                                   e.stopPropagation();
                                   handleEdit(entry.diaryId);
                                 }}
@@ -250,6 +314,22 @@ export default function GrowthDiaryPage({
             </Card>
           )}
         </div>
+
+        {/* 삭제 확인 모달 */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <Card className="w-full max-w-md mx-4">
+              <CardContent className="p-6">
+                <h3 className="text-lg font-bold mb-4">일기 삭제</h3>
+                <p className="text-gray-600 mb-6">정말로 이 일기를 삭제하시겠습니까?<br />⚠️ 삭제된 일기는 복구할 수 없습니다.</p>
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={cancelDelete}>취소</Button>
+                  <Button onClick={confirmDelete} className="bg-red-600 text-white hover:bg-red-700">삭제</Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @Getter
 @Setter
@@ -17,19 +18,27 @@ public class DiaryResponseDto {
     private String text;
     private String audioUrl;
     private String imageUrl;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private String createdAt;
+    private String updatedAt;
 
     public static DiaryResponseDto from(Diary diary) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+        
+        // getUser()가 null일 수 있는 경우 처리
+        Long userId = null;
+        if (diary.getUser() != null) {
+            userId = diary.getUser().getId();
+        }
+        
         return DiaryResponseDto.builder()
                 .diaryId(diary.getDiaryId())
-                .userId(diary.getUserId())
+                .userId(userId)
                 .title(diary.getTitle())
                 .text(diary.getText())
                 .audioUrl(diary.getAudioUrl())
                 .imageUrl(diary.getImageUrl())
-                .createdAt(diary.getCreatedAt())
-                .updatedAt(diary.getUpdatedAt())
+                .createdAt(diary.getCreatedAt() != null ? diary.getCreatedAt().format(formatter) : null)
+                .updatedAt(diary.getUpdatedAt() != null ? diary.getUpdatedAt().format(formatter) : null)
                 .build();
     }
 }

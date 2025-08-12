@@ -22,5 +22,6 @@ public class BackendApplication {
         System.out.println("SERVER_PORT: " + System.getenv("SERVER_PORT"));
         System.out.println("JWT_SECRET_KEY: " + System.getenv("JWT_SECRET_KEY"));
         SpringApplication.run(BackendApplication.class, args);
+        System.out.println("( •̀ ω •́ )y( •̀ ω •́ )y( •̀ ω •́ )y( •̀ ω •́ )y( •̀ ω •́ )y");
     }
 }

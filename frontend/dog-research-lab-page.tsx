@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Camera, Upload, Sparkles, Heart, Video, Smile } from "lucide-react"
+import axios from "axios"
 
 interface BreedIdentificationResult {
   breed: string
@@ -115,12 +116,13 @@ export default function DogResearchLabPage() {
       const formData = new FormData()
       formData.append('image', uploadedFile)
 
-      const response = await fetch('/api/ai/predict-breed', {
-        method: 'POST',
-        body: formData,
+      const response = await axios.post('/api/ai/predict-breed', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       })
 
-      const result = await response.json()
+      const result = response.data
 
       if (result.success) {
         // AI 결과를 기존 인터페이스에 맞게 변환

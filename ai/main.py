@@ -1,13 +1,20 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from model import DogBreedClassifier
 import io
+import tempfile
+import sys
+import os
 
 # AI 서비스 모듈들 import
 from contract.service import ContractAIService
 from contract.models import ContractSuggestionRequest, ClauseSuggestionRequest, ContractGenerationRequest
 from story.service import StoryAIService
 from story.models import BackgroundStoryRequest
+
+# transcribe.py 모듈을 import하기 위해 경로 추가
+sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
+from transcribe import transcribe_audio
 
 app = FastAPI()
 
@@ -51,6 +58,40 @@ async def generate_contract(request: ContractGenerationRequest):
     """계약서 생성"""
     return await contract_service.generate_contract(request)
 
+@app.post("/transcribe")
+async def transcribe_audio_endpoint(file: UploadFile = File(...)):
+    """
+    기존 transcribe.py의 함수를 사용하여 음성 파일을 텍스트로 변환합니다.
+    """
+    try:
+        # 임시 파일로 저장
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # 기존 transcribe.py의 함수 사용
+            transcribed_text = transcribe_audio(temp_file_path)
+            
+            # 임시 파일 삭제
+            os.unlink(temp_file_path)
+            
+            return {"transcript": transcribed_text}
+            
+        except Exception as e:
+            # 임시 파일 정리
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+            raise e
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"음성 변환 중 오류 발생: {str(e)}")
+
 @app.get("/")
 async def root():
     return {"message": "Dog Breed Classifier API"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=9000)

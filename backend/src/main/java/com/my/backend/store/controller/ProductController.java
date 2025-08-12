@@ -21,12 +21,67 @@ public class ProductController {
 
     @PostMapping
     public Product createProduct(@RequestBody Product product) {
-        return productService.createProduct(product);
+        System.out.println("=== 상품 생성 API 호출 ===");
+        System.out.println("상품명: " + product.getName());
+        System.out.println("가격: " + product.getPrice());
+        System.out.println("재고: " + product.getStock());
+        System.out.println("설명: " + product.getDescription());
+        System.out.println("카테고리: " + product.getCategory());
+        System.out.println("대상동물: " + product.getTargetAnimal());
+        System.out.println("이미지URL: " + (product.getImageUrl() != null ? product.getImageUrl().substring(0, Math.min(100, product.getImageUrl().length())) + "..." : "null"));
+        
+        try {
+            Product createdProduct = productService.createProduct(product);
+            System.out.println("=== 상품 생성 성공 ===");
+            return createdProduct;
+        } catch (Exception e) {
+            System.out.println("=== 상품 생성 실패 ===");
+            System.out.println("에러 메시지: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @GetMapping("/{id}")
     public Product getProduct(@PathVariable Integer id) {
-        return productService.getProductById(id);
+        try {
+            System.out.println("=== 상품 조회 API 호출 ===");
+            System.out.println("요청된 상품 ID: " + id);
+            System.out.println("ID 타입: " + (id != null ? id.getClass().getName() : "null"));
+            System.out.println("ID 값이 유효한지 확인: " + (id != null && id > 0));
+            
+            if (id == null) {
+                System.out.println("ERROR: 상품 ID가 null입니다.");
+                throw new IllegalArgumentException("상품 ID가 null입니다.");
+            }
+            
+            if (id <= 0) {
+                System.out.println("ERROR: 상품 ID가 유효하지 않습니다: " + id);
+                throw new IllegalArgumentException("상품 ID가 유효하지 않습니다: " + id);
+            }
+            
+            System.out.println("상품 서비스 호출 시작...");
+            Product product = productService.getProductById(id);
+            
+            if (product == null) {
+                System.out.println("ERROR: 상품을 찾을 수 없습니다: " + id);
+                throw new RuntimeException("상품을 찾을 수 없습니다: " + id);
+            }
+            
+            System.out.println("조회된 상품: " + product.getName());
+            System.out.println("상품 ID: " + product.getProductId());
+            System.out.println("상품 카테고리: " + product.getCategory());
+            System.out.println("상품 대상동물: " + product.getTargetAnimal());
+            System.out.println("상품 이미지: " + product.getImageUrl());
+            System.out.println("=== 상품 조회 성공 ===");
+            
+            return product;
+        } catch (Exception e) {
+            System.out.println("ERROR: 상품 조회 실패: " + e.getMessage());
+            System.out.println("에러 타입: " + e.getClass().getName());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @PutMapping("/{id}")
@@ -36,6 +91,21 @@ public class ProductController {
 
     @DeleteMapping("/{id}")
     public void deleteProduct(@PathVariable Integer id) {
-        productService.deleteProduct(id);
+        try {
+            System.out.println("=== 상품 삭제 API 호출 ===");
+            System.out.println("삭제할 상품 ID: " + id);
+            System.out.println("ID 타입: " + (id != null ? id.getClass().getName() : "null"));
+            
+            if (id == null) {
+                throw new IllegalArgumentException("상품 ID가 null입니다.");
+            }
+            
+            productService.deleteProduct(id);
+            System.out.println("=== 상품 삭제 API 완료 ===");
+        } catch (Exception e) {
+            System.out.println("상품 삭제 API 실패: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 }

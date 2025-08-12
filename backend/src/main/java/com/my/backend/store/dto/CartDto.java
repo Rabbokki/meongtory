@@ -13,7 +13,7 @@ import lombok.*;
 @Builder
 public class CartDto {
     private Integer cartId;         // 장바구니 항목 ID
-    private Integer userId;         // 사용자 ID
+    private Long userId;            // 사용자 ID
     private ProductDto product;     // 상품 정보
     private Integer quantity;       // 담긴 수량
 }

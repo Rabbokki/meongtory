@@ -9,10 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
-import { updateDiary, fetchDiaries, fetchDiary } from "@/lib/api/diary";
+import { updateDiary, fetchDiaries, fetchDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/api/diary";
 import { useToast } from "@/components/ui/use-toast";
 import type { DiaryEntry } from "@/diary";
-import { Mic, MicOff, Play, Pause, X, Camera, ChevronLeft } from "lucide-react";
+import { Mic, MicOff, Play, Pause, X, Camera, ChevronLeft, ImageIcon, Edit, Check, RotateCcw } from "lucide-react";
 
 export default function DiaryEditPage() {
   const router = useRouter();
@@ -27,10 +27,28 @@ export default function DiaryEditPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  
+  // 음성 수정 관련 상태
+  const [isEditingAudio, setIsEditingAudio] = useState(false);
+  const [newAudioUrl, setNewAudioUrl] = useState<string | null>(null);
+  const [isNewRecording, setIsNewRecording] = useState(false);
+  const [newRecordingTime, setNewRecordingTime] = useState(0);
+  const [isConvertingAudio, setIsConvertingAudio] = useState(false);
+  const [originalAudioUrl, setOriginalAudioUrl] = useState<string | null>(null);
+  const [originalContent, setOriginalContent] = useState("");
+  const [voiceChanged, setVoiceChanged] = useState(false);
+  const [newAudioBlob, setNewAudioBlob] = useState<Blob | null>(null);
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const recordingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const newAudioRef = useRef<HTMLAudioElement>(null);
+  const voiceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchEntry = async () => {
@@ -38,10 +56,14 @@ export default function DiaryEditPage() {
         setIsLoading(true);
         console.log("Fetching entry with params:", params);
         
-        const userId = localStorage.getItem("userId");
+                // 로그인 상태 확인 (accessToken만 확인)
         const accessToken = localStorage.getItem("accessToken");
 
-        if (!userId || !accessToken) {
+        console.log("=== Login check ===");
+        console.log("accessToken from localStorage:", accessToken ? "exists" : "not found");
+
+        if (!accessToken) {
+          console.log("Login required, redirecting...");
           toast({
             title: "로그인 필요",
             description: "로그인이 필요합니다.",
@@ -53,7 +75,7 @@ export default function DiaryEditPage() {
 
         // params.id가 배열일 수 있으므로 첫 번째 요소를 사용
         const diaryId = Array.isArray(params.id) ? params.id[0] : params.id;
-        console.log("Diary ID:", diaryId, "User ID:", userId);
+        console.log("Diary ID:", diaryId);
 
         if (!diaryId) {
           toast({
@@ -66,26 +88,41 @@ export default function DiaryEditPage() {
         }
 
         // 개별 일기 데이터 가져오기
-        const foundEntry = await fetchDiary(Number(diaryId));
-        console.log("Found entry:", foundEntry);
+        console.log("Calling fetchDiary with ID:", Number(diaryId));
+        console.log("Access token available:", !!accessToken);
+        
+        try {
+          const foundEntry = await fetchDiary(Number(diaryId));
+          console.log("Found entry:", foundEntry);
+          console.log("Found entry type:", typeof foundEntry);
+          console.log("Found entry keys:", foundEntry ? Object.keys(foundEntry) : "null");
 
-        if (foundEntry) {
-          setEntry(foundEntry);
-          setTitle(foundEntry.title || "");
-          setContent(foundEntry.text || "");
-          setImageUrl(foundEntry.imageUrl || null);
-          setAudioUrl(foundEntry.audioUrl || null);
-          console.log("Entry data set:", {
-            title: foundEntry.title,
-            content: foundEntry.text,
-            imageUrl: foundEntry.imageUrl,
-            audioUrl: foundEntry.audioUrl
-          });
-        } else {
-          console.log("Entry not found for ID:", diaryId);
+          if (foundEntry) {
+            setEntry(foundEntry);
+            setTitle(foundEntry.title || "");
+            setContent(foundEntry.text || "");
+            setImageUrl(foundEntry.imageUrl || null);
+            setAudioUrl(foundEntry.audioUrl || null);
+            console.log("Entry data set successfully:", {
+              title: foundEntry.title,
+              content: foundEntry.text,
+              imageUrl: foundEntry.imageUrl,
+              audioUrl: foundEntry.audioUrl
+            });
+          } else {
+            console.log("Entry not found for ID:", diaryId);
+            toast({
+              title: "일기를 찾을 수 없습니다",
+              description: "요청하신 일기를 찾을 수 없습니다.",
+              variant: "destructive",
+            });
+            router.push("/?page=diary");
+          }
+        } catch (error) {
+          console.error("Error fetching diary:", error);
           toast({
-            title: "일기를 찾을 수 없습니다",
-            description: "요청하신 일기를 찾을 수 없습니다.",
+            title: "일기 불러오기 실패",
+            description: "일기를 불러오는 중 오류가 발생했습니다.",
             variant: "destructive",
           });
           router.push("/?page=diary");
@@ -153,6 +190,164 @@ export default function DiaryEditPage() {
     }
   };
 
+  // 음성 수정 시작
+  const startAudioEdit = () => {
+    setIsEditingAudio(true);
+    setOriginalAudioUrl(audioUrl);
+    setOriginalContent(content);
+    setNewAudioUrl(null);
+    setIsNewRecording(false);
+    setNewRecordingTime(0);
+    setVoiceChanged(false);
+    setNewAudioBlob(null);
+  };
+
+  // 음성 수정 취소
+  const cancelAudioEdit = () => {
+    setIsEditingAudio(false);
+    setNewAudioUrl(null);
+    setIsNewRecording(false);
+    setNewRecordingTime(0);
+    setIsConvertingAudio(false);
+    setVoiceChanged(false);
+    setNewAudioBlob(null);
+    
+    // 원래 상태로 복원
+    setAudioUrl(originalAudioUrl);
+    setContent(originalContent);
+  };
+
+  // 음성 수정 적용
+  const applyAudioEdit = () => {
+    if (newAudioUrl && newAudioBlob) {
+      setAudioUrl(newAudioUrl);
+      setVoiceChanged(true);
+      
+      // hidden input에 Blob 설정
+      if (voiceInputRef.current) {
+        const dataTransfer = new DataTransfer();
+        dataTransfer.items.add(new File([newAudioBlob], 'recording.webm', { type: 'audio/webm' }));
+        voiceInputRef.current.files = dataTransfer.files;
+      }
+      
+      // 원본 오디오 URL 정리
+      if (originalAudioUrl && originalAudioUrl !== newAudioUrl) {
+        URL.revokeObjectURL(originalAudioUrl);
+      }
+    }
+    setIsEditingAudio(false);
+    setNewAudioUrl(null);
+    setIsNewRecording(false);
+    setNewRecordingTime(0);
+    setIsConvertingAudio(false);
+  };
+
+  // 새 녹음 시작
+  const startNewRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      const chunks: BlobPart[] = [];
+      mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunks, { type: "audio/webm" });
+        const url = URL.createObjectURL(blob);
+        setNewAudioUrl(url);
+        setNewAudioBlob(blob);
+        setIsNewRecording(false);
+
+        // 타이머 정리
+        if (recordingTimerRef.current) {
+          clearInterval(recordingTimerRef.current);
+          recordingTimerRef.current = null;
+        }
+
+        // STT 변환 시작
+        await convertAudioToText(blob);
+        
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsNewRecording(true);
+      setNewRecordingTime(0);
+
+      // 녹음 시간 타이머 시작
+      recordingTimerRef.current = setInterval(() => {
+        setNewRecordingTime(prev => prev + 1);
+      }, 1000);
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      toast({
+        title: "마이크 접근 오류",
+        description: "마이크 접근 권한이 필요합니다.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // 새 녹음 중지
+  const stopNewRecording = () => {
+    if (mediaRecorderRef.current && isNewRecording) {
+      mediaRecorderRef.current.stop();
+      setIsNewRecording(false);
+
+      // 타이머 정리
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+    }
+  };
+
+  // 오디오를 텍스트로 변환 (덮어쓰기)
+  const convertAudioToText = async (audioBlob: Blob) => {
+    try {
+      setIsConvertingAudio(true);
+      
+      // FormData 생성
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
+
+      // 서버로 전송
+      const response = await fetch('/api/diary/voice', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('음성 변환에 실패했습니다.');
+      }
+
+      const result = await response.json();
+      const transcribedText = result.transcript || result.text || result;
+
+      // 변환된 텍스트를 기존 내용에 추가
+      setContent(prevContent => {
+        const newContent = prevContent + (prevContent ? '\n\n' : '') + transcribedText;
+        return newContent;
+      });
+
+      toast({
+        title: "음성 변환 완료",
+        description: "음성이 텍스트로 변환되어 본문이 업데이트되었습니다.",
+      });
+
+    } catch (error) {
+      console.error('음성 변환 오류:', error);
+      toast({
+        title: "음성 변환 실패",
+        description: "음성을 텍스트로 변환하는 중 오류가 발생했습니다.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsConvertingAudio(false);
+    }
+  };
+
   const toggleAudioPlayback = () => {
     if (audioRef.current) {
       if (isPlaying) {
@@ -167,6 +362,13 @@ export default function DiaryEditPage() {
   const removeAudio = () => {
     setAudioUrl(null);
     setIsPlaying(false);
+    setVoiceChanged(true);
+    
+    // hidden input 초기화
+    if (voiceInputRef.current) {
+      voiceInputRef.current.value = '';
+    }
+    
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -179,7 +381,28 @@ export default function DiaryEditPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleSave = async () => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedImageFile(file);
+      
+      // 미리보기 URL 생성
+      const previewUrl = URL.createObjectURL(file);
+      setImagePreview(previewUrl);
+    }
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImageFile(null);
+    setImagePreview(null);
+    setImageUrl(null);
+  };
+
+  const handleSave = () => {
     if (!entry) return;
 
     if (!title.trim() || !content.trim()) {
@@ -191,21 +414,84 @@ export default function DiaryEditPage() {
       return;
     }
 
+    // 수정 확인 모달 표시
+    setShowSaveConfirm(true);
+  };
+
+  const confirmSave = async () => {
+    if (!entry) return;
+
     try {
+      let finalImageUrl = imageUrl;
+
+      // 새로 선택된 이미지가 있으면 S3에 업로드
+      if (selectedImageFile) {
+        setIsUploading(true);
+        toast({
+          title: "이미지 업로드 중",
+          description: "이미지를 업로드하고 있습니다...",
+        });
+
+        try {
+          console.log("Uploading image to S3:", selectedImageFile.name);
+          const uploadedUrl = await uploadImageToS3(selectedImageFile);
+          finalImageUrl = uploadedUrl;
+          console.log("Image uploaded successfully:", uploadedUrl);
+        } catch (error) {
+          console.error("이미지 업로드 실패:", error);
+          toast({
+            title: "이미지 업로드 실패",
+            description: "이미지 업로드 중 오류가 발생했습니다.",
+            variant: "destructive",
+          });
+          return;
+        } finally {
+          setIsUploading(false);
+        }
+      }
+
+      // 오디오 파일을 S3에 업로드
+      let finalAudioUrl = voiceChanged ? (audioUrl || undefined) : (entry.audioUrl || undefined);
+      if (voiceChanged && audioUrl && audioUrl.startsWith('blob:')) {
+        try {
+          // blob URL에서 File 객체 생성
+          const response = await fetch(audioUrl);
+          const blob = await response.blob();
+          const audioFile = new File([blob], 'recording.webm', { type: 'audio/webm' });
+          
+          setIsUploading(true);
+          toast({
+            title: "오디오 업로드 중",
+            description: "오디오 파일을 업로드하고 있습니다...",
+          });
+          
+          finalAudioUrl = await uploadAudioToS3(audioFile);
+          setIsUploading(false);
+        } catch (error) {
+          console.error("오디오 업로드 실패:", error);
+          toast({
+            title: "오디오 업로드 실패",
+            description: "오디오 파일 업로드 중 오류가 발생했습니다.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      const updateData = {
+        title,
+        text: content,
+        imageUrl: finalImageUrl || undefined,
+        audioUrl: finalAudioUrl,
+      };
+
       console.log("Saving entry:", {
         diaryId: entry.diaryId,
-        title,
-        text: content,
-        imageUrl,
-        audioUrl
+        updateData,
+        voiceChanged
       });
 
-      const result = await updateDiary(entry.diaryId, {
-        title,
-        text: content,
-        imageUrl: imageUrl || null,
-        audioUrl: audioUrl || null,
-      });
+      const result = await updateDiary(entry.diaryId, updateData);
 
       console.log("Diary updated successfully:", result);
       
@@ -216,14 +502,33 @@ export default function DiaryEditPage() {
       
       // 메인 페이지로 이동하면서 성장일기 탭 활성화
       router.push("/?page=diary");
-    } catch (err) {
+    } catch (err: any) {
       console.error("수정 실패:", err);
+      
+      // 인증 관련 에러 처리
+      if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
+        toast({
+          title: "로그인 필요",
+          description: "로그인이 필요합니다. 다시 로그인해주세요.",
+          variant: "destructive",
+        });
+        // 로그인 페이지로 이동
+        window.location.href = "/login";
+        return;
+      }
+      
       toast({
         title: "수정 실패",
         description: "수정 중 오류가 발생했습니다.",
         variant: "destructive",
       });
+    } finally {
+      setShowSaveConfirm(false);
     }
+  };
+
+  const cancelSave = () => {
+    setShowSaveConfirm(false);
   };
 
   const handleCancel = () => {
@@ -292,17 +597,56 @@ export default function DiaryEditPage() {
             {/* Image Upload Section */}
             <div className="space-y-2">
               <Label htmlFor="image-upload">사진 첨부 (선택 사항)</Label>
-              <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400">
-                <Camera className="h-8 w-8" />
-                <span className="ml-2">사진 첨부는 추후 구현 예정</span>
+              <div className="flex items-center space-x-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleImageClick}
+                  disabled={isUploading}
+                  className="flex items-center space-x-2"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  <span>이미지 선택</span>
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                {(imagePreview || imageUrl) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleRemoveImage}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    이미지 제거
+                  </Button>
+                )}
               </div>
-              {imageUrl && (
+              
+              {/* Image Preview */}
+              {(imagePreview || imageUrl) && (
                 <div className="mt-4">
                   <img
-                    src={imageUrl}
-                    alt="기존 이미지"
+                    src={imagePreview || imageUrl || ""}
+                    alt="이미지 미리보기"
                     className="w-full h-32 object-cover rounded-md"
                   />
+                </div>
+              )}
+              
+              {!imagePreview && !imageUrl && (
+                <div 
+                  className="w-full h-32 border-2 border-dashed border-gray-300 rounded-md flex items-center justify-center text-gray-400 cursor-pointer hover:border-gray-400 hover:text-gray-500 transition-colors"
+                  onClick={handleImageClick}
+                >
+                  <Camera className="h-8 w-8" />
+                  <span className="ml-2">이미지를 선택하세요</span>
                 </div>
               )}
             </div>
@@ -310,62 +654,167 @@ export default function DiaryEditPage() {
             {/* 음성 녹음 섹션 */}
             <div className="space-y-2">
               <Label>음성 일기 (선택 사항)</Label>
-              <div className="flex items-center space-x-4 p-4 border rounded-lg bg-gray-50">
-                {!audioUrl ? (
-                  <div className="flex items-center space-x-2">
-                    {!isRecording ? (
+              
+              {!isEditingAudio ? (
+                // 기존 음성 표시 모드
+                <div className="flex items-center space-x-4 p-4 border rounded-lg bg-gray-50">
+                  {!audioUrl ? (
+                    <div className="flex items-center space-x-2">
+                      {!isRecording ? (
+                        <Button
+                          type="button"
+                          onClick={startRecording}
+                          className="bg-red-500 hover:bg-red-600 text-white"
+                        >
+                          <Mic className="h-4 w-4 mr-2" />
+                          녹음 시작
+                        </Button>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Button
+                            type="button"
+                            onClick={stopRecording}
+                            className="bg-gray-500 hover:bg-gray-600 text-white"
+                          >
+                            <MicOff className="h-4 w-4 mr-2" />
+                            녹음 중지
+                          </Button>
+                          <span className="text-sm text-gray-600">
+                            녹음 중... {formatTime(recordingTime)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
                       <Button
                         type="button"
-                        onClick={startRecording}
-                        className="bg-red-500 hover:bg-red-600 text-white"
+                        onClick={toggleAudioPlayback}
+                        className="bg-blue-500 hover:bg-blue-600 text-white"
                       >
-                        <Mic className="h-4 w-4 mr-2" />
-                        녹음 시작
+                        {isPlaying ? (
+                          <Pause className="h-4 w-4 mr-2" />
+                        ) : (
+                          <Play className="h-4 w-4 mr-2" />
+                        )}
+                        {isPlaying ? "일시정지" : "재생"}
                       </Button>
+                      <Button
+                        type="button"
+                        onClick={startAudioEdit}
+                        variant="outline"
+                        className="bg-green-500 hover:bg-green-600 text-white"
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        수정
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={removeAudio}
+                        variant="outline"
+                        className="text-red-500 hover:text-red-700"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        삭제
+                      </Button>
+                      <span className="text-sm text-gray-600">음성 녹음 완료</span>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                // 음성 수정 모드
+                <div className="space-y-4 p-4 border rounded-lg bg-yellow-50">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-semibold text-gray-700">음성 수정 모드</h4>
+                    <div className="flex items-center space-x-2">
+                      <Button
+                        type="button"
+                        onClick={applyAudioEdit}
+                        className="bg-green-500 hover:bg-green-600 text-white"
+                        disabled={!newAudioUrl}
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        적용
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={cancelAudioEdit}
+                        variant="outline"
+                        className="text-gray-600"
+                      >
+                        <RotateCcw className="h-4 w-4 mr-2" />
+                        취소
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                    {!newAudioUrl ? (
+                      <div className="flex items-center space-x-2">
+                        {!isNewRecording ? (
+                          <Button
+                            type="button"
+                            onClick={startNewRecording}
+                            className="bg-red-500 hover:bg-red-600 text-white"
+                            disabled={isConvertingAudio}
+                          >
+                            <Mic className="h-4 w-4 mr-2" />
+                            재녹음 시작
+                          </Button>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              type="button"
+                              onClick={stopNewRecording}
+                              className="bg-gray-500 hover:bg-gray-600 text-white"
+                            >
+                              <MicOff className="h-4 w-4 mr-2" />
+                              녹음 중지
+                            </Button>
+                            <span className="text-sm text-gray-600">
+                              녹음 중... {formatTime(newRecordingTime)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     ) : (
                       <div className="flex items-center space-x-2">
                         <Button
                           type="button"
-                          onClick={stopRecording}
-                          className="bg-gray-500 hover:bg-gray-600 text-white"
+                          onClick={() => {
+                            if (newAudioRef.current) {
+                              newAudioRef.current.play();
+                            }
+                          }}
+                          className="bg-blue-500 hover:bg-blue-600 text-white"
                         >
-                          <MicOff className="h-4 w-4 mr-2" />
-                          녹음 중지
+                          <Play className="h-4 w-4 mr-2" />
+                          미리듣기
                         </Button>
                         <span className="text-sm text-gray-600">
-                          녹음 중... {formatTime(recordingTime)}
+                          {isConvertingAudio ? "변환 중..." : "새 녹음 완료"}
                         </span>
                       </div>
                     )}
                   </div>
-                ) : (
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      type="button"
-                      onClick={toggleAudioPlayback}
-                      className="bg-blue-500 hover:bg-blue-600 text-white"
-                    >
-                      {isPlaying ? (
-                        <Pause className="h-4 w-4 mr-2" />
-                      ) : (
-                        <Play className="h-4 w-4 mr-2" />
-                      )}
-                      {isPlaying ? "일시정지" : "재생"}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={removeAudio}
-                      variant="outline"
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      삭제
-                    </Button>
-                    <span className="text-sm text-gray-600">음성 녹음 완료</span>
-                  </div>
-                )}
-              </div>
-              {audioUrl && (
+                  
+                  {newAudioUrl && (
+                    <audio
+                      ref={newAudioRef}
+                      src={newAudioUrl}
+                      className="w-full"
+                    />
+                  )}
+                  
+                  {isConvertingAudio && (
+                    <div className="text-sm text-blue-600">
+                      음성을 텍스트로 변환하고 있습니다...
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              {audioUrl && !isEditingAudio && (
                 <audio
                   ref={audioRef}
                   src={audioUrl}
@@ -373,16 +822,41 @@ export default function DiaryEditPage() {
                   className="w-full"
                 />
               )}
+              
+              {/* Hidden input for voice file */}
+              <input
+                ref={voiceInputRef}
+                type="file"
+                name="diary[voice]"
+                accept="audio/*"
+                className="hidden"
+              />
             </div>
 
             <div className="flex justify-end space-x-2">
               <Button variant="outline" onClick={handleCancel}>
                 취소
               </Button>
-              <Button onClick={handleSave}>
-                수정 완료
+              <Button onClick={handleSave} disabled={isUploading}>
+                {isUploading ? "업로드 중..." : "수정 완료"}
               </Button>
             </div>
+
+            {/* 수정 확인 모달 */}
+            {showSaveConfirm && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <Card className="w-full max-w-md mx-4">
+                  <CardContent className="p-6">
+                    <h3 className="text-lg font-bold mb-4">일기 수정</h3>
+                    <p className="text-gray-600 mb-6">정말로 이 일기를 수정하시겠습니까?<br />⚠️ 수정된 내용은 저장 후 복구할 수 없습니다.</p>
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={cancelSave}>취소</Button>
+                      <Button onClick={confirmSave} className="bg-blue-600 text-white hover:bg-blue-700">수정</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

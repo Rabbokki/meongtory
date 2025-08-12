@@ -20,16 +20,24 @@ public class S3Config {
     @Value("${aws.s3.region}")
     private String region;
 
-    @Value("${aws.s3.bucket.name}")  // 추가
+    @Value("${aws.s3.bucket.name}")
     private String bucketName;
 
     @Bean
     public S3Client s3Client() {
         System.out.println("=== S3 클라이언트 생성 ===");
-        System.out.println("Access Key ID: " + accessKeyId.substring(0, 10) + "...");
-        System.out.println("Secret Access Key: " + secretAccessKey.substring(0, 10) + "...");
+        System.out.println("Access Key ID: " + (accessKeyId != null && accessKeyId.length() > 10 ? accessKeyId.substring(0, 10) + "..." : accessKeyId));
+        System.out.println("Secret Access Key: " + (secretAccessKey != null && secretAccessKey.length() > 10 ? secretAccessKey.substring(0, 10) + "..." : secretAccessKey));
         System.out.println("Region: " + region);
-        System.out.println("Bucket: " + bucketName);  // 수정
+        System.out.println("Bucket: " + bucketName);
+
+        // 환경 변수가 설정되지 않은 경우 null 반환
+        if (accessKeyId == null || accessKeyId.isEmpty() || 
+            secretAccessKey == null || secretAccessKey.isEmpty() ||
+            bucketName == null || bucketName.isEmpty()) {
+            System.out.println("AWS 환경 변수가 설정되지 않음 - S3 기능 비활성화");
+            return null;
+        }
 
         AwsBasicCredentials awsCredentials = AwsBasicCredentials.create(accessKeyId, secretAccessKey);
         S3Client s3Client = S3Client.builder()

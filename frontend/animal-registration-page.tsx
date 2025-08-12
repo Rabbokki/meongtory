@@ -8,12 +8,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, FileText, Sparkles, Upload, X } from "lucide-react"
+import { Search, Plus, FileText, Sparkles, Upload, X, Loader2 } from "lucide-react"
 import { format } from "date-fns"
 import { ko } from "date-fns/locale"
 import { ArrowLeft } from "lucide-react"
 import { petApi, s3Api, Pet as ApiPet, handleApiError } from "./lib/api"
 import AnimalEditModal from "./animal-edit-modal"
+import axios from "axios"
 
 interface AnimalRecord {
   id: string
@@ -52,6 +53,15 @@ interface Pet {
   dateRegistered: string
   adoptionStatus: "available" | "pending" | "adopted"
   ownerEmail?: string
+  weight?: number
+  microchipId?: string
+  medicalHistory?: string
+  vaccinations?: string
+  notes?: string
+  rescueStory?: string
+  aiBackgroundStory?: string
+  status?: string
+  type?: string
 }
 
 interface AnimalRegistrationPageProps {
@@ -79,6 +89,15 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
     microchipId: "",
     notes: "",
     aiBackgroundStory: "",
+    // 엔티티와 일치하도록 추가 필드들
+    personality: "",
+    description: "",
+    specialNeeds: "",
+    rescueStory: "",
+    status: "보호중",
+    type: "",
+    isNeutered: false,
+    isVaccinated: false,
   })
 
   const [imageFiles, setImageFiles] = useState<File[]>([])
@@ -211,29 +230,27 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
     setIsGeneratingStory(true)
 
     try {
-      const response = await fetch('/api/ai/generate-background-story', {
-        method: 'POST',
+      const response = await axios.post('/api/ai/generate-background-story', {
+        petName: newAnimal.name,
+        breed: newAnimal.breed,
+        age: newAnimal.age,
+        gender: newAnimal.gender,
+        personality: '',
+        userPrompt: newAnimal.aiBackgroundStory || ''
+      }, {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          petName: newAnimal.name,
-          breed: newAnimal.breed,
-          age: newAnimal.age,
-          gender: newAnimal.gender,
-          personality: '',
-          userPrompt: newAnimal.aiBackgroundStory || ''
-        })
       })
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error('AI 스토리 생성에 실패했습니다.')
       }
 
-      const result = await response.json()
+      const result = response.data
       
       if (result.success) {
-        setNewAnimal((prev) => ({ ...prev, aiBackgroundStory: result.data.story }))
+        setNewAnimal((prev) => ({ ...prev, description: result.data.story }))
       } else {
         throw new Error(result.message || '스토리 생성에 실패했습니다.')
       }
@@ -259,10 +276,10 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         const imageUrl = imagePreviews[i]
         const imageFile = imageFiles[i]
         
-        if (imageFile && imageUrl.startsWith('data:')) {
-          // 새로 업로드된 이미지 (data URL)
+        if (imageFile && (imageUrl.startsWith('data:') || imageUrl.startsWith('blob:'))) {
+          // 새로 업로드된 이미지 (data URL 또는 blob URL)
           try {
-            const uploadedUrl = await s3Api.uploadFile(imageFile)
+            const uploadedUrl = await s3Api.uploadAdoptionFile(imageFile)
             uploadedImageUrls.push(uploadedUrl)
           } catch (error) {
             console.error("이미지 업로드 실패:", error)
@@ -284,8 +301,8 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         breed: newAnimal.breed,
         age: parseInt(newAnimal.age) || 0,
         gender: newAnimal.gender === "수컷" ? "MALE" : "FEMALE",
-        vaccinated: newAnimal.vaccinations.includes("종합백신") || newAnimal.vaccinations.includes("광견병"),
-        description: newAnimal.aiBackgroundStory || newAnimal.notes || "새로 등록된 반려동물입니다.",
+        vaccinated: newAnimal.isVaccinated,
+        description: newAnimal.description || "새로 등록된 반려동물입니다.",
         imageUrl: uploadedImageUrls.length > 0 ? uploadedImageUrls[0] : "/placeholder.svg?height=200&width=300",
         adopted: false,
         weight: parseFloat(newAnimal.weight) || undefined,
@@ -294,11 +311,12 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         medicalHistory: newAnimal.medicalHistory || undefined,
         vaccinations: newAnimal.vaccinations || undefined,
         notes: newAnimal.notes || undefined,
-        personality: "온순함, 친화적",
-        rescueStory: newAnimal.aiBackgroundStory || undefined,
+        specialNeeds: newAnimal.specialNeeds || undefined,
+        personality: newAnimal.personality || "온순함, 친화적",
+        rescueStory: newAnimal.rescueStory || undefined,
         aiBackgroundStory: newAnimal.aiBackgroundStory || undefined,
-        status: "보호중",
-        type: newAnimal.breed.includes("골든") ||
+        status: newAnimal.status || "보호중",
+        type: newAnimal.type || (newAnimal.breed.includes("골든") ||
               newAnimal.breed.includes("리트리버") ||
               newAnimal.breed.includes("말티즈") ||
               newAnimal.breed.includes("시바") ||
@@ -307,8 +325,8 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
               newAnimal.breed.includes("비글") ||
               newAnimal.breed.includes("웰시코기")
                 ? "강아지"
-                : "고양이",
-        neutered: newAnimal.medicalHistory.includes("중성화") || newAnimal.notes.includes("중성화"),
+                : "고양이"),
+        neutered: newAnimal.isNeutered,
       }
 
       // Send to backend API
@@ -325,7 +343,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         size: newAnimal.weight && parseFloat(newAnimal.weight) > 10 ? "대형" : "소형",
         personality: "온순함, 친화적",
         healthStatus: "건강함",
-        description: newAnimal.aiBackgroundStory || newAnimal.notes || "새로 등록된 반려동물입니다.",
+        description: newAnimal.aiBackgroundStory || "새로 등록된 반려동물입니다.",
         images: uploadedImageUrls.length > 0 ? uploadedImageUrls : ["/placeholder.svg?height=200&width=300"],
         location: newAnimal.location || "서울특별시",
         contact: "010-0000-0000",
@@ -355,6 +373,14 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         microchipId: "",
         notes: "",
         aiBackgroundStory: "",
+        personality: "",
+        description: "",
+        specialNeeds: "",
+        rescueStory: "",
+        status: "보호중",
+        type: "",
+        isNeutered: false,
+        isVaccinated: false,
       })
       setImageFiles([])
       setImagePreviews([])
@@ -579,42 +605,95 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
                 </div>
               </div>
 
-              {/* AI Background Story Section */}
+              {/* 성격 및 소개 */}
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="aiBackgroundStory">동물 소개 (AI 생성)</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerateAIStory}
-                    disabled={isGeneratingStory}
-                    className="text-purple-600 border-purple-200 hover:bg-purple-50 bg-transparent"
-                  >
-                    <Sparkles className="w-4 h-4 mr-2" />
-                    {isGeneratingStory ? "생성 중..." : "AI 소개 생성"}
-                  </Button>
+                <h3 className="font-semibold text-lg">성격 및 소개</h3>
+                
+                <div>
+                  <Label htmlFor="personality">성격</Label>
+                  <Input
+                    id="personality"
+                    value={newAnimal.personality}
+                    onChange={(e) => setNewAnimal({ ...newAnimal, personality: e.target.value })}
+                    placeholder="예: 온순함, 친화적"
+                  />
                 </div>
-                <Textarea
-                  id="aiBackgroundStory"
-                  value={newAnimal.aiBackgroundStory}
-                  onChange={(e) => setNewAnimal({ ...newAnimal, aiBackgroundStory: e.target.value })}
-                  placeholder="AI가 생성한 동물의 소개가 여기에 표시됩니다..."
-                  rows={4}
-                  className="bg-purple-50 border-purple-200"
-                />
+
+                <div>
+                  <Label htmlFor="description">동물 소개 (AI 생성)</Label>
+                  <div className="space-y-2">
+                    <Textarea
+                      id="description"
+                      value={newAnimal.description}
+                      onChange={(e) => setNewAnimal({ ...newAnimal, description: e.target.value })}
+                      placeholder="동물의 배경스토리나 소개를 작성해주세요"
+                      rows={3}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleGenerateAIStory}
+                      disabled={isGeneratingStory}
+                      className="w-full"
+                    >
+                      {isGeneratingStory ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          AI 소개 생성 중...
+                        </>
+                      ) : (
+                        "AI 소개 생성"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="specialNeeds">특별한 사항 (추가 메모)</Label>
+                  <Textarea
+                    id="specialNeeds"
+                    value={newAnimal.specialNeeds}
+                    onChange={(e) => setNewAnimal({ ...newAnimal, specialNeeds: e.target.value })}
+                    placeholder="특별한 주의사항이나 추가 정보가 있다면 작성해주세요"
+                    rows={3}
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="notes">기타 메모</Label>
+                  <Textarea
+                    id="notes"
+                    value={newAnimal.notes}
+                    onChange={(e) => setNewAnimal({ ...newAnimal, notes: e.target.value })}
+                    placeholder="기타 참고사항"
+                    rows={2}
+                  />
+                </div>
               </div>
 
-              {/* Additional Notes */}
-              <div>
-                <Label htmlFor="notes">추가 메모</Label>
-                <Textarea
-                  id="notes"
-                  value={newAnimal.notes}
-                  onChange={(e) => setNewAnimal({ ...newAnimal, notes: e.target.value })}
-                  placeholder="추가 메모를 입력하세요"
-                  rows={3}
-                />
+              {/* 건강 상태 체크박스 */}
+              <div className="space-y-4">
+                <h3 className="font-semibold text-lg">건강 상태</h3>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isNeutered"
+                      checked={newAnimal.isNeutered}
+                      onChange={(e) => setNewAnimal({ ...newAnimal, isNeutered: e.target.checked })}
+                    />
+                    <Label htmlFor="isNeutered">중성화 완료</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      id="isVaccinated"
+                      checked={newAnimal.isVaccinated}
+                      onChange={(e) => setNewAnimal({ ...newAnimal, isVaccinated: e.target.checked })}
+                    />
+                    <Label htmlFor="isVaccinated">예방접종 완료</Label>
+                  </div>
+                </div>
               </div>
 
               {/* Action Buttons */}
