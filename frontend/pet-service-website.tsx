@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Heart, Search, Store, BookOpen, User, ShoppingCart } from "lucide-react"
+import { Heart, Search, Store, BookOpen, User, ShoppingCart, FileText, MessageSquare } from "lucide-react"
 import LoginModal from "./login-modal"
 import SignupModal from "./signup-modal"
 import PasswordRecoveryModal from "./password-recovery-modal"
@@ -30,8 +30,10 @@ import AdminPage from "./admin-page"
 import PetNamingService from "./pet-naming-service"
 import InsuranceFavoritesPage from "./insurance-favorites-page"
 import GrowthDiaryWritePage from "./growth-diary-write-page"
+
 import axios from "axios"
 import { Toaster, toast } from "react-hot-toast"
+import { getCurrentKSTDate } from "./lib/utils"
 
 
 // Types
@@ -180,6 +182,101 @@ interface Order {
   orderedAt: string
 }
 
+// AI 계약서 생성 관련 타입들
+interface ContractTemplate {
+  id: number
+  name: string
+  description: string
+  category: string
+  content: string
+  sections: ContractSection[]
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+  createdBy: string
+}
+
+interface ContractSection {
+  id: number
+  title: string
+  content: string
+  isRequired: boolean
+  order: number
+  type: "text" | "checkbox" | "date" | "number" | "select"
+  options?: string[] // select 타입일 때 사용
+}
+
+interface ContractGenerationRequest {
+  templateId: number
+  customSections: ContractSection[]
+  removedSections: number[]
+  petInfo?: {
+    name: string
+    breed: string
+    age: string
+    healthStatus: string
+  }
+  userInfo?: {
+    name: string
+    phone: string
+    email: string
+  }
+  additionalInfo?: string
+}
+
+interface ContractGenerationResponse {
+  id: number
+  content: string
+  pdfUrl?: string
+  wordUrl?: string
+  generatedAt: string
+}
+
+interface AISuggestion {
+  id: number
+  suggestion: string
+  type: "section" | "clause" | "template"
+  confidence: number
+}
+
+// TODO: AI 계약서 생성 기능 구현 계획
+/*
+1. 템플릿 관리 기능
+   - 템플릿 등록/수정/삭제/조회
+   - 템플릿 카테고리별 분류 (입양계약서, 분양계약서, 보호계약서 등)
+   - 기본 템플릿과 사용자 커스텀 템플릿 구분
+
+2. AI 추천 기능
+   - ChatGPT OpenAI-4.1 연동
+   - 템플릿 작성 시 AI 추천 말풍선 표시
+   - "이런 건 어떠세요?" 형태의 추천 시스템
+   - 자동 템플릿 생성 버튼
+
+3. 계약서 생성 기능
+   - 템플릿 선택 후 커스터마이징
+   - 섹션 추가/삭제/수정
+   - PDF/Word 다운로드 기능
+   - 생성된 계약서 저장 및 관리
+
+4. UI/UX 구현
+   - 템플릿 선택 페이지
+   - 계약서 편집 페이지
+   - AI 추천 말풍선 컴포넌트
+   - 다운로드 모달
+
+5. 백엔드 API 구현
+   - 템플릿 CRUD API
+   - AI 추천 API
+   - 계약서 생성 API
+   - 파일 다운로드 API
+
+6. 데이터베이스 설계
+   - contract_templates 테이블
+   - contract_sections 테이블
+   - generated_contracts 테이블
+   - ai_suggestions 테이블
+*/
+
 // Axios Interceptor for Debugging and Token Management
 axios.interceptors.request.use(
   (config) => {
@@ -301,6 +398,9 @@ function NavigationHeader({
             >
               강아지 연구소
             </button>
+
+
+
             {isLoggedIn && (
               <button
                 onClick={onNavigateToMyPage}
@@ -380,6 +480,8 @@ export default function PetServiceWebsite() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null)
+  const [showContractTemplatePage, setShowContractTemplatePage] = useState(false)
+  const [showContractGenerationPage, setShowContractGenerationPage] = useState(false)
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
@@ -597,7 +699,7 @@ export default function PetServiceWebsite() {
         adoptionFee: 0,
         isNeutered: false,
         isVaccinated: false,
-        dateRegistered: new Date().toISOString().split("T")[0],
+        dateRegistered: getCurrentKSTDate(),
         adoptionStatus: "available",
         ownerEmail: userData.email,
       }
@@ -716,9 +818,15 @@ export default function PetServiceWebsite() {
       }
       
       setCart(cartItems)
-    } catch (error) {
-      console.error("장바구니 조회 오류:", error)
-      toast.error("장바구니 조회에 실패했습니다", { duration: 5000 })
+    } catch (error: any) {
+      // 400 에러는 로그인 상태가 아니거나 장바구니가 비어있는 경우일 수 있음
+      if (error.response?.status === 400) {
+        console.log("장바구니가 비어있거나 접근 권한이 없습니다.")
+        setCart([])
+      } else {
+        console.error("장바구니 조회 오류:", error)
+        toast.error("장바구니 조회에 실패했습니다", { duration: 5000 })
+      }
     }
   }
 
@@ -991,7 +1099,7 @@ export default function PetServiceWebsite() {
     const newPet: Pet = {
       id: pets.length + 1,
       ...petData,
-      dateRegistered: new Date().toISOString().split("T")[0],
+      dateRegistered: getCurrentKSTDate(),
       adoptionStatus: "available",
     }
     setPets((prev) => [...prev, newPet])
@@ -1003,7 +1111,7 @@ export default function PetServiceWebsite() {
     const newProduct: Product = {
       id: products.length + 1,
       ...productData,
-      registrationDate: new Date().toISOString().split("T")[0],
+      registrationDate: getCurrentKSTDate(),
       registeredBy: currentUser?.email || "admin",
       petType: productData.petType || "all",
     }
@@ -1286,7 +1394,7 @@ export default function PetServiceWebsite() {
                   petName: selectedPet.name,
                   ...inquiryData,
                   status: "대기중",
-                  date: new Date().toISOString().split("T")[0],
+                  date: getCurrentKSTDate(),
                 }
                 setAdoptionInquiries((prev) => [...prev, newInquiry])
                 toast.success("입양 문의가 등록되었습니다", { duration: 5000 })
@@ -1590,6 +1698,8 @@ export default function PetServiceWebsite() {
 
 
 
+
+
       case "myPage":
         console.log("myPage case 실행됨")
         console.log("currentUser:", currentUser)
@@ -1601,6 +1711,57 @@ export default function PetServiceWebsite() {
             userOrders={orders}
             onClose={() => setCurrentPage("home")}
           />
+        )
+
+      case "contract":
+        if (!isAdmin) {
+          return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">접근 권한이 없습니다</h1>
+                <p className="text-gray-600">AI 계약서 서비스는 관리자만 접근할 수 있습니다.</p>
+                <Button onClick={() => setCurrentPage("home")} className="mt-4">
+                  홈으로 돌아가기
+                </Button>
+              </div>
+            </div>
+          )
+        }
+        return (
+          <div className="min-h-screen bg-gray-50">
+            <div className="container mx-auto p-6">
+              <div className="mb-8">
+                <h1 className="text-3xl font-bold mb-4">AI 계약서 서비스</h1>
+                <p className="text-gray-600">템플릿을 관리하고 AI의 도움을 받아 맞춤형 계약서를 생성하세요.</p>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-6">
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowContractTemplatePage(true)}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      템플릿 관리
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">계약서 템플릿을 생성, 수정, 관리할 수 있습니다.</p>
+                  </CardContent>
+                </Card>
+                
+                <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowContractGenerationPage(true)}>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MessageSquare className="w-5 h-5" />
+                      계약서 생성
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">AI의 도움을 받아 맞춤형 계약서를 생성하세요.</p>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
         )
 
       default:
@@ -1815,6 +1976,14 @@ export default function PetServiceWebsite() {
             setShowLoginModal(true)
           }}
         />
+      )}
+      
+      {showContractTemplatePage && (
+        <ContractTemplatePage />
+      )}
+      
+      {showContractGenerationPage && (
+        <ContractGenerationPage />
       )}
     </div>
   )

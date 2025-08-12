@@ -20,9 +20,13 @@ import {
   XCircle,
   Eye,
   User,
+  FileText,
+  X,
 } from "lucide-react"
 import AnimalEditModal from "./animal-edit-modal"
 import { petApi, handleApiError, s3Api, adoptionRequestApi } from "./lib/api"
+import axios from "axios"
+import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "./lib/utils"
 
 interface Product {
   id: number
@@ -177,6 +181,40 @@ export default function AdminPage({
   const [pets, setPets] = useState<Pet[]>(initialPets || [])
   const [loading, setLoading] = useState(false)
   const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>(initialAdoptionInquiries || [])
+  const [showContractModal, setShowContractModal] = useState(false)
+  const [selectedContractRequest, setSelectedContractRequest] = useState<AdoptionRequest | null>(null)
+  const [contractView, setContractView] = useState<"templates" | "contracts">("templates")
+  const [contractTemplates, setContractTemplates] = useState<any[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null)
+  const [showContractViewModal, setShowContractViewModal] = useState(false)
+  const [selectedPetForContract, setSelectedPetForContract] = useState<Pet | null>(null)
+  const [isGeneratingContract, setIsGeneratingContract] = useState(false)
+  const [generatedContract, setGeneratedContract] = useState<string | null>(null)
+  const [generatedContracts, setGeneratedContracts] = useState<any[]>([])
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false)
+  const [isLoadingContracts, setIsLoadingContracts] = useState(false)
+  const [showCreateTemplateModal, setShowCreateTemplateModal] = useState(false)
+  const [showEditTemplateModal, setShowEditTemplateModal] = useState(false)
+  const [editingTemplate, setEditingTemplate] = useState<any>(null)
+  const [showTemplateViewModal, setShowTemplateViewModal] = useState(false)
+  const [selectedTemplateForView, setSelectedTemplateForView] = useState<any>(null)
+  const [selectedContractForView, setSelectedContractForView] = useState<any>(null)
+  const [showContractEditModal, setShowContractEditModal] = useState(false)
+  const [editingContract, setEditingContract] = useState<any>(null)
+  const [editedContractContent, setEditedContractContent] = useState("")
+  const [newTemplate, setNewTemplate] = useState({
+    name: "",
+    category: "",
+    content: "",
+    isDefault: false
+  })
+  const [templateSections, setTemplateSections] = useState<Array<{
+    id: string;
+    title: string;
+    required: boolean;
+    aiSuggestion: string;
+  }>>([])
+  const [showAISuggestion, setShowAISuggestion] = useState<string | null>(null)
   const [inquiriesLoading, setInquiriesLoading] = useState(false)
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -209,6 +247,8 @@ export default function AdminPage({
     };
 
     fetchProducts();
+    fetchContractTemplates();
+    fetchGeneratedContracts();
   }, []);
 
   // 주문 목록을 백엔드에서 가져오기
@@ -377,7 +417,7 @@ export default function AdminPage({
       request.status === "PENDING" ? "대기중" : 
       request.status === "CONTACTED" ? "연락완료" : 
       request.status === "APPROVED" ? "승인" : "거절",
-      new Date(request.createdAt).toLocaleDateString(),
+              formatToKST(request.createdAt),
       request.message,
       request.userId
     ])
@@ -391,7 +431,7 @@ export default function AdminPage({
     const link = document.createElement("a")
     const url = URL.createObjectURL(blob)
     link.setAttribute("href", url)
-    link.setAttribute("download", `입양신청_${new Date().toISOString().split('T')[0]}.csv`)
+          link.setAttribute("download", `입양신청_${getCurrentKSTDate()}.csv`)
     link.style.visibility = "hidden"
     document.body.appendChild(link)
     link.click()
@@ -510,7 +550,7 @@ export default function AdminPage({
       isNeutered: apiPet.neutered || false,
       isVaccinated: apiPet.vaccinated || false,
       specialNeeds: apiPet.rescueStory || '',
-      dateRegistered: new Date().toISOString().split('T')[0],
+      dateRegistered: getCurrentKSTDate(),
       adoptionStatus: adoptionStatus
     }
   }
@@ -649,6 +689,559 @@ export default function AdminPage({
     }
   };
 
+  const fetchContractTemplates = async () => {
+    try {
+      setIsLoadingTemplates(true)
+      const response = await axios.get("http://localhost:8080/api/contract-templates")
+      if (response.data.success) {
+        setContractTemplates(response.data.data || [])
+      } else {
+        console.error("템플릿 로드 실패:", response.data.message)
+      }
+    } catch (error) {
+      console.error("템플릿 로드 실패:", error)
+    } finally {
+      setIsLoadingTemplates(false)
+    }
+  }
+
+  const fetchGeneratedContracts = async () => {
+    try {
+      setIsLoadingContracts(true)
+      const response = await axios.get("http://localhost:8080/api/contract-generation/user")
+      if (response.data.success) {
+        setGeneratedContracts(response.data.data || [])
+      } else {
+        console.error("생성된 계약서 로드 실패:", response.data.message)
+      }
+    } catch (error) {
+      console.error("생성된 계약서 로드 실패:", error)
+    } finally {
+      setIsLoadingContracts(false)
+    }
+  }
+
+  const handleGenerateContract = async (request: AdoptionRequest | null) => {
+    if (!request) {
+      alert("신청 정보를 찾을 수 없습니다.")
+      return
+    }
+    
+    if (!selectedTemplate) {
+      alert("템플릿을 선택해주세요.")
+      return
+    }
+
+    try {
+      setIsGeneratingContract(true)
+      
+      // 선택된 템플릿 정보 가져오기
+      const selectedTemplateData = contractTemplates.find(t => t.id === selectedTemplate)
+      if (!selectedTemplateData) {
+        alert("템플릿 정보를 찾을 수 없습니다.")
+        return
+      }
+
+      // 해당 동물의 실제 정보 가져오기 (petId로 조인)
+      const actualPet = pets.find(p => p.id === request.petId)
+      if (!actualPet) {
+        alert("동물 정보를 찾을 수 없습니다.")
+        return
+      }
+
+      const response = await axios.post("http://localhost:9000/generate-contract", {
+        templateId: selectedTemplate,
+        customSections: selectedTemplateData.sections?.map((section: any) => ({ 
+          title: section.title, 
+          content: section.content || "" 
+        })) || [],
+        removedSections: [],
+        petInfo: {
+          name: actualPet.name,
+          breed: actualPet.breed,
+          age: actualPet.age,
+          healthStatus: actualPet.healthStatus
+        },
+        userInfo: {
+          name: request.applicantName,
+          phone: request.contactNumber,
+          email: request.email
+        },
+        additionalInfo: request.message
+      })
+
+      console.log("AI 서비스 응답:", response.data) // 디버깅용
+
+      // 생성된 계약서를 백엔드에 저장
+      const contractData = {
+        templateId: selectedTemplate,
+        customSections: selectedTemplateData.sections?.map((section: any) => ({ 
+          title: section.title, 
+          content: section.content || "" 
+        })) || [],
+        removedSections: [],
+        petInfo: {
+          name: actualPet.name,
+          breed: actualPet.breed,
+          age: actualPet.age,
+          healthStatus: actualPet.healthStatus
+        },
+        userInfo: {
+          name: request.applicantName,
+          phone: request.contactNumber,
+          email: request.email
+        },
+        additionalInfo: request.message,
+        shelterInfo: {
+          name: "멍멍이 보호소",
+          representative: "김보호",
+          address: "서울시 강남구 테헤란로 123",
+          phone: "02-1234-5678"
+        },
+        content: response.data.content // AI가 생성한 계약서 내용 추가
+      }
+
+      // 백엔드에 계약서 저장
+      await axios.post("http://localhost:8080/api/contract-generation", contractData)
+      
+      setGeneratedContract(response.data.content)
+      setShowContractModal(true)
+      
+      // 생성된 계약서 목록 새로고침
+      await fetchGeneratedContracts()
+      
+      // 해당 동물의 상태를 입양완료로 변경
+      const pet = pets.find(p => p.id === request.petId)
+      if (pet) {
+        await handleUpdatePetStatus(pet.id, "adopted")
+      }
+      
+      alert("계약서가 생성되었습니다. 입양관리 탭에서 계약서를 확인할 수 있습니다.")
+      
+      // 입양관리 탭으로 이동
+      setActiveTab("pets")
+    } catch (error) {
+      console.error("계약서 생성 실패:", error)
+      alert("계약서 생성에 실패했습니다.")
+    } finally {
+      setIsGeneratingContract(false)
+    }
+  }
+
+  const handleShowContractModal = (request: AdoptionRequest) => {
+    setSelectedContractRequest(request)
+    setSelectedTemplate(null)
+    setGeneratedContract(null)
+    fetchContractTemplates()
+    setShowContractModal(true)
+  }
+
+  const handleViewContract = async (pet: Pet) => {
+    try {
+      console.log("찾는 동물:", pet.name) // 디버깅용
+      console.log("생성된 계약서 목록:", generatedContracts) // 디버깅용
+      
+      // 해당 동물의 생성된 계약서 찾기
+      const petContract = generatedContracts.find(contract => {
+        // 계약서의 petInfo에서 동물 이름 확인
+        try {
+          const petInfo = JSON.parse(contract.petInfo || '{}')
+          console.log("계약서 petInfo:", petInfo) // 디버깅용
+          return petInfo.name === pet.name
+        } catch {
+          // JSON 파싱 실패 시 다른 방법으로 확인
+          console.log("JSON 파싱 실패, content에서 검색") // 디버깅용
+          return contract.content && contract.content.includes(pet.name)
+        }
+      })
+
+      if (petContract) {
+        console.log("찾은 계약서:", petContract) // 디버깅용
+        setSelectedPetForContract(pet)
+        setGeneratedContract(petContract.content)
+        setShowContractViewModal(true)
+      } else {
+        // 계약서가 없으면 새로 생성하도록 안내
+        alert("이 동물에 대한 생성된 계약서가 없습니다. 입양신청 탭에서 계약서를 생성해주세요.")
+      }
+    } catch (error) {
+      console.error("계약서 보기 실패:", error)
+      alert("계약서를 불러오는데 실패했습니다.")
+    }
+  }
+
+  const handleViewTemplate = async (templateId: number) => {
+    try {
+      const response = await axios.get(`http://localhost:8080/api/contract-templates/${templateId}`)
+      if (response.data.success) {
+        const template = response.data.data
+        setSelectedTemplateForView(template)
+        setShowTemplateViewModal(true)
+      } else {
+        alert("템플릿을 불러오는데 실패했습니다.")
+      }
+    } catch (error) {
+      console.error("템플릿 보기 실패:", error)
+      alert("템플릿을 불러오는데 실패했습니다.")
+    }
+  }
+
+  const handleEditTemplate = async (templateId: number) => {
+    try {
+      const response = await axios.get(`http://localhost:8080/api/contract-templates/${templateId}`)
+      if (response.data.success) {
+        const template = response.data.data
+        
+        // 템플릿 정보 설정
+        setNewTemplate({
+          name: template.name,
+          category: template.category,
+          content: "",
+          isDefault: false
+        })
+        
+        // sections 파싱
+        if (template.sections && template.sections.length > 0) {
+          const sections = template.sections.map((section: any, index: number) => ({
+            id: `section-${Date.now()}-${index}`,
+            title: section.title,
+            required: section.isRequired || false,
+            aiSuggestion: ""
+          }))
+          setTemplateSections(sections)
+        } else if (template.content) {
+          // content가 있으면 파싱해서 sections로 변환
+          const contentLines = template.content.split('\n').filter((line: string) => line.trim())
+          const sections = contentLines.map((line: string, index: number) => {
+            const match = line.match(/^(\d+)\.\s*(.+?)(?:\s*\(필수\))?$/)
+            if (match) {
+              return {
+                id: `section-${Date.now()}-${index}`,
+                title: match[2].trim(),
+                required: line.includes('(필수)'),
+                aiSuggestion: ""
+              }
+            } else {
+              return {
+                id: `section-${Date.now()}-${index}`,
+                title: line.trim(),
+                required: false,
+                aiSuggestion: ""
+              }
+            }
+          })
+          setTemplateSections(sections)
+        } else {
+          // sections가 없으면 빈 배열로 시작 (사용자가 직접 추가해야 함)
+          setTemplateSections([])
+        }
+        
+        setEditingTemplate(template)
+        setShowEditTemplateModal(true)
+      } else {
+        alert("템플릿을 불러오는데 실패했습니다.")
+      }
+    } catch (error) {
+      console.error("템플릿 수정 실패:", error)
+      alert("템플릿을 불러오는데 실패했습니다.")
+    }
+  }
+
+  const handleUpdateTemplate = async () => {
+    if (!editingTemplate) return
+    
+    try {
+      // sections를 백엔드 형식으로 변환
+      const sections = templateSections.map((section, index) => ({
+        title: section.title,
+        isRequired: section.required,
+        order: index + 1,
+        type: "TEXT"
+      }))
+      
+      const templateData = {
+        name: newTemplate.name,
+        category: newTemplate.category,
+        sections: sections
+      }
+      
+      const response = await axios.put(`http://localhost:8080/api/contract-templates/${editingTemplate.id}`, templateData)
+      if (response.data.success) {
+        alert("템플릿이 수정되었습니다.")
+        setShowEditTemplateModal(false)
+        setEditingTemplate(null)
+        setNewTemplate({ name: "", category: "", content: "", isDefault: false })
+        setTemplateSections([])
+        fetchContractTemplates() // 목록 새로고침
+      } else {
+        alert("템플릿 수정에 실패했습니다.")
+      }
+    } catch (error) {
+      console.error("템플릿 수정 실패:", error)
+      alert("템플릿 수정에 실패했습니다.")
+    }
+  }
+
+  const handleDeleteTemplate = async (templateId: number) => {
+    if (confirm('정말로 이 템플릿을 삭제하시겠습니까?')) {
+      try {
+        await axios.delete(`http://localhost:8080/api/contract-templates/${templateId}`)
+        alert("템플릿이 삭제되었습니다.")
+        fetchContractTemplates() // 목록 새로고침
+      } catch (error) {
+        console.error("템플릿 삭제 실패:", error)
+        alert("템플릿 삭제에 실패했습니다.")
+      }
+    }
+  }
+
+  const handleViewGeneratedContract = async (contractId: number) => {
+    try {
+      const response = await axios.get(`http://localhost:8080/api/contract-generation/${contractId}`)
+      if (response.data.success) {
+        const contract = response.data.data
+        setSelectedContractForView(contract)
+        setShowContractViewModal(true)
+      } else {
+        alert("계약서를 불러오는데 실패했습니다.")
+      }
+    } catch (error) {
+      console.error("계약서 보기 실패:", error)
+      alert("계약서를 불러오는데 실패했습니다.")
+    }
+  }
+
+  const handleDownloadContract = async (contractId: number) => {
+    try {
+      const response = await axios.get(`http://localhost:8080/api/contract-generation/${contractId}/download`, {
+        responseType: 'blob'
+      })
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `contract-${contractId}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      
+      alert("PDF 파일이 다운로드되었습니다.")
+    } catch (error) {
+      console.error("계약서 다운로드 실패:", error)
+      alert("파일 다운로드에 실패했습니다.")
+    }
+  }
+
+  const handleDeleteContract = async (contractId: number) => {
+    if (confirm('정말로 이 계약서를 삭제하시겠습니까?')) {
+      try {
+        await axios.delete(`http://localhost:8080/api/contract-generation/${contractId}`)
+        alert("계약서가 삭제되었습니다.")
+        fetchGeneratedContracts() // 목록 새로고침
+      } catch (error) {
+        console.error("계약서 삭제 실패:", error)
+        alert("계약서 삭제에 실패했습니다.")
+      }
+    }
+  }
+
+  const handleEditContract = async (contract: any) => {
+    setEditingContract(contract)
+    setEditedContractContent(contract.content)
+    setShowContractEditModal(true)
+  }
+
+  const handleUpdateContract = async () => {
+    if (!editingContract) return
+
+    try {
+      const response = await axios.put(`http://localhost:8080/api/contract-generation/${editingContract.id}`, {
+        content: editedContractContent
+      })
+      
+      if (response.data.success) {
+        alert("계약서가 수정되었습니다.")
+        setShowContractEditModal(false)
+        setEditingContract(null)
+        setEditedContractContent("")
+        fetchGeneratedContracts()
+      } else {
+        alert("계약서 수정에 실패했습니다.")
+      }
+    } catch (error) {
+      console.error("계약서 수정 실패:", error)
+      alert("계약서 수정에 실패했습니다.")
+    }
+  }
+
+  const handleCreateTemplate = async () => {
+    try {
+      // sections를 백엔드 형식으로 변환
+      const sections = templateSections.map((section, index) => ({
+        title: section.title,
+        isRequired: section.required,
+        order: index + 1,
+        type: "TEXT"
+      }))
+      
+      const templateData = {
+        name: newTemplate.name,
+        category: newTemplate.category,
+        sections: sections
+      }
+      
+      const response = await axios.post("http://localhost:8080/api/contract-templates", templateData)
+      if (response.data.success) {
+        alert("템플릿이 생성되었습니다.")
+        setShowCreateTemplateModal(false)
+        setNewTemplate({
+          name: "",
+          category: "",
+          content: "",
+          isDefault: false
+        })
+        setTemplateSections([])
+        fetchContractTemplates() // 목록 새로고침
+      } else {
+        alert("템플릿 생성에 실패했습니다.")
+      }
+    } catch (error) {
+      console.error("템플릿 생성 실패:", error)
+      alert("템플릿 생성에 실패했습니다.")
+    }
+  }
+
+  const addSection = () => {
+    const newSection = {
+      id: (Date.now() + Math.random()).toString(),
+      title: "",
+      required: false,
+      aiSuggestion: ""
+    }
+    setTemplateSections([...templateSections, newSection])
+  }
+
+  const addSectionAtIndex = (index: number) => {
+    const newSection = {
+      id: (Date.now() + Math.random()).toString(),
+      title: "",
+      required: false,
+      aiSuggestion: ""
+    }
+    const newSections = [...templateSections]
+    newSections.splice(index, 0, newSection)
+    setTemplateSections(newSections)
+  }
+
+  const addDefaultSections = () => {
+    const baseTime = Date.now()
+    const defaultSections = [
+      {
+        id: (baseTime + 1).toString(),
+        title: "반려동물 이름",
+        required: true,
+        aiSuggestion: "반려동물의 이름을 입력해주세요"
+      },
+      {
+        id: (baseTime + 2).toString(),
+        title: "반려동물 품종",
+        required: true,
+        aiSuggestion: "반려동물의 품종을 입력해주세요"
+      },
+      {
+        id: (baseTime + 3).toString(),
+        title: "반려동물 나이",
+        required: true,
+        aiSuggestion: "반려동물의 나이를 입력해주세요"
+      },
+      {
+        id: (baseTime + 4).toString(),
+        title: "신청자 이름",
+        required: true,
+        aiSuggestion: "신청자의 이름을 입력해주세요"
+      },
+      {
+        id: (baseTime + 5).toString(),
+        title: "신청자 연락처",
+        required: true,
+        aiSuggestion: "신청자의 연락처를 입력해주세요"
+      },
+      {
+        id: (baseTime + 6).toString(),
+        title: "신청자 이메일",
+        required: false,
+        aiSuggestion: "신청자의 이메일을 입력해주세요"
+      }
+    ]
+    setTemplateSections([...templateSections, ...defaultSections])
+  }
+
+  const getAISuggestion = async (title: string) => {
+    try {
+      // AI 서비스에 직접 연결
+      const response = await axios.post("http://localhost:9000/clause-suggestions", {
+        templateId: null,
+        currentClauses: [title],
+        petInfo: {},
+        userInfo: {}
+      })
+      
+      if (response.data.suggestions && response.data.suggestions.length > 0) {
+        return response.data.suggestions[0].suggestion
+      }
+      
+      return "AI 추천을 받을 수 없습니다."
+    } catch (error) {
+      console.error("AI 추천 생성 실패:", error)
+      // 백엔드 서버가 실행되지 않을 때를 대비한 로컬 추천 로직
+      const suggestions: { [key: string]: string } = {
+        "반려동물 이름": "제1조 (반려동물 이름)",
+        "반려동물 품종": "제2조 (반려동물 품종)",
+        "반려동물 나이": "제3조 (반려동물 나이)",
+        "신청자 이름": "제4조 (신청자 정보)",
+        "신청자 연락처": "제5조 (연락처 정보)",
+        "신청자 이메일": "제6조 (이메일 정보)",
+        "주거환경": "제7조 (주거환경 확인)",
+        "가족 구성원": "제8조 (가족 구성원)",
+        "경제적 여유": "제9조 (경제적 여유)",
+        "양육 경험": "제10조 (양육 경험)",
+        "양육 시간": "제11조 (양육 시간)",
+        "의료 보험": "제12조 (의료 보험)",
+        "사전 교육": "제13조 (사전 교육)"
+      }
+      
+      return suggestions[title] || "제X조 (기타 사항)"
+    }
+  }
+
+  const handleGetAISuggestion = async (sectionId: string, title: string) => {
+    const suggestion = await getAISuggestion(title)
+    updateSection(sectionId, 'aiSuggestion', suggestion)
+    setShowAISuggestion(sectionId)
+  }
+
+  const handleCloseAISuggestion = (sectionId: string) => {
+    setShowAISuggestion(null)
+  }
+
+  const removeSection = (id: string) => {
+    setTemplateSections(templateSections.filter(section => section.id !== id))
+  }
+
+  const updateSection = (id: string, field: 'title' | 'required' | 'aiSuggestion', value: string | boolean) => {
+    setTemplateSections(templateSections.map(section => 
+      section.id === id ? { ...section, [field]: value } : section
+    ))
+  }
+
+  const moveSection = (fromIndex: number, toIndex: number) => {
+    const newSections = [...templateSections]
+    const [movedSection] = newSections.splice(fromIndex, 1)
+    newSections.splice(toIndex, 0, movedSection)
+    setTemplateSections(newSections)
+  }
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -662,12 +1255,13 @@ export default function AdminPage({
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="dashboard">대시보드</TabsTrigger>
             <TabsTrigger value="products">상품관리</TabsTrigger>
             <TabsTrigger value="pets">입양관리</TabsTrigger>
             <TabsTrigger value="inquiries">입양신청</TabsTrigger>
             <TabsTrigger value="orders">주문내역</TabsTrigger>
+            <TabsTrigger value="contracts">AI 계약서</TabsTrigger>
           </TabsList>
 
           {/* Dashboard Tab */}
@@ -762,6 +1356,8 @@ export default function AdminPage({
                 </div>
               </CardContent>
             </Card>
+
+
           </TabsContent>
 
           {/* Products Tab */}
@@ -908,6 +1504,15 @@ export default function AdminPage({
                           >
                             입양완료
                           </Button>
+                          {/* 계약서 보기 버튼 - 모든 동물에 대해 표시 */}
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleViewContract(pet)}
+                          >
+                            <FileText className="h-4 w-4" />
+                            계약서 보기
+                          </Button>
                           <Button 
                             size="sm" 
                             variant="outline"
@@ -970,8 +1575,8 @@ export default function AdminPage({
                           </div>
                           
                           <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>신청일: {new Date(request.createdAt).toLocaleDateString()}</span>
-                            <span>수정일: {new Date(request.updatedAt).toLocaleDateString()}</span>
+                            <span>신청일: {formatToKST(request.createdAt)}</span>
+                            <span>수정일: {formatToKST(request.updatedAt)}</span>
                           </div>
                         </div>
                         
@@ -1138,7 +1743,7 @@ export default function AdminPage({
                           </div>
                           <p className="text-sm text-gray-600 mb-4">{request.message}</p>
                           <p className="text-xs text-gray-500">
-                            신청일: {new Date(request.createdAt).toLocaleDateString()}
+                            신청일: {formatToKST(request.createdAt)}
                             {request.status === "PENDING" && (
                               <span className="ml-2 text-red-600">
                                 ({Math.floor((new Date().getTime() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60))}시간 경과)
@@ -1174,6 +1779,17 @@ export default function AdminPage({
                             <XCircle className="h-4 w-4 mr-1" />
                             거절
                           </Button>
+                          {request.status === "APPROVED" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleShowContractModal(request)}
+                              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                            >
+                              <FileText className="h-4 w-4 mr-1" />
+                              AI 계약서 생성
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -1235,7 +1851,7 @@ export default function AdminPage({
                               주문일: {order.orderedAt ? 
                                 (() => {
                                   try {
-                                    return new Date(order.orderedAt).toLocaleDateString()
+                                    return formatToKST(order.orderedAt)
                                   } catch {
                                     return "날짜 없음"
                                   }
@@ -1339,6 +1955,144 @@ export default function AdminPage({
               )}
             </div>
           </TabsContent>
+
+          {/* AI 계약서 Tab */}
+          <TabsContent value="contracts" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold">AI 계약서 관리</h2>
+              <div className="flex gap-2">
+                <Button 
+                  onClick={() => setContractView("templates")} 
+                  className={`${contractView === "templates" ? "bg-blue-600" : "bg-blue-500 hover:bg-blue-600"} text-white`}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  템플릿 관리
+                </Button>
+                <Button 
+                  onClick={() => setContractView("contracts")} 
+                  className={`${contractView === "contracts" ? "bg-green-600" : "bg-green-500 hover:bg-green-600"} text-white`}
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  계약서 관리
+                </Button>
+              </div>
+            </div>
+
+            {/* 템플릿 관리 뷰 */}
+            {contractView === "templates" && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>계약서 템플릿 목록</CardTitle>
+                    <Button 
+                      onClick={() => setShowCreateTemplateModal(true)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      새 템플릿 생성
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingTemplates ? (
+                    <div className="text-center py-8">
+                      <p>템플릿을 불러오는 중...</p>
+                    </div>
+                  ) : contractTemplates.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p>등록된 템플릿이 없습니다.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {contractTemplates.map((template) => (
+                        <Card key={template.id} className="hover:shadow-lg transition-shadow cursor-pointer">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-lg">{template.name}</CardTitle>
+                            <Badge variant="outline">
+                              {template.isDefault ? "기본 템플릿" : "사용자 템플릿"}
+                            </Badge>
+                          </CardHeader>
+                          <CardContent>
+                            <p className="text-sm text-gray-600 mb-3">{template.description}</p>
+                            <div className="flex gap-2">
+                              <Button size="sm" variant="outline" onClick={() => handleViewTemplate(template.id)}>
+                                <Eye className="h-4 w-4 mr-1" />
+                                보기
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => handleEditTemplate(template.id)}>
+                                <Edit className="h-4 w-4 mr-1" />
+                                수정
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => handleDeleteTemplate(template.id)}>
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                삭제
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* 계약서 관리 뷰 */}
+            {contractView === "contracts" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>생성된 계약서 목록</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingContracts ? (
+                    <div className="text-center py-8">
+                      <p>계약서를 불러오는 중...</p>
+                    </div>
+                  ) : generatedContracts.length === 0 ? (
+                    <div className="text-center py-8">
+                      <p>생성된 계약서가 없습니다.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {generatedContracts.map((contract) => (
+                        <div key={contract.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div>
+                            <h4 className="font-medium">{contract.contractName || "계약서"}</h4>
+                            <p className="text-sm text-gray-600">
+                              {formatToKST(contract.generatedAt)} 생성
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              생성자: {contract.generatedBy || "관리자"}
+                            </p>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleViewGeneratedContract(contract.id)}>
+                              <Eye className="h-4 w-4 mr-1" />
+                              보기
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleEditContract(contract)}>
+                              <Edit className="h-4 w-4 mr-1" />
+                              수정
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleDownloadContract(contract.id)}>
+                              <FileText className="h-4 w-4 mr-1" />
+                              PDF
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handleDeleteContract(contract.id)}>
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              삭제
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+
+          </TabsContent>
         </Tabs>
       </div>
       
@@ -1349,6 +2103,959 @@ export default function AdminPage({
         selectedPet={selectedPetForEdit}
         onUpdatePet={handleUpdatePet}
       />
+
+
+
+      {/* 템플릿 생성 모달 */}
+      <Dialog open={showCreateTemplateModal} onOpenChange={setShowCreateTemplateModal}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>새 템플릿 생성</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* 기본 정보 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">템플릿 이름</label>
+                <input
+                  type="text"
+                  className="w-full mt-1 p-2 border rounded-md"
+                  value={newTemplate.name}
+                  onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
+                  placeholder="템플릿 이름을 입력하세요"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">카테고리</label>
+                <select
+                  className="w-full mt-1 p-2 border rounded-md"
+                  value={newTemplate.category}
+                  onChange={(e) => setNewTemplate({...newTemplate, category: e.target.value})}
+                >
+                  <option value="">카테고리 선택</option>
+                  <option value="입양계약서">입양계약서</option>
+                  <option value="분양계약서">분양계약서</option>
+                  <option value="임시보호계약서">임시보호계약서</option>
+                  <option value="의료계약서">의료계약서</option>
+                  <option value="훈련계약서">훈련계약서</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+            </div>
+
+
+            {/* 섹션 관리 */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium">계약서 항목</h3>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={addDefaultSections}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    기본 항목 추가
+                  </Button>
+                  <Button 
+                    onClick={addSection}
+                    className="bg-green-500 hover:bg-green-600 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    항목 추가
+                  </Button>
+                </div>
+              </div>
+              
+              {templateSections.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                  <p className="text-gray-500 mb-2">계약서에 필요한 항목들을 추가하세요</p>
+                  <p className="text-sm text-gray-400">"기본 항목 추가" 버튼으로 자주 사용하는 항목들을 한 번에 추가할 수 있습니다</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {templateSections.map((section, index) => (
+                    <div key={section.id}>
+                      <Card className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2 relative">
+                            <div className="cursor-move text-gray-400 hover:text-gray-600">
+                              ⋮⋮
+                            </div>
+                            <h4 className="font-medium">항목 {index + 1}</h4>
+                            {section.required && (
+                              <Badge variant="outline" className="text-red-600 text-xs">필수</Badge>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleGetAISuggestion(section.id, section.title)}
+                              className="text-xs whitespace-nowrap"
+                            >
+                              AI 추천
+                            </Button>
+                            
+                            {/* AI 추천 말풍선 */}
+                            {showAISuggestion === section.id && section.aiSuggestion && (
+                              <div className="absolute top-full left-0 z-10 w-80 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3 mt-1">
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="text-xs font-medium text-blue-800">AI 추천</span>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleCloseAISuggestion(section.id)}
+                                    className="text-xs p-1 h-6 w-6"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <p className="text-sm text-blue-900">{section.aiSuggestion}</p>
+                                <div className="absolute top-4 -left-2 w-0 h-0 border-t-2 border-b-2 border-r-2 border-transparent border-r-blue-50"></div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {index > 0 && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => moveSection(index, index - 1)}
+                              >
+                                ↑
+                              </Button>
+                            )}
+                            {index < templateSections.length - 1 && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => moveSection(index, index + 1)}
+                              >
+                                ↓
+                              </Button>
+                            )}
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => removeSection(section.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-sm font-medium">항목 제목</label>
+                            <input
+                              type="text"
+                              className="w-full mt-1 p-2 border rounded-md"
+                              value={section.title}
+                              onChange={(e) => updateSection(section.id, 'title', e.target.value)}
+                              placeholder="예: 반려동물 이름, 신청자 연락처"
+                            />
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`required-${section.id}`}
+                              checked={section.required}
+                              onChange={(e) => updateSection(section.id, 'required', e.target.checked)}
+                            />
+                            <label htmlFor={`required-${section.id}`} className="text-sm">필수 항목</label>
+                          </div>
+                        </div>
+                      </Card>
+                      
+                      {/* 항목 사이에 추가 버튼 */}
+                      <div className="flex justify-center my-2">
+                        <Button 
+                          onClick={() => addSectionAtIndex(index + 1)}
+                          className="bg-green-500 hover:bg-green-600 text-white text-sm"
+                          size="sm"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          항목 추가
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* 마지막 항목 아래에 추가 버튼 */}
+                  {templateSections.length > 0 && (
+                    <div className="flex justify-center my-2">
+                      <Button 
+                        onClick={addSection}
+                        className="bg-green-500 hover:bg-green-600 text-white text-sm"
+                        size="sm"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        항목 추가
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 기본 템플릿 설정 */}
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="isDefault"
+                checked={newTemplate.isDefault}
+                onChange={(e) => setNewTemplate({...newTemplate, isDefault: e.target.checked})}
+              />
+              <label htmlFor="isDefault" className="text-sm">기본 템플릿으로 설정</label>
+            </div>
+
+            {/* 버튼 */}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowCreateTemplateModal(false)}>
+                취소
+              </Button>
+              <Button 
+                onClick={handleCreateTemplate}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+                disabled={!newTemplate.name || !newTemplate.category || templateSections.length === 0}
+              >
+                템플릿 생성
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 계약서 보기 모달 */}
+      <Dialog open={showContractViewModal} onOpenChange={setShowContractViewModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>계약서 보기</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedPetForContract && (
+              <div className="space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-3 text-gray-800">동물 정보</h4>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-16">이름:</span>
+                      <span className="text-gray-900">{selectedPetForContract.name}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-16">품종:</span>
+                      <span className="text-gray-900">{selectedPetForContract.breed}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-16">나이:</span>
+                      <span className="text-gray-900">{selectedPetForContract.age}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-medium text-gray-700 w-16">성별:</span>
+                      <span className="text-gray-900">{selectedPetForContract.gender}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium">계약서 내용</h4>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        className="bg-white text-black border border-gray-300 hover:bg-gray-50"
+                        onClick={() => handleDownloadContract(0)}
+                      >
+                        <FileText className="h-4 w-4 mr-1" />
+                        PDF
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded border max-h-96 overflow-y-auto">
+                    {generatedContract ? (
+                      <div className="whitespace-pre-wrap text-sm">{generatedContract}</div>
+                    ) : (
+                      <div className="text-center py-8 text-gray-500">
+                        <p>계약서 내용을 불러올 수 없습니다.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex justify-center">
+                  <Button variant="outline" onClick={() => setShowContractViewModal(false)}>
+                    닫기
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 계약서 생성 모달 */}
+      <Dialog open={showContractModal} onOpenChange={setShowContractModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>AI 계약서 생성</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {selectedContractRequest && (
+              <div className="space-y-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-medium mb-2">입양 신청 정보</h4>
+                  <div className="text-sm space-y-1">
+                    <p><strong>입양견:</strong> {selectedContractRequest.petName} ({selectedContractRequest.petBreed})</p>
+                    <p><strong>신청자:</strong> {selectedContractRequest.applicantName}</p>
+                    <p><strong>연락처:</strong> {selectedContractRequest.contactNumber}</p>
+                    <p><strong>이메일:</strong> {selectedContractRequest.email}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* 템플릿 선택 */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="w-5 h-5" />
+                        템플릿 선택
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      {isLoadingTemplates ? (
+                        <div className="text-center py-4">
+                          <p>템플릿을 불러오는 중...</p>
+                        </div>
+                      ) : contractTemplates.length === 0 ? (
+                        <div className="text-center py-4">
+                          <p>사용 가능한 템플릿이 없습니다.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3">
+                          {contractTemplates.map((template) => (
+                            <div 
+                              key={template.id}
+                              className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                                selectedTemplate === template.id ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
+                              }`}
+                              onClick={() => setSelectedTemplate(template.id)}
+                            >
+                              <h4 className="font-medium">{template.name}</h4>
+                              <p className="text-sm text-gray-600">{template.description}</p>
+                              <Badge variant="outline" className="mt-1">
+                                {template.isDefault ? "기본 템플릿" : "사용자 템플릿"}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* 입양견 및 신청자 정보 */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <MessageSquare className="w-5 h-5" />
+                        입양견 및 신청자 정보
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="text-sm font-medium">입양견 이름</label>
+                          <input 
+                            type="text" 
+                            className="w-full mt-1 p-2 border rounded-md" 
+                            placeholder="입양견 이름"
+                            defaultValue={selectedContractRequest.petName}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">입양견 품종</label>
+                          <input 
+                            type="text" 
+                            className="w-full mt-1 p-2 border rounded-md" 
+                            placeholder="입양견 품종"
+                            defaultValue={selectedContractRequest.petBreed}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">신청자 이름</label>
+                          <input 
+                            type="text" 
+                            className="w-full mt-1 p-2 border rounded-md" 
+                            placeholder="신청자 이름"
+                            defaultValue={selectedContractRequest.applicantName}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">신청자 연락처</label>
+                          <input 
+                            type="text" 
+                            className="w-full mt-1 p-2 border rounded-md" 
+                            placeholder="신청자 연락처"
+                            defaultValue={selectedContractRequest.contactNumber}
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowContractModal(false)}>
+                    취소
+                  </Button>
+                  <Button 
+                    className="bg-green-500 hover:bg-green-600 text-white"
+                    onClick={() => handleGenerateContract(selectedContractRequest)}
+                    disabled={!selectedTemplate || isGeneratingContract}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    {isGeneratingContract ? "생성 중..." : "AI 계약서 생성"}
+                  </Button>
+                </div>
+
+                {/* 생성된 계약서 미리보기 */}
+                {generatedContract && (
+                  <Card>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <CardTitle>생성된 계약서 미리보기</CardTitle>
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            className="bg-white text-black border border-gray-300 hover:bg-gray-50"
+                            onClick={() => handleDownloadContract(0)}
+                          >
+                            <FileText className="h-4 w-4 mr-1" />
+                            PDF
+                          </Button>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-white p-4 rounded border max-h-96 overflow-y-auto">
+                        <div className="whitespace-pre-wrap text-sm">{generatedContract}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 템플릿 수정 모달 */}
+      <Dialog open={showEditTemplateModal} onOpenChange={setShowEditTemplateModal}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>템플릿 수정</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-6">
+            {/* 기본 정보 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">템플릿 이름</label>
+                <input
+                  type="text"
+                  className="w-full mt-1 p-2 border rounded-md"
+                  value={newTemplate.name}
+                  onChange={(e) => setNewTemplate({...newTemplate, name: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">카테고리</label>
+                <select
+                  className="w-full mt-1 p-2 border rounded-md"
+                  value={newTemplate.category}
+                  onChange={(e) => setNewTemplate({...newTemplate, category: e.target.value})}
+                >
+                  <option value="">카테고리 선택</option>
+                  <option value="입양계약서">입양계약서</option>
+                  <option value="분양계약서">분양계약서</option>
+                  <option value="임시보호계약서">임시보호계약서</option>
+                  <option value="의료계약서">의료계약서</option>
+                  <option value="훈련계약서">훈련계약서</option>
+                  <option value="기타">기타</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 섹션 관리 */}
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium">계약서 항목</h3>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={addDefaultSections}
+                    className="bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    기본 항목 추가
+                  </Button>
+                  <Button 
+                    onClick={addSection}
+                    className="bg-green-500 hover:bg-green-600 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    항목 추가
+                  </Button>
+                </div>
+              </div>
+              
+              {templateSections.length === 0 ? (
+                <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
+                  <p className="text-gray-500 mb-2">계약서에 필요한 항목들을 추가하세요</p>
+                  <p className="text-sm text-gray-400">"기본 항목 추가" 버튼으로 자주 사용하는 항목들을 한 번에 추가할 수 있습니다</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {templateSections.map((section, index) => (
+                    <div key={section.id}>
+                      <Card className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2 relative">
+                            <div className="cursor-move text-gray-400 hover:text-gray-600">
+                              ⋮⋮
+                            </div>
+                            <h4 className="font-medium">항목 {index + 1}</h4>
+                            {section.required && (
+                              <Badge variant="outline" className="text-red-600 text-xs">필수</Badge>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleGetAISuggestion(section.id, section.title)}
+                              className="text-xs whitespace-nowrap"
+                            >
+                              AI 추천
+                            </Button>
+                            
+                            {/* AI 추천 말풍선 */}
+                            {showAISuggestion === section.id && section.aiSuggestion && (
+                              <div className="absolute top-0 left-full z-10 w-80 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3 ml-2 mb-2">
+                                <div className="flex justify-between items-start mb-2">
+                                  <span className="text-xs font-medium text-blue-800">AI 추천</span>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleCloseAISuggestion(section.id)}
+                                    className="text-xs p-1 h-6 w-6"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <p className="text-sm text-blue-900">{section.aiSuggestion}</p>
+                                <div className="absolute top-4 -left-2 w-0 h-0 border-t-2 border-b-2 border-r-2 border-transparent border-r-blue-50"></div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {index > 0 && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => moveSection(index, index - 1)}
+                              >
+                                ↑
+                              </Button>
+                            )}
+                            {index < templateSections.length - 1 && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => moveSection(index, index + 1)}
+                              >
+                                ↓
+                              </Button>
+                            )}
+                            <Button 
+                              size="sm" 
+                              variant="outline" 
+                              onClick={() => removeSection(section.id)}
+                              className="text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                          <div>
+                            <label className="text-sm font-medium">항목 제목</label>
+                            <input
+                              type="text"
+                              className="w-full mt-1 p-2 border rounded-md"
+                              value={section.title}
+                              onChange={(e) => updateSection(section.id, 'title', e.target.value)}
+                            />
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="checkbox"
+                              id={`required-${section.id}`}
+                              checked={section.required}
+                              onChange={(e) => updateSection(section.id, 'required', e.target.checked)}
+                            />
+                            <label htmlFor={`required-${section.id}`} className="text-sm">필수 항목</label>
+                          </div>
+                        </div>
+                      </Card>
+                      
+                      
+                    </div>
+                  ))}
+                  
+                  {/* 마지막 항목 아래에 추가 버튼 */}
+                  {templateSections.length > 0 && (
+                    <div className="flex justify-center my-2">
+                      <Button 
+                        onClick={addSection}
+                        className="bg-green-500 hover:bg-green-600 text-white text-sm"
+                        size="sm"
+                      >
+                        <Plus className="h-3 w-3 mr-1" />
+                        항목 추가
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 버튼 */}
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowEditTemplateModal(false)}>
+                취소
+              </Button>
+              <Button 
+                onClick={handleUpdateTemplate}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+                disabled={!newTemplate.name || !newTemplate.category || templateSections.length === 0}
+              >
+                템플릿 수정
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 템플릿 보기 모달 */}
+      <Dialog open={showTemplateViewModal} onOpenChange={setShowTemplateViewModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              템플릿 상세 보기
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedTemplateForView && (
+            <div className="space-y-6">
+              {/* 템플릿 기본 정보 */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">템플릿 정보</h4>
+                <div className="text-sm space-y-1">
+                  <p><strong>이름:</strong> {selectedTemplateForView.name}</p>
+                  <p><strong>카테고리:</strong> {selectedTemplateForView.category}</p>
+                  <p><strong>설명:</strong> {selectedTemplateForView.description}</p>
+                  <p><strong>타입:</strong> {selectedTemplateForView.isDefault ? "기본 템플릿" : "사용자 템플릿"}</p>
+                </div>
+              </div>
+
+              {/* 템플릿 섹션 */}
+              {selectedTemplateForView.sections && selectedTemplateForView.sections.length > 0 ? (
+                <div>
+                  <h4 className="font-medium mb-3">템플릿 섹션</h4>
+                  <div className="space-y-3">
+                    {selectedTemplateForView.sections.map((section: any, index: number) => (
+                      <Card key={index}>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            <span>{index + 1}. {section.title}</span>
+                            {section.isRequired && (
+                              <Badge variant="destructive" className="text-xs">필수</Badge>
+                            )}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {section.aiSuggestion && (
+                            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                              <p className="text-sm font-medium text-blue-800 mb-1">AI 추천 내용</p>
+                              <p className="text-sm text-blue-900">{section.aiSuggestion}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h4 className="font-medium mb-3">템플릿 내용</h4>
+                  <div className="bg-white border rounded-lg p-4">
+                    <pre className="whitespace-pre-wrap text-sm">{selectedTemplateForView.content || "내용이 없습니다."}</pre>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => {
+              setShowTemplateViewModal(false)
+              setSelectedTemplateForView(null)
+            }}>
+              닫기
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 생성된 계약서 보기 모달 */}
+      <Dialog open={showContractViewModal} onOpenChange={setShowContractViewModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              생성된 계약서 상세 보기
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedContractForView && (
+            <div className="space-y-6">
+              {/* 계약서 기본 정보 */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">계약서 정보</h4>
+                <div className="text-sm space-y-1">
+                  <p><strong>계약서명:</strong> {selectedContractForView.contractName || "계약서"}</p>
+                  <p><strong>생성일:</strong> {formatToKST(selectedContractForView.generatedAt)}</p>
+                  <p><strong>생성자:</strong> {selectedContractForView.generatedBy || "관리자"}</p>
+                  {selectedContractForView.template && (
+                    <p><strong>사용 템플릿:</strong> {selectedContractForView.template.name}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* 입양견 정보 */}
+              {selectedContractForView.petInfo && (() => {
+                try {
+                  const petInfo = JSON.parse(selectedContractForView.petInfo)
+                  const entries = Object.entries(petInfo).filter(([key, value]) => value && String(value).trim() !== '')
+                  if (entries.length === 0) return null
+                  
+                  const keyMapping: { [key: string]: string } = {
+                    name: "이름",
+                    breed: "품종",
+                    age: "나이",
+                    gender: "성별",
+                    size: "크기",
+                    personality: "성격",
+                    healthStatus: "건강상태",
+                    description: "설명",
+                    location: "위치",
+                    contact: "연락처",
+                    adoptionFee: "입양비",
+                    isNeutered: "중성화",
+                    isVaccinated: "예방접종",
+                    specialNeeds: "특별관리사항",
+                    dateRegistered: "등록일"
+                  }
+                  
+                  return (
+                    <div>
+                      <h4 className="font-medium mb-2">입양견 정보</h4>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-sm text-gray-900 space-y-1">
+                          {entries.map(([key, value]) => (
+                            <div key={key} className="flex">
+                              <span className="font-medium w-24">{keyMapping[key] || key}:</span>
+                              <span>{String(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                } catch {
+                  if (!selectedContractForView.petInfo || selectedContractForView.petInfo.trim() === '') return null
+                  return (
+                    <div>
+                      <h4 className="font-medium mb-2">입양견 정보</h4>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-sm text-gray-900">
+                          {selectedContractForView.petInfo}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+              })()}
+
+              {/* 신청자 정보 */}
+              {selectedContractForView.userInfo && (() => {
+                try {
+                  const userInfo = JSON.parse(selectedContractForView.userInfo)
+                  const entries = Object.entries(userInfo).filter(([key, value]) => value && String(value).trim() !== '')
+                  if (entries.length === 0) return null
+                  
+                  const keyMapping: { [key: string]: string } = {
+                    name: "이름",
+                    phone: "연락처",
+                    email: "이메일",
+                    address: "주소",
+                    age: "나이",
+                    occupation: "직업",
+                    experience: "반려동물 경험",
+                    reason: "입양 이유",
+                    livingEnvironment: "거주 환경",
+                    familyMembers: "가족 구성원"
+                  }
+                  
+                  return (
+                    <div>
+                      <h4 className="font-medium mb-2">신청자 정보</h4>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-sm text-gray-900 space-y-1">
+                          {entries.map(([key, value]) => (
+                            <div key={key} className="flex">
+                              <span className="font-medium w-24">{keyMapping[key] || key}:</span>
+                              <span>{String(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                } catch {
+                  if (!selectedContractForView.userInfo || selectedContractForView.userInfo.trim() === '') return null
+                  return (
+                    <div>
+                      <h4 className="font-medium mb-2">신청자 정보</h4>
+                      <div className="bg-gray-50 p-4 rounded-lg">
+                        <div className="text-sm text-gray-900">
+                          {selectedContractForView.userInfo}
+                        </div>
+                      </div>
+                    </div>
+                  )
+                }
+              })()}
+
+              {/* 추가 정보 */}
+              {selectedContractForView.additionalInfo && selectedContractForView.additionalInfo.trim() !== '' && (
+                <div>
+                  <h4 className="font-medium mb-2">추가 정보</h4>
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <div className="text-sm text-gray-900">
+                      {selectedContractForView.additionalInfo}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 계약서 내용 */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium">계약서 내용</h4>
+                  <div className="flex gap-2">
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDownloadContract(selectedContractForView.id)}
+                    >
+                      <FileText className="h-4 w-4 mr-1" />
+                      PDF 다운로드
+                    </Button>
+                  </div>
+                </div>
+                <div className="bg-white border rounded-lg p-4 max-h-96 overflow-y-auto">
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{selectedContractForView.content}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => {
+              setShowContractViewModal(false)
+              setSelectedContractForView(null)
+            }}>
+              닫기
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* 계약서 수정 모달 */}
+      <Dialog open={showContractEditModal} onOpenChange={setShowContractEditModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              계약서 수정
+            </DialogTitle>
+          </DialogHeader>
+          
+          {editingContract && (
+            <div className="space-y-6">
+              {/* 계약서 기본 정보 */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium mb-2">계약서 정보</h4>
+                <div className="text-sm space-y-1">
+                  <p><strong>계약서명:</strong> {editingContract.contractName || "계약서"}</p>
+                  <p><strong>생성일:</strong> {formatToKST(editingContract.generatedAt)}</p>
+                  <p><strong>생성자:</strong> {editingContract.generatedBy || "관리자"}</p>
+                  {editingContract.template && (
+                    <p><strong>사용 템플릿:</strong> {editingContract.template.name}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* 계약서 내용 수정 */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium">계약서 내용 수정</h4>
+                </div>
+                <div className="bg-white border rounded-lg p-4">
+                  <textarea
+                    className="w-full h-96 p-3 border rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={editedContractContent}
+                    onChange={(e) => setEditedContractContent(e.target.value)}
+                    placeholder="계약서 내용을 수정하세요..."
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => {
+              setShowContractEditModal(false)
+              setEditingContract(null)
+              setEditedContractContent("")
+            }}>
+              취소
+            </Button>
+            <Button 
+              onClick={handleUpdateContract}
+              className="bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={!editedContractContent.trim()}
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              계약서 수정
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

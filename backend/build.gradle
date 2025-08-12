@@ -46,6 +46,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     implementation 'software.amazon.awssdk:s3:2.24.12'
     implementation 'software.amazon.awssdk:sts:2.24.12'
+    
+    // PDF 생성
+    implementation 'org.apache.pdfbox:pdfbox:2.0.29'
+    
+    // Word 문서 생성
+    implementation 'org.apache.poi:poi:5.2.3'
+    implementation 'org.apache.poi:poi-ooxml:5.2.3'
 }
 
 tasks.named('test') {

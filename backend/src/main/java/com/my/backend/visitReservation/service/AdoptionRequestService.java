@@ -29,10 +29,10 @@ public class AdoptionRequestService {
     // 입양신청 생성
     @Transactional
     public AdoptionRequestDto.Response createAdoptionRequest(AdoptionRequestDto.CreateRequest request, Long userId) {
-        // 중복 신청 확인
-        if (adoptionRequestRepository.existsByUserIdAndPetId(userId, request.getPetId())) {
-            throw new RuntimeException("이미 입양신청을 하신 동물입니다.");
-        }
+        // 중복 신청 확인 (임시로 비활성화)
+        // if (adoptionRequestRepository.existsByUserIdAndPetId(userId, request.getPetId())) {
+        //     throw new RuntimeException("이미 입양신청을 하신 동물입니다.");
+        // }
 
         // 펫과 사용자 조회
         Pet pet = petRepository.findById(request.getPetId())

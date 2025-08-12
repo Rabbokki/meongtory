@@ -2,6 +2,51 @@ import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8080/api';
 
+// axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 응답 인터셉터 - 401 에러 시 토큰 갱신 시도
+axios.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    if (error.response?.status === 401) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/accounts/refresh`, {
+            refreshToken: refreshToken
+          });
+          const newAccessToken = response.data.accessToken;
+          localStorage.setItem('accessToken', newAccessToken);
+          
+          // 원래 요청 재시도
+          error.config.headers.Authorization = `Bearer ${newAccessToken}`;
+          return axios.request(error.config);
+        } catch (refreshError) {
+          // 토큰 갱신 실패 시 로그인 페이지로 리다이렉트
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          window.location.href = '/login';
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 // API 응답 타입 정의
 export interface Pet {
   petId: number;

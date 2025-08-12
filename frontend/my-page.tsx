@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
+import { formatToKST } from "./lib/utils"
 import { adoptionRequestApi, userApi } from "./lib/api"
 import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "./lib/api/mypet"
 import { Edit, X, Plus, Trash2, Camera } from "lucide-react"
@@ -688,8 +689,8 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                             </p>
                           </div>
                           <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>신청일: {new Date(request.createdAt).toLocaleDateString()}</span>
-                            <span>수정일: {new Date(request.updatedAt).toLocaleDateString()}</span>
+                            <span>신청일: {formatToKST(request.createdAt)}</span>
+                            <span>수정일: {formatToKST(request.updatedAt)}</span>
                           </div>
                         </div>
                         <div className="ml-4">
