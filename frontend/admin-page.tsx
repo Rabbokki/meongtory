@@ -211,7 +211,6 @@ export default function AdminPage({
   const [templateSections, setTemplateSections] = useState<Array<{
     id: string;
     title: string;
-    required: boolean;
     aiSuggestion: string;
   }>>([])
   const [showAISuggestion, setShowAISuggestion] = useState<string | null>(null)
@@ -906,7 +905,7 @@ export default function AdminPage({
           const sections = template.sections.map((section: any, index: number) => ({
             id: `section-${Date.now()}-${index}`,
             title: section.title,
-            required: section.isRequired || false,
+    
             aiSuggestion: ""
           }))
           setTemplateSections(sections)
@@ -955,7 +954,6 @@ export default function AdminPage({
       // sections를 백엔드 형식으로 변환
       const sections = templateSections.map((section, index) => ({
         title: section.title,
-        isRequired: section.required,
         order: index + 1,
         content: "",
         options: null
@@ -1082,7 +1080,6 @@ export default function AdminPage({
       // sections를 백엔드 형식으로 변환
       const sections = templateSections.map((section, index) => ({
         title: section.title,
-        isRequired: section.required,
         order: index + 1,
         content: "",
         options: null
@@ -1118,8 +1115,7 @@ export default function AdminPage({
   const addSection = () => {
     const newSection = {
       id: (Date.now() + Math.random()).toString(),
-      title: "",
-      required: false,
+      title: "새 항목",
       aiSuggestion: ""
     }
     setTemplateSections([...templateSections, newSection])
@@ -1128,8 +1124,7 @@ export default function AdminPage({
   const addSectionAtIndex = (index: number) => {
     const newSection = {
       id: (Date.now() + Math.random()).toString(),
-      title: "",
-      required: false,
+      title: "새 항목",
       aiSuggestion: ""
     }
     const newSections = [...templateSections]
@@ -1143,85 +1138,157 @@ export default function AdminPage({
       {
         id: (baseTime + 1).toString(),
         title: "반려동물 이름",
-        required: true,
         aiSuggestion: "반려동물의 이름을 입력해주세요"
       },
       {
         id: (baseTime + 2).toString(),
         title: "반려동물 품종",
-        required: true,
         aiSuggestion: "반려동물의 품종을 입력해주세요"
       },
       {
         id: (baseTime + 3).toString(),
         title: "반려동물 나이",
-        required: true,
         aiSuggestion: "반려동물의 나이를 입력해주세요"
       },
       {
         id: (baseTime + 4).toString(),
         title: "신청자 이름",
-        required: true,
         aiSuggestion: "신청자의 이름을 입력해주세요"
       },
       {
         id: (baseTime + 5).toString(),
         title: "신청자 연락처",
-        required: true,
         aiSuggestion: "신청자의 연락처를 입력해주세요"
       },
       {
         id: (baseTime + 6).toString(),
         title: "신청자 이메일",
-        required: false,
         aiSuggestion: "신청자의 이메일을 입력해주세요"
       }
     ]
     setTemplateSections([...templateSections, ...defaultSections])
   }
 
+  const generateClauseNumber = (title: string, sections: any[] = templateSections) => {
+    // 빈 제목이면 기본값 사용
+    const finalTitle = title && title.trim() !== '' ? title : '새 항목'
+    
+    // 이미 사용된 번호들을 확인해서 겹치지 않는 번호 생성
+    const usedNumbers = new Set<number>()
+    
+    sections.forEach((section, idx) => {
+      if (section.aiSuggestion) {
+        const match = section.aiSuggestion.match(/제(\d+)조/)
+        if (match) {
+          usedNumbers.add(parseInt(match[1]))
+        }
+      }
+    })
+    
+    // 겹치지 않는 번호 찾기
+    let clauseNumber = 1
+    while (usedNumbers.has(clauseNumber)) {
+      clauseNumber++
+    }
+    
+    return `제${clauseNumber}조 (${finalTitle})`
+  }
+
+
+
   const getAISuggestion = async (title: string) => {
     try {
-      // AI 서비스에 직접 연결
-      const response = await axios.post("http://localhost:9000/clause-suggestions", {
-        templateId: null,
-        currentClauses: [title],
-        petInfo: {},
-        userInfo: {}
-      })
+      // 사용자가 입력을 안 했거나 기본값인 경우 AI가 추천
+      const isDefaultTitle = !title || title === '' || title === '새 항목'
       
-      if (response.data.suggestions && response.data.suggestions.length > 0) {
-        return response.data.suggestions[0].suggestion
+      if (isDefaultTitle) {
+        // AI 서버에서 새로운 조항 제목 추천 받기
+        const response = await axios.post("http://localhost:9000/contract-suggestions", {
+          templateId: 1,
+          currentContent: "",
+          petInfo: {},
+          userInfo: {}
+        })
+        
+        if (response.data.suggestions && response.data.suggestions.length > 0) {
+          // AI 추천 제목을 가져와서 번호와 함께 생성
+          const aiTitle = response.data.suggestions[0].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
+          return generateClauseNumber(aiTitle)
+        }
+      } else {
+        // 사용자가 입력한 제목을 AI가 개선해서 추천
+        const response = await axios.post("http://localhost:9000/clause-suggestions", {
+          sectionTitle: title,
+          currentClauses: templateSections.map(s => s.title),
+          petInfo: {},
+          userInfo: {}
+        })
+        
+        if (response.data.suggestions && response.data.suggestions.length > 0) {
+          // AI 추천 제목을 가져와서 번호와 함께 생성
+          const aiTitle = response.data.suggestions[0].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
+          return generateClauseNumber(aiTitle)
+        }
       }
       
-      return "AI 추천을 받을 수 없습니다."
+      // AI 서버가 없으면 기본 추천
+      const defaultTitle = title || '새 항목'
+      return generateClauseNumber(defaultTitle)
     } catch (error) {
       console.error("AI 추천 생성 실패:", error)
-      // 백엔드 서버가 실행되지 않을 때를 대비한 로컬 추천 로직
-      const suggestions: { [key: string]: string } = {
-        "반려동물 이름": "제1조 (반려동물 이름)",
-        "반려동물 품종": "제2조 (반려동물 품종)",
-        "반려동물 나이": "제3조 (반려동물 나이)",
-        "신청자 이름": "제4조 (신청자 정보)",
-        "신청자 연락처": "제5조 (연락처 정보)",
-        "신청자 이메일": "제6조 (이메일 정보)",
-        "주거환경": "제7조 (주거환경 확인)",
-        "가족 구성원": "제8조 (가족 구성원)",
-        "경제적 여유": "제9조 (경제적 여유)",
-        "양육 경험": "제10조 (양육 경험)",
-        "양육 시간": "제11조 (양육 시간)",
-        "의료 보험": "제12조 (의료 보험)",
-        "사전 교육": "제13조 (사전 교육)"
-      }
-      
-      return suggestions[title] || "제X조 (기타 사항)"
+      // AI 서버가 없으면 기본 추천
+      const defaultTitle = title || '새 항목'
+      return generateClauseNumber(defaultTitle)
     }
   }
 
-  const handleGetAISuggestion = async (sectionId: string, title: string) => {
+  const handleGetClauseNumber = async (sectionId: string, title: string) => {
     const suggestion = await getAISuggestion(title)
     updateSection(sectionId, 'aiSuggestion', suggestion)
     setShowAISuggestion(sectionId)
+  }
+
+  const handleRejectAISuggestion = async (sectionId: string) => {
+    // 사용자가 AI 추천을 거부하고 다른 AI 추천 받기
+    const section = templateSections.find(s => s.id === sectionId)
+    if (section) {
+      try {
+        // 다른 AI 추천 받기 (현재 추천과 다른 것을 받기 위해 랜덤 인덱스 사용)
+        const response = await axios.post("http://localhost:9000/clause-suggestions", {
+          sectionTitle: section.title,
+          currentClauses: templateSections.map(s => s.title),
+          petInfo: {},
+          userInfo: {}
+        })
+        
+        if (response.data.suggestions && response.data.suggestions.length > 1) {
+          // 첫 번째 추천이 아닌 다른 추천 선택 (랜덤하게)
+          const randomIndex = Math.floor(Math.random() * (response.data.suggestions.length - 1)) + 1
+          const aiTitle = response.data.suggestions[randomIndex].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
+          const newSuggestion = generateClauseNumber(aiTitle)
+          updateSection(sectionId, 'aiSuggestion', newSuggestion)
+        } else {
+          // 다른 추천이 없으면 기본 번호 생성
+          const basicNumber = generateClauseNumber(section.title)
+          updateSection(sectionId, 'aiSuggestion', basicNumber)
+        }
+      } catch (error) {
+        console.error("다른 AI 추천 생성 실패:", error)
+        // AI 서버가 없으면 기본 번호 생성
+        const basicNumber = generateClauseNumber(section.title)
+        updateSection(sectionId, 'aiSuggestion', basicNumber)
+      }
+    }
+  }
+
+  const handleApplyAISuggestion = (sectionId: string) => {
+    // AI 추천 내용을 항목 제목에 적용하고 말풍선 닫기
+    const section = templateSections.find(s => s.id === sectionId)
+    if (section && section.aiSuggestion) {
+      const titleOnly = section.aiSuggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
+      updateSection(sectionId, 'title', titleOnly)
+      setShowAISuggestion(null)
+    }
   }
 
   const handleCloseAISuggestion = (sectionId: string) => {
@@ -1232,7 +1299,7 @@ export default function AdminPage({
     setTemplateSections(templateSections.filter(section => section.id !== id))
   }
 
-  const updateSection = (id: string, field: 'title' | 'required' | 'aiSuggestion', value: string | boolean) => {
+  const updateSection = (id: string, field: 'title' | 'aiSuggestion', value: string) => {
     setTemplateSections(templateSections.map(section => 
       section.id === id ? { ...section, [field]: value } : section
     ))
@@ -2184,14 +2251,11 @@ export default function AdminPage({
                               ⋮⋮
                             </div>
                             <h4 className="font-medium">항목 {index + 1}</h4>
-                            {section.required && (
-                              <Badge variant="outline" className="text-red-600 text-xs">필수</Badge>
-                            )}
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => handleGetAISuggestion(section.id, section.title)}
+                              onClick={() => handleGetClauseNumber(section.id, section.title)}
                               className="text-xs whitespace-nowrap"
                             >
                               AI 추천
@@ -2199,7 +2263,7 @@ export default function AdminPage({
                             
                             {/* AI 추천 말풍선 */}
                             {showAISuggestion === section.id && section.aiSuggestion && (
-                              <div className="absolute top-full left-0 z-10 w-80 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3 mt-1">
+                              <div className="absolute top-30 left-0 z-10 w-80 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3 mt-1">
                                 <div className="flex justify-between items-start mb-2">
                                   <span className="text-xs font-medium text-blue-800">AI 추천</span>
                                   <Button
@@ -2212,7 +2276,27 @@ export default function AdminPage({
                                     <X className="h-3 w-3" />
                                   </Button>
                                 </div>
-                                <p className="text-sm text-blue-900">{section.aiSuggestion}</p>
+                                <p className="text-sm text-blue-900 mb-2">{section.aiSuggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')}</p>
+                                <div className="flex gap-1 justify-end">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleRejectAISuggestion(section.id)}
+                                    className="text-xs px-2"
+                                  >
+                                    다른 추천
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => handleApplyAISuggestion(section.id)}
+                                    className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2"
+                                  >
+                                    적용하기
+                                  </Button>
+                                </div>
                                 <div className="absolute top-4 -left-2 w-0 h-0 border-t-2 border-b-2 border-r-2 border-transparent border-r-blue-50"></div>
                               </div>
                             )}
@@ -2257,16 +2341,6 @@ export default function AdminPage({
                               onChange={(e) => updateSection(section.id, 'title', e.target.value)}
                               placeholder="예: 반려동물 이름, 신청자 연락처"
                             />
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id={`required-${section.id}`}
-                              checked={section.required}
-                              onChange={(e) => updateSection(section.id, 'required', e.target.checked)}
-                            />
-                            <label htmlFor={`required-${section.id}`} className="text-sm">필수 항목</label>
                           </div>
                         </div>
                       </Card>
@@ -2624,22 +2698,19 @@ export default function AdminPage({
                               ⋮⋮
                             </div>
                             <h4 className="font-medium">항목 {index + 1}</h4>
-                            {section.required && (
-                              <Badge variant="outline" className="text-red-600 text-xs">필수</Badge>
-                            )}
                             <Button
                               type="button"
                               size="sm"
                               variant="outline"
-                              onClick={() => handleGetAISuggestion(section.id, section.title)}
+                              onClick={() => handleGetClauseNumber(section.id, section.title)}
                               className="text-xs whitespace-nowrap"
                             >
                               AI 추천
                             </Button>
                             
-                            {/* AI 추천 말풍선 */}
+                            {/* 조항 번호 말풍선 */}
                             {showAISuggestion === section.id && section.aiSuggestion && (
-                              <div className="absolute top-0 left-full z-10 w-80 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3 ml-2 mb-2">
+                              <div className="absolute bottom-10px left-full z-10 w-80 bg-blue-50 border border-blue-200 rounded-lg shadow-lg p-3 ml-2 mb-2">
                                 <div className="flex justify-between items-start mb-2">
                                   <span className="text-xs font-medium text-blue-800">AI 추천</span>
                                   <Button
@@ -2652,7 +2723,27 @@ export default function AdminPage({
                                     <X className="h-3 w-3" />
                                   </Button>
                                 </div>
-                                <p className="text-sm text-blue-900">{section.aiSuggestion}</p>
+                                <p className="text-sm text-blue-900 mb-2">{section.aiSuggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')}</p>
+                                <div className="flex gap-1 justify-end">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleRejectAISuggestion(section.id)}
+                                    className="text-xs px-2"
+                                  >
+                                    다른 추천
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="default"
+                                    onClick={() => handleApplyAISuggestion(section.id)}
+                                    className="text-xs bg-blue-500 hover:bg-blue-600 text-white px-2"
+                                  >
+                                    적용하기
+                                  </Button>
+                                </div>
                                 <div className="absolute top-4 -left-2 w-0 h-0 border-t-2 border-b-2 border-r-2 border-transparent border-r-blue-50"></div>
                               </div>
                             )}
@@ -2696,16 +2787,6 @@ export default function AdminPage({
                               value={section.title}
                               onChange={(e) => updateSection(section.id, 'title', e.target.value)}
                             />
-                          </div>
-                          
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="checkbox"
-                              id={`required-${section.id}`}
-                              checked={section.required}
-                              onChange={(e) => updateSection(section.id, 'required', e.target.checked)}
-                            />
-                            <label htmlFor={`required-${section.id}`} className="text-sm">필수 항목</label>
                           </div>
                         </div>
                       </Card>
@@ -2781,16 +2862,14 @@ export default function AdminPage({
                         <CardHeader className="pb-3">
                           <CardTitle className="text-lg flex items-center gap-2">
                             <span>{index + 1}. {section.title}</span>
-                            {section.isRequired && (
-                              <Badge variant="destructive" className="text-xs">필수</Badge>
-                            )}
+
                           </CardTitle>
                         </CardHeader>
                         <CardContent>
                           {section.aiSuggestion && (
                             <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                               <p className="text-sm font-medium text-blue-800 mb-1">AI 추천 내용</p>
-                              <p className="text-sm text-blue-900">{section.aiSuggestion}</p>
+                              <p className="text-sm text-blue-900">{section.aiSuggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')}</p>
                             </div>
                           )}
                         </CardContent>
