@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { XCircle, Home, RefreshCw, AlertTriangle, HelpCircle, ArrowLeft } from "lucide-react";
 
-export default function PaymentFail() {
+function PaymentFailContent() {
   const searchParams = useSearchParams();
   const [errorInfo, setErrorInfo] = useState<any>(null);
 
@@ -187,5 +187,20 @@ export default function PaymentFail() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function PaymentFail() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">로딩 중...</p>
+        </div>
+      </div>
+    }>
+      <PaymentFailContent />
+    </Suspense>
   );
 } 

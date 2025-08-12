@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Camera, Upload, Sparkles, Heart, Video, Smile } from "lucide-react"
 import axios from "axios"
+import { getBackendUrl } from "@/lib/utils/api-config"
 
 interface BreedIdentificationResult {
   breed: string
@@ -116,7 +117,8 @@ export default function DogResearchLabPage() {
       const formData = new FormData()
       formData.append('image', uploadedFile)
 
-      const response = await axios.post('/api/ai/predict-breed', formData, {
+      const backendUrl = getBackendUrl()
+      const response = await axios.post(`${backendUrl}/api/ai/predict-breed`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -261,7 +263,8 @@ export default function DogResearchLabPage() {
       const formData = new FormData()
       formData.append('image', file)
 
-      const apiResponse = await axios.post('/api/ai/analyze-emotion', formData, {
+      const backendUrl = getBackendUrl()
+      const apiResponse = await axios.post(`${backendUrl}/api/ai/analyze-emotion`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

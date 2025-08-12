@@ -23,14 +23,14 @@ interface PaymentItem {
 }
 
 interface PaymentPageProps {
-  items: PaymentItem[];
+  items?: PaymentItem[];
   onBack?: () => void;
   onSuccess?: (paymentInfo: any) => void;
   onFail?: (error: any) => void;
 }
 
 const PaymentPage: React.FC<PaymentPageProps> = ({ 
-  items, 
+  items = [], 
   onBack, 
   onSuccess, 
   onFail 
@@ -42,7 +42,9 @@ const PaymentPage: React.FC<PaymentPageProps> = ({
   const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const orderName = items.length === 1 
     ? items[0].name 
-    : `${items[0].name} 외 ${items.length - 1}개`;
+    : items.length > 1 
+      ? `${items[0].name} 외 ${items.length - 1}개`
+      : '상품 없음';
 
   // SDK 로딩 확인
   useEffect(() => {
