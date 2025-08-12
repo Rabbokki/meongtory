@@ -94,7 +94,7 @@ export default function CartPage({
           <p className="text-gray-600">구매할 상품들을 확인해보세요</p>
         </div>
 
-        {cartItems.length === 0 ? (
+        {!cartItems || cartItems.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
               <ShoppingCart className="w-12 h-12 text-gray-400" />
@@ -109,9 +109,9 @@ export default function CartPage({
           <>
             <div className="flex justify-between items-center mb-6">
               <div>
-                <p className="text-gray-600">총 {cartItems.length}개의 상품</p>
+                <p className="text-gray-600">총 {cartItems?.length || 0}개의 상품</p>
                 <p className="text-lg font-bold text-yellow-600">
-                  총 가격: {cartItems.reduce((total, item) => total + (item.price * item.quantity), 0).toLocaleString()}원
+                  총 가격: {(cartItems?.reduce((total, item) => total + (item.price * item.quantity), 0) || 0).toLocaleString()}원
                 </p>
               </div>
               <div className="flex space-x-2">
@@ -120,7 +120,7 @@ export default function CartPage({
                   size="sm"
                   onClick={() => {
                     if (window.confirm('장바구니의 모든 상품을 삭제하시겠습니까?')) {
-                      cartItems.forEach(item => onRemoveFromCart(item.id))
+                      cartItems?.forEach(item => onRemoveFromCart(item.id))
                     }
                   }}
                 >
@@ -133,7 +133,7 @@ export default function CartPage({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {cartItems.sort((a, b) => a.order - b.order).map((item) => (
+              {cartItems?.sort((a, b) => a.order - b.order).map((item) => (
                 <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="relative">
                     <Image

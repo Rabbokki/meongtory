@@ -44,7 +44,7 @@ export default function CommunityPage({
 }: CommunityPageProps) {
   const [searchTerm, setSearchTerm] = useState("")
 
-  const filteredPosts = posts.filter((post) => {
+  const filteredPosts = posts?.filter((post) => {
     const matchesSearch =
       post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -57,10 +57,10 @@ export default function CommunityPage({
   const sortedPosts = [...filteredPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   // Sample popular posts (for sidebar) - now from all posts
-  const popularPosts = posts.sort((a, b) => b.views - a.views).slice(0, 5)
+  const popularPosts = posts?.sort((a, b) => b.views - a.views).slice(0, 5) || []
 
   const handleLike = (postId: number) => {
-    onUpdatePosts(posts.map((post) => (post.id === postId ? { ...post, likes: post.likes + 1 } : post)))
+    onUpdatePosts(posts?.map((post) => (post.id === postId ? { ...post, likes: post.likes + 1 } : post)) || [])
   }
 
   return (
@@ -94,7 +94,7 @@ export default function CommunityPage({
             </div>
 
             {/* Post List */}
-            {sortedPosts.length > 0 ? (
+            {sortedPosts && sortedPosts.length > 0 ? (
               sortedPosts.map((post) => (
                 <Card key={post.id} className="hover:shadow-md transition-shadow cursor-pointer">
                   <CardContent className="p-6" onClick={() => onViewPost(post)}>
