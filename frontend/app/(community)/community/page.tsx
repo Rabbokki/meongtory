@@ -54,7 +54,7 @@ export default function CommunityPage({
   })
 
   // Sort posts by date (newest first)
-  const sortedPosts = [...filteredPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  const sortedPosts = filteredPosts ? [...filteredPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : []
 
   // Sample popular posts (for sidebar) - now from all posts
   const popularPosts = posts?.sort((a, b) => b.views - a.views).slice(0, 5) || []

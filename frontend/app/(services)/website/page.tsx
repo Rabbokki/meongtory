@@ -556,7 +556,11 @@ export default function PetServiceWebsite() {
           console.log("OAuth 사용자 정보 조회 시작...")
           const response = await axios.get("http://localhost:8080/api/accounts/me")
           console.log("OAuth 사용자 정보 응답:", response)
-          const { id, email, name, role } = response.data.data
+          const userData = response.data?.data
+          if (!userData) {
+            throw new Error("사용자 데이터가 없습니다")
+          }
+          const { id, email, name, role } = userData
           setCurrentUser({ id, email, name })
           setIsLoggedIn(true)
           setIsAdmin(role === "ADMIN")

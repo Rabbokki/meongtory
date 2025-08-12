@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { XCircle, Home, RefreshCw, AlertTriangle, HelpCircle, ArrowLeft } from "lucide-react";
 
-export default function PaymentFail() {
+function PaymentFailContent() {
   const searchParams = useSearchParams();
   const [errorInfo, setErrorInfo] = useState<any>(null);
 
@@ -187,5 +187,13 @@ export default function PaymentFail() {
         }
       `}</style>
     </div>
+  );
+}
+
+export default function PaymentFail() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaymentFailContent />
+    </Suspense>
   );
 } 

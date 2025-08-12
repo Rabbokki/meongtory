@@ -81,7 +81,7 @@ export default function InsuranceFavoritesPage({
   onNavigateToInsurance,
   onViewDetails,
 }: InsuranceFavoritesPageProps) {
-  const favoriteProducts = mockInsuranceProducts.filter((product) => favoriteInsurance.includes(product.id))
+  const favoriteProducts = mockInsuranceProducts.filter((product) => favoriteInsurance?.includes(product.id) || false)
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
@@ -91,7 +91,7 @@ export default function InsuranceFavoritesPage({
           <p className="text-gray-600">관심있는 펫보험 상품들을 모아보세요</p>
         </div>
 
-        {favoriteProducts.length === 0 ? (
+        {!favoriteProducts || favoriteProducts.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
               <Heart className="w-12 h-12 text-gray-400" />
