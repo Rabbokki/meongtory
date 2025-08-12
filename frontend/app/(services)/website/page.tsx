@@ -651,7 +651,7 @@ export default function PetServiceWebsite() {
 
     if (userData.petType && userData.petAge && userData.petBreed) {
       const newPet: Pet = {
-        id: pets.length + 1,
+        petId: pets.length + 1,
         name: `${userData.name}'s Pet`,
         breed: userData.petBreed,
         age: userData.petAge,
