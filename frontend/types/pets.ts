@@ -1,38 +1,32 @@
 // 입양용 반려동물 (보호소에서 보호 중인 동물)
 export interface Pet {
-  id: number
+  petId: number  // id -> petId로 변경
   name: string
   breed: string
-  age: string
-  gender: string
-  size: string
-  personality: string[]  // 배열로 통일 (여러 성격 특성을 가질 수 있음)
-  healthStatus: string
+  age: number  // string -> number로 변경
+  gender: 'MALE' | 'FEMALE' | 'UNKNOWN'  // string -> enum으로 변경
+  vaccinated: boolean  // isVaccinated -> vaccinated로 변경
   description: string
-  images: string[]
-  location: string
-  contact: string
-  adoptionFee: number
-  isNeutered: boolean
-  isVaccinated: boolean
-  specialNeeds?: string
-  dateRegistered: string
-  adoptionStatus: "available" | "pending" | "adopted"
-  ownerEmail?: string
+  imageUrl: string  // images[] -> imageUrl로 변경
+  adopted: boolean  // adoptionStatus -> adopted로 변경
   weight?: number
+  location?: string
   microchipId?: string
   medicalHistory?: string
   vaccinations?: string
   notes?: string
+  specialNeeds?: string
+  personality?: string  // string[] -> string(JSON)으로 변경
   rescueStory?: string
   aiBackgroundStory?: string
   status?: string
   type?: string
+  neutered: boolean  // isNeutered -> neutered로 변경
 }
 
 // 사용자가 소유한 반려동물
 export interface MyPet {
-  id: number
+  myPetId: number  // id -> myPetId로 변경
   name: string
   breed: string
   age: number
@@ -40,7 +34,13 @@ export interface MyPet {
   type: string
   weight?: number
   imageUrl?: string
-  userId: number
+  vaccinated: boolean  // 추가
+  neutered: boolean  // 추가
+  owner: {  // userId -> owner 관계로 변경
+    id: number
+    name: string
+    email: string
+  }
   createdAt: string
   updatedAt: string
 }

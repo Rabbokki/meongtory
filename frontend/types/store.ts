@@ -1,17 +1,15 @@
 // 스토어 관련 타입들
 
 export interface Product {
-  id: number
+  productId: number  // id -> productId로 변경
   name: string
-  brand: string
-  price: number
-  image: string
-  category: string
   description: string
-  tags: string[]
+  price: number
   stock: number
-  petType?: "dog" | "cat" | "all"
-  registrationDate: string
+  imageUrl: string  // image -> imageUrl로 변경
+  category: '의류' | '장난감' | '건강관리' | '용품' | '간식' | '사료'  // string -> enum으로 변경
+  targetAnimal: 'ALL' | 'DOG' | 'CAT'  // petType -> targetAnimal으로 변경
+  registrationDate: string  // LocalDate를 string으로 표현
   registeredBy: string
 }
 

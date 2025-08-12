@@ -1,10 +1,15 @@
 // 관리자 관련 타입들
 
 export interface User {
-  id: number
-  email: string
+  id: number  // account_id
   name: string
+  email: string
+  password?: string
   role: string
+  provider?: string
+  providerId?: string
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface AdoptionInquiry {
