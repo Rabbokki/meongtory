@@ -23,10 +23,10 @@ import {
   FileText,
   X,
 } from "lucide-react"
-import AnimalEditModal from "./animal-edit-modal"
-import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "./lib/api"
+import AnimalEditModal from "@/components/modals/animal-edit-modal"
+import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
 import axios from "axios"
-import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "./lib/utils"
+import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "@/lib/utils"
 
 interface Product {
   id: number
