@@ -507,6 +507,18 @@ export default function PetServiceWebsite() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  
+  // 로딩 타임아웃 설정 (10초 후 자동 해제)
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (isLoading) {
+        console.log("로딩 타임아웃, 강제 해제")
+        setIsLoading(false)
+      }
+    }, 10000)
+    
+    return () => clearTimeout(timeout)
+  }, [isLoading])
   const [isLoginFromDiary, setIsLoginFromDiary] = useState(false) // 성장일기에서 로그인 시도 여부
 
   // currentPage 상태 변경 감지
@@ -528,6 +540,7 @@ export default function PetServiceWebsite() {
       try {
         const response = await axios.get("http://localhost:8080/api/accounts/me", {
           headers: { "Access_Token": accessToken },
+          timeout: 5000, // 5초 타임아웃 추가
         })
         const { id, email, name, role } = response.data.data
         setCurrentUser({ id, email, name })
@@ -536,12 +549,26 @@ export default function PetServiceWebsite() {
         console.log("Initial login check successful:", { id, email, name, role })
       } catch (err: any) {
         console.error("사용자 정보 조회 실패:", err)
+        
+        // 네트워크 오류나 서버 연결 실패 시 로그아웃 처리
+        if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || !err.response) {
+          console.log("백엔드 서버 연결 실패, 로그아웃 처리")
+          localStorage.removeItem("accessToken")
+          localStorage.removeItem("refreshToken")
+          setIsLoggedIn(false)
+          setCurrentUser(null)
+          setIsAdmin(false)
+          setIsLoading(false)
+          return
+        }
+        
         if (err.response?.status === 401) {
           accessToken = await refreshAccessToken()
           if (accessToken) {
             try {
               const response = await axios.get("http://localhost:8080/api/accounts/me", {
                 headers: { "Access_Token": accessToken },
+                timeout: 5000,
               })
               const { id, email, name, role } = response.data.data
               setCurrentUser({ id, email, name })
