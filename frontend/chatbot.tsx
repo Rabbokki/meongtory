@@ -38,7 +38,7 @@ export default function Chatbot() {
 
       try {
         const response = await axios.post(
-          "http://localhost:7000/api/chatbot/query",
+          `${process.env.NEXT_PUBLIC_API_URL}/api/chatbot/query`,
           { query: inputMessage },
           { headers: { "Content-Type": "application/json" } }
         )

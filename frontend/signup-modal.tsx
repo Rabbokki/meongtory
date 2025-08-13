@@ -60,11 +60,21 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
     setIsLoading(true);
 
     try {
-      const response = await axios.post("http://localhost:8080/api/accounts/register", {
+      console.log("회원가입 요청 전송:", {
         name,
         email,
         password,
-        pet: petType === "강아지" ? "DOG" : petType === "고양이" ? "CAT" : null,
+        role: "USER",
+        pet: petType || null, // "강아지" 또는 "고양이"를 그대로 전송
+        petAge,
+        petBreeds: petBreed,
+      });
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/register`, {
+        name,
+        email,
+        password,
+        role: "USER",
+        pet: petType || null, // "강아지" 또는 "고양이"를 그대로 전송
         petAge: petAge || null,
         petBreeds: petBreed || null,
       }, {
@@ -73,21 +83,36 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
         },
       });
 
-      onSignup({
-        name,
-        email,
-        password,
-        petType,
-        petAge,
-        petBreed,
-      });
+      console.log("회원가입 응답:", response.status, response.data);
 
-      onClose();
-    } catch (err: any) {
-      if (err.response && err.response.data) {
-        setError(err.response.data.message || "회원가입 중 오류가 발생했습니다.");
+      if (response.status === 200 || response.status === 201) {
+        console.log("회원가입 성공:", response.data);
+        onSignup({
+          name,
+          email,
+          password,
+          petType,
+          petAge,
+          petBreed,
+        });
+        onClose();
       } else {
-        setError("서버와 연결할 수 없습니다.");
+        setError(`회원가입 실패: 서버 응답 코드 ${response.status}`);
+      }
+    } catch (err: any) {
+      console.error("회원가입 오류:", err);
+      if (err.response) {
+        if (err.response.status === 400) {
+          setError(err.response.data?.message || "잘못된 요청 데이터입니다. 입력 값을 확인해주세요.");
+        } else if (err.response.status === 401) {
+          setError("인증 오류: 회원가입 요청이 차단되었습니다.");
+        } else if (err.response.status === 302) {
+          setError("회원가입 요청이 리다이렉트되었습니다. 서버 설정을 확인해주세요.");
+        } else {
+          setError(err.response.data?.message || `회원가입 중 오류가 발생했습니다: ${err.response.status}`);
+        }
+      } else {
+        setError("서버와 연결할 수 없습니다: " + err.message);
       }
     } finally {
       setIsLoading(false);

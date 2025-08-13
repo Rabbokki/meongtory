@@ -35,32 +35,33 @@ public class AccountService {
 
     @Transactional
     public ResponseDto<?> register(AccountRegisterRequestDto requestDto) {
+        log.info("회원가입 처리 시작: email={}", requestDto.getEmail());
         if (accountRepository.findByEmail(requestDto.getEmail()).isPresent()) {
+            log.warn("이미 사용 중인 이메일: {}", requestDto.getEmail());
             return ResponseDto.fail("EMAIL_ALREADY_TAKEN", "이미 사용 중인 이메일입니다.");
         }
 
         requestDto.setEncodePwd(passwordEncoder.encode(requestDto.getPassword()));
-
         Account account = new Account(requestDto);
         accountRepository.save(account);
+        log.info("계정 저장 완료: email={}", account.getEmail());
 
-        // 회원가입 시 펫 정보가 있으면 MyPet도 함께 생성
+        // 펫 정보 저장 로직
         if (requestDto.getPet() != null && requestDto.getPetBreeds() != null) {
             try {
                 MyPet myPet = MyPet.builder()
                         .owner(account)
-                        .name(account.getName() + "의 " + getPetDisplayName(requestDto.getPet()))
+                        .name(account.getName() + "의 " + requestDto.getPet().name()) // PetType Enum 값을 그대로 사용
                         .breed(requestDto.getPetBreeds())
                         .age(parseAge(requestDto.getPetAge()))
                         .gender(MyPet.Gender.UNKNOWN)
-                        .type(getPetDisplayName(requestDto.getPet()))
+                        .type(requestDto.getPet().name()) // PetType Enum 값을 String으로 설정
                         .build();
-                
                 myPetRepository.save(myPet);
-                log.info("회원가입 시 펫 정보 자동 등록 완료: {}", account.getEmail());
+                log.info("펫 정보 저장 완료: email={}", account.getEmail());
             } catch (Exception e) {
-                log.warn("회원가입 시 펫 정보 자동 등록 실패: {}", e.getMessage());
-                // 펫 등록 실패해도 회원가입은 성공으로 처리
+                log.warn("펫 정보 저장 실패: {}", e.getMessage());
+                return ResponseDto.fail("PET_SAVE_FAILED", "펫 정보 저장 중 오류가 발생했습니다: " + e.getMessage());
             }
         }
 
@@ -70,8 +71,27 @@ public class AccountService {
                 account.getName(),
                 account.getRole()
         );
-
+        log.info("회원가입 성공: email={}", responseDto.getEmail());
         return ResponseDto.success(responseDto);
+    }
+
+    private Integer parseAge(String petAge) {
+        if (petAge == null || petAge.isEmpty()) {
+            return null;
+        }
+        try {
+            // "2살" 또는 "5개월" 같은 문자열에서 숫자만 추출
+            String[] parts = petAge.split("[^0-9]");
+            for (String part : parts) {
+                if (!part.isEmpty()) {
+                    return Integer.parseInt(part);
+                }
+            }
+            return null;
+        } catch (NumberFormatException e) {
+            log.warn("펫 나이 파싱 실패: petAge={}, error={}", petAge, e.getMessage());
+            return null;
+        }
     }
 
     @Transactional
@@ -126,26 +146,5 @@ public class AccountService {
         }
     }
     
-    // 나이 파싱 헬퍼 메서드
-    private Integer parseAge(String ageStr) {
-        if (ageStr == null || ageStr.trim().isEmpty()) {
-            return null;
-        }
-        
-        try {
-            // "2살", "5개월" 등의 형식을 파싱
-            if (ageStr.contains("살")) {
-                return Integer.parseInt(ageStr.replace("살", "").trim());
-            } else if (ageStr.contains("개월")) {
-                int months = Integer.parseInt(ageStr.replace("개월", "").trim());
-                return months / 12; // 개월을 년으로 변환
-            } else {
-                // 숫자만 있는 경우
-                return Integer.parseInt(ageStr.trim());
-            }
-        } catch (NumberFormatException e) {
-            log.warn("나이 파싱 실패: {}", ageStr);
-            return null;
-        }
-    }
+
 }
