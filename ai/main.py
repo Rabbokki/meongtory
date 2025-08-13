@@ -1,5 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+import openai
 import io
 import tempfile
 import sys
@@ -22,7 +24,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -36,6 +38,10 @@ openai.api_key = os.getenv("OPENAI_API_KEY", "")
 if not openai.api_key:
     print("Warning: OPENAI_API_KEY not set")
 
+# 서비스 인스턴스 생성
+story_service = StoryAIService()
+contract_service = ContractAIService()
+
 # 배경스토리 요청 모델
 class BackgroundStoryRequest(BaseModel):
     petName: str
@@ -48,7 +54,12 @@ class BackgroundStoryRequest(BaseModel):
 @app.post("/generate-story")
 async def generate_background_story(request: BackgroundStoryRequest):
     """배경 스토리 생성"""
-    return await story_service.generate_background_story(request)
+    try:
+        result = await story_service.generate_background_story(request)
+        return result
+    except Exception as e:
+        print(f"배경 스토리 생성 오류: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"배경 스토리 생성 중 오류 발생: {str(e)}")
 
 @app.post("/contract-suggestions")
 async def get_contract_suggestions(request: ContractSuggestionRequest):

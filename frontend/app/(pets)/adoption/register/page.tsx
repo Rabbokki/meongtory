@@ -226,7 +226,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
 
     try {
       const backendUrl = getBackendUrl()
-      const response = await axios.post(`${backendUrl}/api/ai/generate-background-story`, {
+      const response = await axios.post(`${backendUrl}/api/story/generate-background-story`, {
         petName: newAnimal.name,
         breed: newAnimal.breed,
         age: newAnimal.age,

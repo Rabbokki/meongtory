@@ -104,7 +104,8 @@ export default function AnimalEditModal({
 
     setIsGeneratingStory(true)
     try {
-      const response = await axios.post('http://localhost:9000/generate-story', {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+      const response = await axios.post(`${backendUrl}/api/story/generate-background-story`, {
         petName: editAnimal.name,
         breed: editAnimal.breed,
         age: editAnimal.age,
@@ -114,6 +115,7 @@ export default function AnimalEditModal({
       }, {
         headers: {
           'Content-Type': 'application/json',
+          'Access_Token': localStorage.getItem('accessToken') || '',
         },
       })
 
@@ -123,8 +125,12 @@ export default function AnimalEditModal({
 
       const result = response.data
       
-      // Python AI 서버는 직접 story를 반환
-      setEditAnimal(prev => ({ ...prev, description: result.story }))
+      // 백엔드에서 ResponseDto로 래핑해서 보내므로 data 필드에서 추출
+      if (result.success && result.data) {
+        setEditAnimal(prev => ({ ...prev, description: result.data.story }))
+      } else {
+        throw new Error(result.error?.message || 'AI 스토리 생성에 실패했습니다.')
+      }
     } catch (error) {
       console.error("AI 스토리 생성 실패:", error)
       alert("AI 스토리 생성에 실패했습니다.")

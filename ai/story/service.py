@@ -17,9 +17,11 @@ class StoryAIService:
             # 프롬프트 구성
             prompt = build_story_prompt(request)
             
-            # OpenAI API 호출
-            model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-            response = openai.ChatCompletion.create(
+            # OpenAI API 호출 (최신 라이브러리 방식)
+            model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+            client = openai.OpenAI(api_key=openai.api_key)
+            
+            response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": "당신은 따뜻하고 감동적인 입양 동물의 배경 스토리를 작성하는 전문가입니다."},
@@ -38,4 +40,5 @@ class StoryAIService:
             }
             
         except Exception as e:
+            print(f"스토리 생성 오류: {str(e)}")
             raise HTTPException(status_code=500, detail=f"스토리 생성 실패: {str(e)}") 

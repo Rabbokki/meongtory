@@ -4,7 +4,7 @@ python-multipart
 pydantic
 python-dotenv
 pillow>=10.0.0
-openai==0.28.1
+openai>=1.86.0
 
 # ↓ 호환성 핵심
 numpy<2

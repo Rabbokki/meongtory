@@ -10,6 +10,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/contract-templates/ai-suggestions")
@@ -30,6 +31,32 @@ public class AISuggestionController {
                 userEmail
         );
         return ResponseEntity.ok(ResponseDto.success(suggestions));
+    }
+    
+    @PostMapping("/generate-contract")
+    public ResponseEntity<ResponseDto<Map<String, Object>>> generateContract(
+            @RequestBody ContractGenerationRequestDto requestDto, Authentication authentication) {
+        try {
+            String userEmail = authentication.getName();
+            Map<String, Object> result = aiSuggestionService.generateContract(requestDto, userEmail);
+            return ResponseEntity.ok(ResponseDto.success(result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ResponseDto.fail("AI_ERROR", "계약서 생성 실패: " + e.getMessage()));
+        }
+    }
+    
+    @PostMapping("/contract-suggestions")
+    public ResponseEntity<ResponseDto<Map<String, Object>>> getContractSuggestions(
+            @RequestBody AISuggestionService.ContractSuggestionRequestDto requestDto, Authentication authentication) {
+        try {
+            String userEmail = authentication.getName();
+            Map<String, Object> result = aiSuggestionService.getContractSuggestions(requestDto, userEmail);
+            return ResponseEntity.ok(ResponseDto.success(result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ResponseDto.fail("AI_ERROR", "계약서 조항 추천 실패: " + e.getMessage()));
+        }
     }
     
     @GetMapping("/user")

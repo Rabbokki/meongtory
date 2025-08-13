@@ -18,9 +18,11 @@ class ContractAIService:
             # 프롬프트 구성
             prompt = build_contract_suggestion_prompt(request)
             
-            # OpenAI API 호출
+            # OpenAI API 호출 (최신 라이브러리 방식)
             model_name = os.getenv("OPENAI_CONTRACT_MODEL", "gpt-4")
-            response = openai.ChatCompletion.create(
+            client = openai.OpenAI(api_key=openai.api_key)
+            
+            response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": """당신은 반려동물 관련 계약서 조항 추천 전문가입니다. 
@@ -60,9 +62,11 @@ class ContractAIService:
             # 프롬프트 구성
             prompt = build_clause_suggestion_prompt(request)
             
-            # OpenAI API 호출
-            model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
-            response = openai.ChatCompletion.create(
+            # OpenAI API 호출 (최신 라이브러리 방식)
+            model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+            client = openai.OpenAI(api_key=openai.api_key)
+            
+            response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": """당신은 반려동물 계약서 조항 추천 전문가입니다.
@@ -102,9 +106,11 @@ class ContractAIService:
             # 프롬프트 구성
             prompt = build_template_based_contract_prompt(request)
             
-            # OpenAI API 호출
-            model_name = os.getenv("OPENAI_CONTRACT_MODEL", "gpt-4")
-            response = openai.ChatCompletion.create(
+            # OpenAI API 호출 (최신 라이브러리 방식)
+            model_name = os.getenv("OPENAI_CONTRACT_MODEL", "gpt-4o")
+            client = openai.OpenAI(api_key=openai.api_key)
+            
+            response = client.chat.completions.create(
                 model=model_name,
                 messages=[
                     {"role": "system", "content": "당신은 반려동물 관련 계약서 작성 전문가입니다. 주어진 정보를 바탕으로 완성된 계약서를 작성해주세요."},
@@ -126,4 +132,5 @@ class ContractAIService:
             }
             
         except Exception as e:
+            print(f"계약서 생성 오류: {str(e)}")
             raise HTTPException(status_code=500, detail=f"계약서 생성 실패: {str(e)}") 

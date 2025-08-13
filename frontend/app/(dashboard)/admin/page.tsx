@@ -750,12 +750,14 @@ export default function AdminPage({
         return
       }
 
-      const response = await axios.post("http://localhost:9000/generate-contract", {
+      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+      const response = await axios.post(`${backendUrl}/api/contract-templates/ai-suggestions/generate-contract`, {
         templateId: selectedTemplate,
-        customSections: selectedTemplateData.sections?.map((section: any) => ({ 
+        templateSections: selectedTemplateData.sections?.map((section: any) => ({ 
           title: section.title, 
           content: section.content || "" 
         })) || [],
+        customSections: [],
         removedSections: [],
         petInfo: {
           name: actualPet.name,
@@ -769,6 +771,11 @@ export default function AdminPage({
           email: request.email
         },
         additionalInfo: request.message
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Access_Token': localStorage.getItem('accessToken') || '',
+        },
       })
 
       console.log("AI 서비스 응답:", response.data) // 디버깅용
@@ -776,10 +783,11 @@ export default function AdminPage({
       // 생성된 계약서를 백엔드에 저장
       const contractData = {
         templateId: selectedTemplate,
-        customSections: selectedTemplateData.sections?.map((section: any) => ({ 
+        templateSections: selectedTemplateData.sections?.map((section: any) => ({ 
           title: section.title, 
           content: section.content || "" 
         })) || [],
+        customSections: [],
         removedSections: [],
         petInfo: {
           name: actualPet.name,

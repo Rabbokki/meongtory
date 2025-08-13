@@ -34,7 +34,7 @@ public class AISuggestionService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     
-    @Value("${ai.service.url:http://ai:9000}")
+    @Value("${ai.service.url:http://localhost:9000}")
     private String aiServiceUrl;
     
     public List<AISuggestionDto> getClauseSuggestions(Long templateId, List<String> currentClauses,
@@ -59,6 +59,89 @@ public class AISuggestionService {
         }
         
         return suggestions;
+    }
+    
+    public Map<String, Object> generateContract(ContractGenerationRequestDto requestDto, String requestedBy) {
+        try {
+            // AI 서비스에 요청
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("templateId", requestDto.getTemplateId());
+            requestBody.put("templateSections", requestDto.getTemplateSections()); // 템플릿의 실제 조항들
+            requestBody.put("customSections", requestDto.getCustomSections()); // 추가할 커스텀 조항들
+            requestBody.put("removedSections", requestDto.getRemovedSections());
+            requestBody.put("petInfo", requestDto.getPetInfo() != null ? Map.of(
+                "name", requestDto.getPetInfo().getName(),
+                "breed", requestDto.getPetInfo().getBreed(),
+                "age", requestDto.getPetInfo().getAge(),
+                "healthStatus", requestDto.getPetInfo().getHealthStatus()
+            ) : new HashMap<>());
+            requestBody.put("userInfo", requestDto.getUserInfo() != null ? Map.of(
+                "name", requestDto.getUserInfo().getName(),
+                "phone", requestDto.getUserInfo().getPhone(),
+                "email", requestDto.getUserInfo().getEmail()
+            ) : new HashMap<>());
+            requestBody.put("additionalInfo", requestDto.getAdditionalInfo());
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+            
+            ResponseEntity<Map> response = restTemplate.postForEntity(
+                aiServiceUrl + "/generate-contract", 
+                request, 
+                Map.class
+            );
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            } else {
+                return getDefaultContractResponse();
+            }
+            
+        } catch (Exception e) {
+            // 에러 발생 시 기본 응답 반환
+            return getDefaultContractResponse();
+        }
+    }
+    
+    public Map<String, Object> getContractSuggestions(ContractSuggestionRequestDto requestDto, String requestedBy) {
+        try {
+            // AI 서비스에 요청
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("templateId", requestDto.getTemplateId());
+            requestBody.put("currentContent", requestDto.getCurrentContent());
+            requestBody.put("petInfo", requestDto.getPetInfo() != null ? Map.of(
+                "name", requestDto.getPetInfo().getName(),
+                "breed", requestDto.getPetInfo().getBreed(),
+                "age", requestDto.getPetInfo().getAge(),
+                "healthStatus", requestDto.getPetInfo().getHealthStatus()
+            ) : new HashMap<>());
+            requestBody.put("userInfo", requestDto.getUserInfo() != null ? Map.of(
+                "name", requestDto.getUserInfo().getName(),
+                "phone", requestDto.getUserInfo().getPhone(),
+                "email", requestDto.getUserInfo().getEmail()
+            ) : new HashMap<>());
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            HttpEntity<Map<String, Object>> request = new HttpEntity<>(requestBody, headers);
+            
+            ResponseEntity<Map> response = restTemplate.postForEntity(
+                aiServiceUrl + "/contract-suggestions", 
+                request, 
+                Map.class
+            );
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                return response.getBody();
+            } else {
+                return getDefaultContractSuggestionsResponse();
+            }
+            
+        } catch (Exception e) {
+            // 에러 발생 시 기본 응답 반환
+            return getDefaultContractSuggestionsResponse();
+        }
     }
     
     private List<AISuggestionDto> generateClauseSuggestions(Long templateId, List<String> currentClauses,
@@ -102,6 +185,26 @@ public class AISuggestionService {
             // 에러 발생 시 기본 추천 반환
             return getDefaultClauseSuggestions();
         }
+    }
+    
+    private Map<String, Object> getDefaultContractResponse() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("content", "기본 계약서 내용입니다.");
+        response.put("status", "success");
+        response.put("message", "기본 계약서가 생성되었습니다.");
+        return response;
+    }
+    
+    private Map<String, Object> getDefaultContractSuggestionsResponse() {
+        Map<String, Object> response = new HashMap<>();
+        List<Map<String, Object>> suggestions = new ArrayList<>();
+        
+        suggestions.add(Map.of("suggestion", "제4조 (건강관리)", "type", "SECTION", "confidence", 0.8));
+        suggestions.add(Map.of("suggestion", "제5조 (의료비용)", "type", "SECTION", "confidence", 0.7));
+        suggestions.add(Map.of("suggestion", "제6조 (반려동물 행동)", "type", "SECTION", "confidence", 0.6));
+        
+        response.put("suggestions", suggestions);
+        return response;
     }
     
     private List<AISuggestionDto> convertToAISuggestionDtos(List<Map<String, Object>> suggestions) {
@@ -168,5 +271,26 @@ public class AISuggestionService {
                 .type(suggestion.getType().name())
                 .confidence(suggestion.getConfidence())
                 .build();
+    }
+    
+    // 계약서 조항 추천 요청을 위한 DTO
+    public static class ContractSuggestionRequestDto {
+        private Long templateId;
+        private String currentContent;
+        private ContractGenerationRequestDto.PetInfoDto petInfo;
+        private ContractGenerationRequestDto.UserInfoDto userInfo;
+        
+        // Getters and Setters
+        public Long getTemplateId() { return templateId; }
+        public void setTemplateId(Long templateId) { this.templateId = templateId; }
+        
+        public String getCurrentContent() { return currentContent; }
+        public void setCurrentContent(String currentContent) { this.currentContent = currentContent; }
+        
+        public ContractGenerationRequestDto.PetInfoDto getPetInfo() { return petInfo; }
+        public void setPetInfo(ContractGenerationRequestDto.PetInfoDto petInfo) { this.petInfo = petInfo; }
+        
+        public ContractGenerationRequestDto.UserInfoDto getUserInfo() { return userInfo; }
+        public void setUserInfo(ContractGenerationRequestDto.UserInfoDto userInfo) { this.userInfo = userInfo; }
     }
 } 

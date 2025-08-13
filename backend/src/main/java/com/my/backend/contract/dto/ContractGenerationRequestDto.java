@@ -17,7 +17,8 @@ import java.util.Map;
 public class ContractGenerationRequestDto {
     
     private Long templateId;
-    private List<Map<String, Object>> customSections; // 프론트엔드에서 보내는 형식에 맞춤
+    private List<Map<String, Object>> templateSections; // 템플릿의 실제 조항들
+    private List<Map<String, Object>> customSections; // 추가할 커스텀 조항들
     private List<Long> removedSections;
     private PetInfoDto petInfo;
     private UserInfoDto userInfo;
