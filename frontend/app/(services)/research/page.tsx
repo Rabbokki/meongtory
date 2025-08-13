@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Camera, Upload, Sparkles, Heart, Video, Smile } from "lucide-react"
 import axios from "axios"
+import { getBackendUrl } from "@/lib/utils/api-config"
 
 interface BreedIdentificationResult {
   breed: string
@@ -115,8 +116,8 @@ export default function DogResearchLabPage() {
     try {
       const formData = new FormData()
       formData.append('image', uploadedFile)
-
-      const response = await axios.post('http://localhost:9000/predict', formData, {
+      const backendUrl = getBackendUrl()
+      const response = await axios.post(`${backendUrl}/api/ai/predict-breed`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -240,72 +241,137 @@ export default function DogResearchLabPage() {
     }
   };
 
-  const analyzeMood = () => {
+  const analyzeMood = async () => {
     if (!moodImage && !moodVideo) return
 
     setIsAnalyzingMood(true)
 
-    // Simulate AI mood analysis
-    setTimeout(() => {
-      const mockMoodResults: MoodAnalysisResult[] = [
-        {
-          mood: "행복함",
-          confidence: 92,
-          emotions: {
-            happy: 92,
-            sad: 5,
-            excited: 78,
-            calm: 45,
-            anxious: 8,
-            playful: 85,
-          },
-          recommendations: ["현재 매우 좋은 상태입니다!", "놀이 시간을 늘려주세요", "간식을 주며 칭찬해주세요"],
-          description:
-            "강아지가 매우 행복하고 건강한 상태를 보이고 있습니다. 꼬리를 흔들고 있고 눈이 밝게 빛나고 있어요.",
-        },
-        {
-          mood: "불안함",
-          confidence: 78,
-          emotions: {
-            happy: 15,
-            sad: 25,
-            excited: 10,
-            calm: 20,
-            anxious: 78,
-            playful: 12,
-          },
-          recommendations: [
-            "조용한 환경을 만들어주세요",
-            "부드럽게 말을 걸어주세요",
-            "좋아하는 장난감을 주세요",
-            "수의사 상담을 고려해보세요",
-          ],
-          description: "강아지가 약간 불안해하는 것 같습니다. 귀가 뒤로 젖혀져 있고 몸을 움츠리고 있어요.",
-        },
-        {
-          mood: "평온함",
-          confidence: 85,
-          emotions: {
-            happy: 65,
-            sad: 10,
-            excited: 20,
-            calm: 85,
-            anxious: 15,
-            playful: 30,
-          },
-          recommendations: [
-            "현재 상태를 유지해주세요",
-            "적당한 휴식을 취하게 해주세요",
-            "규칙적인 생활 패턴을 유지하세요",
-          ],
-          description: "강아지가 매우 평온하고 안정된 상태입니다. 편안하게 쉬고 있거나 만족스러워하고 있어요.",
-        },
-      ]
+    try {
+      // 현재는 사진만 지원 (동영상은 향후 구현)
+      if (moodInputType === "video") {
+        // 임시로 동영상은 기존 mock 데이터 사용
+        setTimeout(() => {
+          const mockResult: MoodAnalysisResult = {
+            mood: "평온함",
+            confidence: 75,
+            emotions: {
+              happy: 65,
+              sad: 10,
+              excited: 20,
+              calm: 85,
+              anxious: 15,
+              playful: 30,
+            },
+            recommendations: [
+              "동영상 분석은 준비 중입니다",
+              "사진으로 분석해주세요"
+            ],
+            description: "동영상 감정 분석 기능은 곧 제공될 예정입니다."
+          }
+          setMoodResult(mockResult)
+          setIsAnalyzingMood(false)
+        }, 2000)
+        return
+      }
 
-      const randomResult = mockMoodResults[Math.floor(Math.random() * mockMoodResults.length)]
-      setMoodResult(randomResult)
+      // 사진 분석을 위한 File 객체 생성
+      const response = await fetch(moodImage)
+      const blob = await response.blob()
+      const file = new File([blob], 'emotion-image.jpg', { type: blob.type })
+
+      const formData = new FormData()
+      formData.append('image', file)
+
+      const backendUrl = getBackendUrl()
+      const apiResponse = await axios.post(`${backendUrl}/api/ai/analyze-emotion`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      })
+
+      const result = apiResponse.data
+
+      if (result.success) {
+        const aiResult = result.data
+        
+        // AI 결과를 기존 인터페이스에 맞게 변환
+        const moodInfo = getMoodInfo(aiResult.emotion, aiResult.emotionKorean)
+        
+        setMoodResult({
+          mood: aiResult.emotionKorean,
+          confidence: Math.round(aiResult.confidence),
+          emotions: moodInfo.emotions,
+          recommendations: moodInfo.recommendations,
+          description: moodInfo.description,
+        })
+      } else {
+        // 에러 발생 시 기본값 설정
+        setMoodResult({
+          mood: "분석 실패",
+          confidence: 0,
+          emotions: {
+            happy: 0,
+            sad: 0,
+            excited: 0,
+            calm: 0,
+            anxious: 0,
+            playful: 0,
+          },
+          recommendations: ["이미지 분석에 실패했습니다. 다시 시도해주세요."],
+          description: "감정 분석에 실패했습니다. 강아지의 얼굴이 명확히 보이는 사진을 업로드해주세요.",
+        })
+      }
+    } catch (error) {
+      console.error('감정 분석 오류:', error)
+      setMoodResult({
+        mood: "연결 오류",
+        confidence: 0,
+        emotions: {
+          happy: 0,
+          sad: 0,
+          excited: 0,
+          calm: 0,
+          anxious: 0,
+          playful: 0,
+        },
+        recommendations: ["서버와 연결할 수 없습니다. 잠시 후 다시 시도해주세요."],
+        description: "서버 연결 오류가 발생했습니다.",
+      })
+    } finally {
       setIsAnalyzingMood(false)
-    }, 3500)
+    }
+  }
+
+  // 감정별 세부 정보를 반환하는 헬퍼 함수
+  const getMoodInfo = (emotion: string, emotionKorean: string) => {
+    const moodInfoMap: Record<string, { emotions: any, recommendations: string[], description: string }> = {
+      "happy": {
+        emotions: { happy: 90, sad: 5, excited: 80, calm: 60, anxious: 10, playful: 85 },
+        recommendations: ["현재 매우 좋은 상태입니다!", "놀이 시간을 늘려주세요", "간식을 주며 칭찬해주세요"],
+        description: "강아지가 매우 행복하고 건강한 상태를 보이고 있습니다."
+      },
+      "sad": {
+        emotions: { happy: 15, sad: 85, excited: 10, calm: 30, anxious: 60, playful: 15 },
+        recommendations: ["부드럽게 위로해주세요", "좋아하는 장난감을 주세요", "조용한 환경을 만들어주세요"],
+        description: "강아지가 슬퍼하는 것 같습니다. 관심과 사랑을 보여주세요."
+      },
+      "angry": {
+        emotions: { happy: 10, sad: 20, excited: 20, calm: 10, anxious: 80, playful: 10 },
+        recommendations: ["조용한 환경을 만들어주세요", "스트레스 요인을 제거해주세요", "수의사 상담을 고려해보세요"],
+        description: "강아지가 화나거나 스트레스를 받고 있는 것 같습니다."
+      },
+      "relaxed": {
+        emotions: { happy: 70, sad: 5, excited: 20, calm: 95, anxious: 5, playful: 30 },
+        recommendations: ["현재 상태를 유지해주세요", "적당한 휴식을 취하게 해주세요", "규칙적인 생활 패턴을 유지하세요"],
+        description: "강아지가 매우 편안하고 안정된 상태입니다."
+      }
+    }
+
+    return moodInfoMap[emotion] || {
+      emotions: { happy: 50, sad: 20, excited: 30, calm: 40, anxious: 25, playful: 35 },
+      recommendations: ["현재 상태를 관찰해주세요", "필요시 수의사와 상담하세요"],
+      description: `강아지의 감정 상태가 ${emotionKorean}로 분석되었습니다.`
+    }
   }
 
   /** ----------------- 재사용 업로드 컴포넌트 ----------------- */
