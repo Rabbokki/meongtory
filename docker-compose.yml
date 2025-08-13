@@ -38,6 +38,9 @@ services:
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
+      - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL} 
+      - AI_SERVICE_URL=http://ai:9000
+      - OPENAI_BREEDING_MODEL=${OPENAI_BREEDING_MODEL}
     networks:
       - meongtory-network
 
@@ -63,7 +66,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_S3_REGION=${AWS_S3_REGION}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
-      - AI_SERVICE_URL=${AI_SERVICE_URL}
+      - AI_SERVICE_URL=http://ai:9000
       - TOSS_SECRET_KEY=${TOSS_SECRET_KEY}
       - TOSS_CLIENT_KEY=${TOSS_CLIENT_KEY}
     depends_on:

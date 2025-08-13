@@ -59,19 +59,27 @@ async def generate_contract(request: ContractGenerationRequest):
     """계약서 생성"""
     return await contract_service.generate_contract(request)
 
-@app.post("/breeding-predict")
-async def predict_breeding_endpoint(file1: UploadFile = File(...), file2: UploadFile = File(...)):
+@app.post("/predict-breeding")
+async def predict_breeding_endpoint(parent1: UploadFile = File(...), parent2: UploadFile = File(...)):
     """교배 예측"""
     try:
+        print(f"교배 예측 시작 - parent1: {parent1.filename}, parent2: {parent2.filename}")
+        
         # 두 개의 이미지 파일 읽기
-        image1_bytes = await file1.read()
-        image2_bytes = await file2.read()
+        image1_bytes = await parent1.read()
+        image2_bytes = await parent2.read()
+        
+        print(f"이미지 읽기 완료 - parent1: {len(image1_bytes)} bytes, parent2: {len(image2_bytes)} bytes")
         
         # 교배 예측 실행
         result = predict_breeding(image1_bytes, image2_bytes)
+        print(f"교배 예측 완료: {result}")
         return result
         
     except Exception as e:
+        import traceback
+        print(f"교배 예측 에러: {str(e)}")
+        print(f"에러 상세: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"교배 예측 중 오류 발생: {str(e)}")
 
 @app.post("/transcribe")

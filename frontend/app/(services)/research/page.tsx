@@ -51,7 +51,7 @@ export default function DogResearchLabPage() {
   // Breeding Prediction State
   const [parent1Image, setParent1Image] = useState<string>("")
   const [parent2Image, setParent2Image] = useState<string>("")
-  const [breedingResults, setBreedingResults] = useState<BreedingResult[]>([])
+  const [breedingResult, setBreedingResult] = useState<BreedingResult | null>(null)
   const [isPredicting, setIsPredicting] = useState(false)
 
   // Mood Analysis State
@@ -173,41 +173,72 @@ export default function DogResearchLabPage() {
     }
   }
 
-  const predictBreeding = () => {
-    if (!parent1Image || !parent2Image) return
+  /** ----------------- 교배 예측 ----------------- */
+  const predictBreeding = async () => {
+    if (!parent1Image || !parent2Image) return;
 
-    setIsPredicting(true)
+    setIsPredicting(true);
+    setBreedingResult(null);
 
-    // Simulate breeding prediction
-    setTimeout(() => {
-      const mockResults: BreedingResult[] = [
-        {
-          resultBreed: "혼합견 1세대",
-          probability: 85,
-          traits: ["중간 크기", "온순한 성격", "지능적", "활발함"],
-          description: "두 부모의 특성을 고르게 물려받은 건강한 혼합견이 될 가능성이 높습니다.",
-          image: "/placeholder.svg?height=200&width=200&text=Mixed+Breed",
-        },
-        {
-          resultBreed: "부모1 우성형",
-          probability: 60,
-          traits: ["부모1 외모", "부모1 성격", "중간 크기"],
-          description: "첫 번째 부모의 특성이 더 강하게 나타날 수 있습니다.",
-          image: "/placeholder.svg?height=200&width=200&text=Parent1+Dominant",
-        },
-        {
-          resultBreed: "부모2 우성형",
-          probability: 55,
-          traits: ["부모2 외모", "부모2 성격", "독특한 조합"],
-          description: "두 번째 부모의 특성이 더 강하게 나타날 수 있습니다.",
-          image: "/placeholder.svg?height=200&width=200&text=Parent2+Dominant",
-        },
-      ]
+    try {
+      const parent1Blob = await fetch(parent1Image).then((res) => res.blob());
+      const parent2Blob = await fetch(parent2Image).then((res) => res.blob());
 
-      setBreedingResults(mockResults)
-      setIsPredicting(false)
-    }, 2500)
-  }
+      if (
+        parent1Blob.size > 10 * 1024 * 1024 ||
+        parent2Blob.size > 10 * 1024 * 1024
+      ) {
+        throw new Error("이미지 크기가 10MB를 초과합니다.");
+      }
+      const okType = (t: string) => ["image/jpeg", "image/png"].includes(t);
+      if (!okType(parent1Blob.type) || !okType(parent2Blob.type)) {
+        throw new Error("허용된 파일 형식은 JPG, PNG입니다.");
+      }
+
+      const formData = new FormData();
+      formData.append("parent1", parent1Blob, "parent1.jpg");
+      formData.append("parent2", parent2Blob, "parent2.jpg");
+
+      const response = await axios.post("http://localhost:8080/api/ai/predict-breeding", formData);
+      const result = response.data;
+      if (!result) throw new Error("No result received from API");
+
+      setBreedingResult(result);
+    } catch (err: unknown) {
+      if (axios.isAxiosError(err)) {
+        console.error("교배 예측 오류:", err.response?.data || err.message);
+        setBreedingResult({
+          resultBreed: "예측 실패",
+          probability: 0,
+          traits: ["오류"],
+          description: `예측에 실패했습니다: ${
+            err.response?.data?.description ?? err.message
+          }`,
+          image: "",
+        });
+      } else if (err instanceof Error) {
+        console.error("교배 예측 오류:", err.message);
+        setBreedingResult({
+          resultBreed: "예측 실패",
+          probability: 0,
+          traits: ["오류"],
+          description: `예측에 실패했습니다: ${err.message}`,
+          image: "",
+        });
+      } else {
+        console.error("교배 예측 오류:", err);
+        setBreedingResult({
+          resultBreed: "예측 실패",
+          probability: 0,
+          traits: ["오류"],
+          description: "예측에 실패했습니다.",
+          image: "",
+        });
+      }
+    } finally {
+      setIsPredicting(false);
+    }
+  };
 
   const analyzeMood = () => {
     if (!moodImage && !moodVideo) return
@@ -276,6 +307,61 @@ export default function DogResearchLabPage() {
       setIsAnalyzingMood(false)
     }, 3500)
   }
+
+  /** ----------------- 재사용 업로드 컴포넌트 ----------------- */
+  const ParentUpload: React.FC<{
+    label: string;
+    image: string;
+    inputId: string;
+    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  }> = ({ label, image, inputId, onChange }) => (
+    <div className="space-y-3">
+      <label className="block text-sm font-medium text-center">{label}</label>
+      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-pink-400 transition-colors">
+        {image ? (
+          <div className="flex flex-col items-center gap-3">
+            <div className="relative h-[280px] w-[280px] rounded-xl overflow-hidden">
+              <Image
+                src={image}
+                alt={label}
+                fill
+                className="object-cover"
+                unoptimized
+                sizes="(max-width: 768px) 100vw, 280px"
+              />
+            </div>
+            <Button
+              onClick={() => document.getElementById(inputId)?.click()}
+              variant="outline"
+              size="sm"
+              className="mt-1 w-[240px] justify-center"
+            >
+              <Camera className="w-4 h-4 mr-2" />
+              다른 사진 선택
+            </Button>
+          </div>
+        ) : (
+          <div className="text-center space-y-3">
+            <Upload className="w-12 h-12 text-gray-400 mx-auto" />
+            <Button
+              onClick={() => document.getElementById(inputId)?.click()}
+              className="bg-pink-500 hover:bg-pink-600 text-white"
+            >
+              <Camera className="w-4 h-4 mr-2" />
+              사진 업로드
+            </Button>
+          </div>
+        )}
+        <input
+          id={inputId}
+          type="file"
+          accept="image/*"
+          onChange={onChange}
+          className="hidden"
+        />
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white pt-20">
@@ -438,167 +524,108 @@ export default function DogResearchLabPage() {
                   두 부모 강아지의 사진을 업로드하여 교배 결과를 AI로 예측해보세요!
                 </p>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Parent Images Upload */}
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* Parent 1 */}
-                  <div className="space-y-3">
-                    <label className="block text-sm font-medium text-center">부모 1</label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-pink-400 transition-colors">
-                      {parent1Image ? (
-                        <div className="space-y-3">
-                          <Image
-                            src={parent1Image || "/placeholder.svg"}
-                            alt="Parent 1"
-                            width={200}
-                            height={200}
-                            className="mx-auto rounded-lg object-cover"
-                          />
-                          <Button
-                            onClick={() => document.getElementById("parent1-upload")?.click()}
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                          >
-                            <Camera className="w-4 h-4 mr-2" />
-                            다른 사진 선택
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-center space-y-3">
-                          <Upload className="w-12 h-12 text-gray-400 mx-auto" />
-                          <Button
-                            onClick={() => document.getElementById("parent1-upload")?.click()}
-                            className="bg-pink-500 hover:bg-pink-600 text-white"
-                          >
-                            <Camera className="w-4 h-4 mr-2" />
-                            사진 업로드
-                          </Button>
-                        </div>
-                      )}
-                      <input
-                        id="parent1-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleImageUpload(e, "parent1")}
-                        className="hidden"
-                      />
+                              <CardContent className="space-y-6">
+                  {/* 부모 업로드 박스 */}
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <ParentUpload
+                      label="부모 1"
+                      image={parent1Image}
+                      inputId="parent1-upload"
+                      onChange={(e) => handleImageUpload(e, "parent1")}
+                    />
+                    <ParentUpload
+                      label="부모 2"
+                      image={parent2Image}
+                      inputId="parent2-upload"
+                      onChange={(e) => handleImageUpload(e, "parent2")}
+                    />
+                  </div>
+
+                                  {/* 예측 버튼 */}
+                  {parent1Image && parent2Image && (
+                    <div className="text-center">
+                      <Button
+                        onClick={predictBreeding}
+                        disabled={isPredicting}
+                        className="bg-pink-500 hover:bg-pink-600 text-white px-8 py-3"
+                      >
+                        {isPredicting ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                            예측 중...
+                          </>
+                        ) : (
+                          <>
+                            <Heart className="w-4 h-4 mr-2" />
+                            교배 결과 예측하기
+                          </>
+                        )}
+                      </Button>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Parent 2 */}
-                  <div className="space-y-3">
-                    <label className="block text-sm font-medium text-center">부모 2</label>
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-pink-400 transition-colors">
-                      {parent2Image ? (
-                        <div className="space-y-3">
-                          <Image
-                            src={parent2Image || "/placeholder.svg"}
-                            alt="Parent 2"
-                            width={200}
-                            height={200}
-                            className="mx-auto rounded-lg object-cover"
-                          />
-                          <Button
-                            onClick={() => document.getElementById("parent2-upload")?.click()}
-                            variant="outline"
-                            size="sm"
-                            className="w-full"
-                          >
-                            <Camera className="w-4 h-4 mr-2" />
-                            다른 사진 선택
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="text-center space-y-3">
-                          <Upload className="w-12 h-12 text-gray-400 mx-auto" />
-                          <Button
-                            onClick={() => document.getElementById("parent2-upload")?.click()}
-                            className="bg-pink-500 hover:bg-pink-600 text-white"
-                          >
-                            <Camera className="w-4 h-4 mr-2" />
-                            사진 업로드
-                          </Button>
-                        </div>
-                      )}
-                      <input
-                        id="parent2-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleImageUpload(e, "parent2")}
-                        className="hidden"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Predict Button */}
-                {parent1Image && parent2Image && (
-                  <div className="text-center">
-                    <Button
-                      onClick={predictBreeding}
-                      disabled={isPredicting}
-                      className="bg-pink-500 hover:bg-pink-600 text-white px-8 py-3"
-                    >
-                      {isPredicting ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          예측 중...
-                        </>
-                      ) : (
-                        <>
-                          <Heart className="w-4 h-4 mr-2" />
-                          교배 결과 예측하기
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Breeding Results */}
-                {breedingResults.length > 0 && (
+                {/* 결과 */}
+                {breedingResult && (
                   <div className="space-y-4">
-                    <h3 className="text-xl font-bold text-center text-pink-600 mb-4">🐶 예상 교배 결과</h3>
-                    <div className="grid gap-4">
-                      {breedingResults.map((result, index) => (
-                        <Card key={index} className="bg-gradient-to-r from-pink-50 to-purple-50">
-                          <CardContent className="p-6">
-                            <div className="flex items-start space-x-4">
-                              <Image
-                                src={result.image || "/placeholder.svg"}
-                                alt={result.resultBreed}
-                                width={100}
-                                height={100}
-                                className="rounded-lg object-cover"
-                              />
-                              <div className="flex-1">
-                                <div className="flex items-center justify-between mb-2">
-                                  <h4 className="text-lg font-bold text-pink-800">{result.resultBreed}</h4>
-                                  <Badge className="bg-pink-100 text-pink-800">{result.probability}% 확률</Badge>
-                                </div>
+                    <h3 className="text-xl font-bold text-center text-pink-600 mb-4">
+                       예상 교배 결과
+                    </h3>
+                    <Card className="bg-gradient-to-r from-pink-50 to-purple-50">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col items-center">
+                          <a
+                            href={breedingResult.image}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                            title="이미지를 클릭하면 크게 볼 수 있어요"
+                          >
+                            <Image
+                              src={breedingResult.image || "/placeholder.svg"}
+                              alt={breedingResult.resultBreed || "교배 결과"}
+                              width={640}
+                              height={640}
+                              unoptimized
+                              sizes="(max-width: 768px) 100vw, 640px"
+                              className="w-full max-w-[440px] aspect-square object-cover rounded-2xl shadow-md mb-4"
+                            />
+                          </a>
+                          <div className="text-xs text-gray-400 mb-2">
+                            (이미지를 클릭하면 크게 볼 수 있어요)
+                          </div>
 
-                                <p className="text-gray-700 mb-3">{result.description}</p>
+                          <div className="w-full max-w-2xl">
+                            <div className="flex items-center justify-between mb-2">
+                              <h4 className="text-xl md:text-2xl font-bold text-pink-800">
+                                {breedingResult.resultBreed}
+                              </h4>
+                              <Badge className="bg-pink-100 text-pink-800">
+                                {breedingResult.probability}% 확률
+                              </Badge>
+                            </div>
 
-                                <div>
-                                  <h5 className="font-semibold mb-2">예상 특성</h5>
-                                  <div className="flex flex-wrap gap-2">
-                                    {result.traits.map((trait, traitIndex) => (
-                                      <Badge
-                                        key={traitIndex}
-                                        variant="outline"
-                                        className="text-pink-600 border-pink-300"
-                                      >
-                                        {trait}
-                                      </Badge>
-                                    ))}
-                                  </div>
-                                </div>
+                            <p className="text-gray-700 mb-4 leading-relaxed">
+                              {breedingResult.description}
+                            </p>
+
+                            <div>
+                              <h5 className="font-semibold mb-2">예상 특성</h5>
+                              <div className="flex flex-wrap gap-2">
+                                {breedingResult.traits?.map((t, i) => (
+                                  <Badge
+                                    key={i}
+                                    variant="outline"
+                                    className="text-pink-600 border-pink-300"
+                                  >
+                                    {t}
+                                  </Badge>
+                                ))}
                               </div>
                             </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 )}
               </CardContent>

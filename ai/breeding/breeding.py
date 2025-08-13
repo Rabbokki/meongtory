@@ -1,9 +1,13 @@
 import os
 import openai
 from pydantic import BaseModel
-from model import DogBreedClassifier
+import sys
 import io
 from dotenv import load_dotenv
+
+# 상위 디렉토리의 model.py를 import하기 위해 경로 추가
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+from model import DogBreedClassifier
 
 # 환경 변수 로드
 load_dotenv()
@@ -16,7 +20,7 @@ if not openai.api_key:
 classifier = DogBreedClassifier()
 
 class BreedingPrediction(BaseModel):
-    result_breed: str
+    resultBreed: str
     probability: int
     traits: list[str]
     description: str
@@ -37,21 +41,17 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
         parent2_breed = classifier.predict(io.BytesIO(parent2_image))["breed"]
 
         # 2. LLM 프롬프트 구성
-        prompt = f"""다음 두 부모 강아지의 품종 정보를 바탕으로 자녀 강아지의 예상 품종, 특성, 설명을 생성해주세요:
+        prompt = f"""부모 강아지 품종: {parent1_breed} + {parent2_breed}
 
-부모 1 품종: {parent1_breed}
-부모 2 품종: {parent2_breed}
+자녀 강아지의 예상 정보를 JSON 형식으로 생성해주세요:
+- result_breed: 혼합견 이름
+- probability: 예측 확률(0-100)
+- traits: 특성 4-5개
+- description: 100-200자 설명
 
-다음 조건을 만족하는 응답을 작성해주세요:
-1. 예상 품종(result_breed): 부모 품종을 조합한 혼합견 이름 또는 일반적인 혼합견
-2. 확률(probability): 예측의 신뢰도(0-100%)
-3. 특성(traits): 자녀가 가질 가능성이 높은 특성(4-5개, 예: ["활발함", "친화적"])
-4. 설명(description): 자녀의 예상 특성과 매력을 설명하는 100-200자 텍스트
-5. 자연스럽고 읽기 쉬운 한국어로 작성
-6. JSON 형식으로 반환
-"""
+자연스러운 한국어로 작성해주세요."""
         # 3. OpenAI API 호출
-        model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-mini")
+        model_name = os.getenv("OPENAI_BREEDING_MODEL", "gpt-3.5-turbo")
         response = openai.ChatCompletion.create(
             model=model_name,
             messages=[
@@ -67,12 +67,44 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
         import json
         prediction = json.loads(result)
 
+        # probability 값을 정수로 변환 (% 기호 제거)
+        probability = prediction["probability"]
+        if isinstance(probability, str):
+            probability = int(probability.replace("%", ""))
+        else:
+            probability = int(probability)
+
+        # 5. DALL-E 이미지 생성
+        image_url = ""
+        try:
+            image_model = os.getenv("OPENAI_IMAGE_MODEL", "dall-e-3")
+            image_prompt = (
+                f"A photorealistic puppy that looks like a mix between a {parent1_breed} and a {parent2_breed}. "
+                f"Natural coat colors and texture, soft lighting, shallow depth of field, "
+                f"studio-quality photograph, centered, neutral background."
+            )
+            
+            image_response = openai.Image.create(
+                model=image_model,
+                prompt=image_prompt,
+                size="1024x1024",
+                quality="standard",
+                n=1
+            )
+            
+            image_url = image_response['data'][0]['url']
+            print(f"이미지 생성 성공: {image_url}")
+            
+        except Exception as img_error:
+            print(f"이미지 생성 실패: {str(img_error)}")
+            image_url = ""
+
         return BreedingPrediction(
-            result_breed=prediction["result_breed"],
-            probability=prediction["probability"],
+            resultBreed=prediction["result_breed"],
+            probability=probability,
             traits=prediction["traits"],
             description=prediction["description"],
-            image=""  # 이미지 생성 없음
+            image=image_url
         )
     except Exception as e:
         raise Exception(f"교배 예측 실패: {str(e)}")

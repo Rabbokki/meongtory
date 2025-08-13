@@ -75,6 +75,7 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/diary/**").permitAll()
                         .requestMatchers("/api/travel-plans/**", "/chat").authenticated()
                         .requestMatchers("/api/**").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         .anyRequest().authenticated())
                 .securityContext(context -> context.requireExplicitSave(false))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
