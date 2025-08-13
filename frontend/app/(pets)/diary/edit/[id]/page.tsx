@@ -312,9 +312,12 @@ export default function DiaryEditPage() {
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
 
-      // 서버로 전송
-      const response = await fetch('/api/diary/voice', {
+      // 백엔드로 직접 전송
+      const response = await fetch('http://localhost:8080/api/diary/voice', {
         method: 'POST',
+        headers: {
+          'Access_Token': localStorage.getItem('accessToken') || '',
+        },
         body: formData,
       });
 
@@ -322,8 +325,7 @@ export default function DiaryEditPage() {
         throw new Error('음성 변환에 실패했습니다.');
       }
 
-      const result = await response.json();
-      const transcribedText = result.transcript || result.text || result;
+      const transcribedText = await response.text();
 
       // 변환된 텍스트를 기존 내용에 추가
       setContent(prevContent => {
