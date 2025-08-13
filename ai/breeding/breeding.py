@@ -1,5 +1,5 @@
 import os
-import openai
+from openai import OpenAI
 from pydantic import BaseModel
 import sys
 import io
@@ -13,9 +13,12 @@ from breed.model import DogBreedClassifier
 load_dotenv()
 
 # OpenAI 설정
-openai.api_key = os.getenv("OPENAI_API_KEY", "")
-if not openai.api_key:
+openai_api_key = os.getenv("OPENAI_API_KEY", "")
+if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not set")
+
+# OpenAI 클라이언트 초기화
+client = OpenAI(api_key=openai_api_key)
 
 classifier = DogBreedClassifier()
 
@@ -52,7 +55,7 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
 자연스러운 한국어로 작성해주세요."""
         # 3. OpenAI API 호출
         model_name = os.getenv("OPENAI_BREEDING_MODEL", "gpt-3.5-turbo")
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model=model_name,
             messages=[
                 {"role": "system", "content": "당신은 강아지 품종과 특성을 예측하는 전문가입니다."},
@@ -84,7 +87,7 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
                 f"studio-quality photograph, centered, neutral background."
             )
             
-            image_response = openai.Image.create(
+            image_response = client.images.generate(
                 model=image_model,
                 prompt=image_prompt,
                 size="1024x1024",
@@ -92,7 +95,7 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
                 n=1
             )
             
-            image_url = image_response['data'][0]['url']
+            image_url = image_response.data[0].url
             print(f"이미지 생성 성공: {image_url}")
             
         except Exception as img_error:

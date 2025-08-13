@@ -9,8 +9,6 @@ export function cn(...inputs: ClassValue[]) {
 export function formatToKST(date: string | Date | number[]): string {
   if (!date) return "날짜 없음"
   
-  // 디버깅을 위해 원본 날짜 데이터 로그
-  console.log("formatToKST input:", date, "type:", typeof date)
   
   try {
     let d: Date
@@ -45,7 +43,7 @@ export function formatToKST(date: string | Date | number[]): string {
       timeZone: 'Asia/Seoul'
     })
     
-    console.log("formatToKST result:", result)
+    // console.log("formatToKST result:", result)
     return result
   } catch (error) {
     console.error("Date formatting error:", error, "for date:", date)

@@ -16,6 +16,7 @@ import { petApi, s3Api, Pet as ApiPet, handleApiError } from "@/lib/api"
 import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import axios from "axios"
 import { useToast } from "@/hooks/use-toast"
+import { getBackendUrl } from "@/lib/utils/api-config"
 
 interface AnimalRecord {
   id: string
@@ -232,7 +233,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
         age: newAnimal.age,
         gender: newAnimal.gender,
         personality: '',
-        userPrompt: newAnimal.aiBackgroundStory || ''
+        userPrompt: newAnimal.description || ''
       }, {
         headers: {
           'Content-Type': 'application/json',

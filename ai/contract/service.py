@@ -58,9 +58,13 @@ class ContractAIService:
     
     async def get_clause_suggestions(self, request: ClauseSuggestionRequest):
         """조항 추천 서비스"""
+        print(f"=== AI 조항 추천 요청 받음 ===")
+        print(f"Request: {request}")
         try:
             # 프롬프트 구성
             prompt = build_clause_suggestion_prompt(request)
+            print(f"=== 생성된 프롬프트 ===")
+            print(prompt)
             
             # OpenAI API 호출 (최신 라이브러리 방식)
             model_name = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -88,7 +92,12 @@ class ContractAIService:
             )
             
             suggestions_text = response.choices[0].message.content.strip()
+            print(f"=== OpenAI API 조항 추천 응답 ===")
+            print(f"Generated suggestions: {suggestions_text}")
+            
             suggestions = parse_clause_suggestions(suggestions_text)
+            print(f"=== 파싱된 조항 추천 ===")
+            print(f"Parsed suggestions: {suggestions}")
             
             return {
                 "suggestions": suggestions
@@ -103,8 +112,13 @@ class ContractAIService:
     async def generate_contract(self, request: ContractGenerationRequest):
         """계약서 생성 서비스"""
         try:
+            print(f"=== 계약서 생성 요청 ===")
+            print(f"Request: {request}")
+            
             # 프롬프트 구성
             prompt = build_template_based_contract_prompt(request)
+            print(f"=== 생성된 프롬프트 ===")
+            print(prompt)
             
             # OpenAI API 호출 (최신 라이브러리 방식)
             model_name = os.getenv("OPENAI_CONTRACT_MODEL", "gpt-4o")
@@ -121,9 +135,13 @@ class ContractAIService:
             )
             
             contract_content = response.choices[0].message.content.strip()
+            print(f"=== OpenAI API 응답 ===")
+            print(f"Generated content: {contract_content}")
             
             # 변수 치환
             final_contract_content = replace_template_variables(contract_content, request.petInfo, request.userInfo)
+            print(f"=== 최종 계약서 내용 ===")
+            print(f"Final content: {final_contract_content}")
             
             return {
                 "content": final_contract_content,

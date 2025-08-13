@@ -27,6 +27,7 @@ import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
 import axios from "axios"
 import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "@/lib/utils"
+import { getBackendUrl } from "@/lib/utils/api-config"
 
 interface Product {
   id: number
@@ -750,7 +751,7 @@ export default function AdminPage({
         return
       }
 
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+      const backendUrl = getBackendUrl()
       const response = await axios.post(`${backendUrl}/api/contract-templates/ai-suggestions/generate-contract`, {
         templateId: selectedTemplate,
         templateSections: selectedTemplateData.sections?.map((section: any) => ({ 
@@ -779,6 +780,7 @@ export default function AdminPage({
       })
 
       console.log("AI 서비스 응답:", response.data) // 디버깅용
+      console.log("AI 서비스 응답 구조:", JSON.stringify(response.data, null, 2)) // 디버깅용
 
       // 생성된 계약서를 백엔드에 저장
       const contractData = {
@@ -807,13 +809,13 @@ export default function AdminPage({
           address: "서울시 강남구 테헤란로 123",
           phone: "02-1234-5678"
         },
-        content: response.data.content // AI가 생성한 계약서 내용 추가
+        content: response.data.data?.content || response.data.content // AI가 생성한 계약서 내용 추가
       }
 
       // 백엔드에 계약서 저장
       await axios.post("http://localhost:8080/api/contract-generation", contractData)
       
-      setGeneratedContract(response.data.content)
+      setGeneratedContract(response.data.data?.content || response.data.content)
       setShowContractModal(true)
       
       // 생성된 계약서 목록 새로고침
@@ -1212,30 +1214,30 @@ export default function AdminPage({
       
       if (isDefaultTitle) {
         // AI 서버에서 새로운 조항 제목 추천 받기
-        const response = await axios.post("http://localhost:9000/contract-suggestions", {
+        const response = await axios.post("http://localhost:8080/api/contract-templates/ai-suggestions/contract-suggestions", {
           templateId: 1,
           currentContent: "",
           petInfo: {},
           userInfo: {}
         })
         
-        if (response.data.suggestions && response.data.suggestions.length > 0) {
+        if (response.data.data && response.data.data.suggestions && response.data.data.suggestions.length > 0) {
           // AI 추천 제목을 가져와서 번호와 함께 생성
-          const aiTitle = response.data.suggestions[0].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
+          const aiTitle = response.data.data.suggestions[0].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
           return generateClauseNumber(aiTitle)
         }
       } else {
         // 사용자가 입력한 제목을 AI가 개선해서 추천
-        const response = await axios.post("http://localhost:9000/clause-suggestions", {
-          sectionTitle: title,
+        const response = await axios.post("http://localhost:8080/api/contract-templates/ai-suggestions/clauses", {
+          templateId: null,
           currentClauses: templateSections.map(s => s.title),
           petInfo: {},
           userInfo: {}
         })
         
-        if (response.data.suggestions && response.data.suggestions.length > 0) {
+        if (response.data.data && response.data.data.suggestions && response.data.data.suggestions.length > 0) {
           // AI 추천 제목을 가져와서 번호와 함께 생성
-          const aiTitle = response.data.suggestions[0].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
+          const aiTitle = response.data.data.suggestions[0].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
           return generateClauseNumber(aiTitle)
         }
       }
@@ -1263,17 +1265,17 @@ export default function AdminPage({
     if (section) {
       try {
         // 다른 AI 추천 받기 (현재 추천과 다른 것을 받기 위해 랜덤 인덱스 사용)
-        const response = await axios.post("http://localhost:9000/clause-suggestions", {
-          sectionTitle: section.title,
+        const response = await axios.post("http://localhost:8080/api/contract-templates/ai-suggestions/clauses", {
+          templateId: null,
           currentClauses: templateSections.map(s => s.title),
           petInfo: {},
           userInfo: {}
         })
         
-        if (response.data.suggestions && response.data.suggestions.length > 1) {
+        if (response.data.data && response.data.data.length > 1) {
           // 첫 번째 추천이 아닌 다른 추천 선택 (랜덤하게)
-          const randomIndex = Math.floor(Math.random() * (response.data.suggestions.length - 1)) + 1
-          const aiTitle = response.data.suggestions[randomIndex].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
+          const randomIndex = Math.floor(Math.random() * (response.data.data.length - 1)) + 1
+          const aiTitle = response.data.data[randomIndex].suggestion.replace(/^제\d+조\s*\((.+)\)$/, '$1')
           const newSuggestion = generateClauseNumber(aiTitle)
           updateSection(sectionId, 'aiSuggestion', newSuggestion)
         } else {

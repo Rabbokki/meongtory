@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { X, Upload, Loader2, Sparkles } from "lucide-react"
 import { petApi, s3Api, handleApiError } from "@/lib/api"
 import axios from "axios"
+import { getBackendUrl } from "@/lib/utils/api-config"
 
 import type { Pet } from "@/types/pets"
 
@@ -104,14 +105,14 @@ export default function AnimalEditModal({
 
     setIsGeneratingStory(true)
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+      const backendUrl = getBackendUrl()
       const response = await axios.post(`${backendUrl}/api/story/generate-background-story`, {
         petName: editAnimal.name,
         breed: editAnimal.breed,
         age: editAnimal.age,
         gender: editAnimal.gender,
         personality: '',
-        userPrompt: editAnimal.specialNeeds || ''
+        userPrompt: editAnimal.description || ''
       }, {
         headers: {
           'Content-Type': 'application/json',
