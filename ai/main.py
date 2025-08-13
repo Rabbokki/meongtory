@@ -11,6 +11,7 @@ from contract.service import ContractAIService
 from contract.models import ContractSuggestionRequest, ClauseSuggestionRequest, ContractGenerationRequest
 from story.service import StoryAIService
 from story.models import BackgroundStoryRequest
+from breeding.breeding import predict_breeding
 
 # transcribe.py 모듈을 import하기 위해 경로 추가
 sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
@@ -57,6 +58,21 @@ async def get_clause_suggestions(request: ClauseSuggestionRequest):
 async def generate_contract(request: ContractGenerationRequest):
     """계약서 생성"""
     return await contract_service.generate_contract(request)
+
+@app.post("/breeding-predict")
+async def predict_breeding_endpoint(file1: UploadFile = File(...), file2: UploadFile = File(...)):
+    """교배 예측"""
+    try:
+        # 두 개의 이미지 파일 읽기
+        image1_bytes = await file1.read()
+        image2_bytes = await file2.read()
+        
+        # 교배 예측 실행
+        result = predict_breeding(image1_bytes, image2_bytes)
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"교배 예측 중 오류 발생: {str(e)}")
 
 @app.post("/transcribe")
 async def transcribe_audio_endpoint(file: UploadFile = File(...)):

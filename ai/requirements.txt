@@ -1,9 +1,13 @@
 fastapi
-uvicorn
-torch
-torchvision
-pillow
+uvicorn[standard]
 python-multipart
-openai==0.28.1
-requests
+pydantic
 python-dotenv
+pillow>=10.0.0
+openai==0.28.1
+
+# ↓ 호환성 핵심
+numpy<2
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.0.1
+torchvision==0.15.2
