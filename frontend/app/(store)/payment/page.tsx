@@ -1,10 +1,10 @@
 "use client"
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import PaymentPage from "./PaymentPage";
 
-export default function Payment() {
+function PaymentContent() {
   const searchParams = useSearchParams();
   
   // URL 파라미터에서 결제 정보를 가져오거나 기본값 설정
@@ -44,5 +44,13 @@ export default function Payment() {
       onSuccess={handleSuccess}
       onFail={handleFail}
     />
+  );
+}
+
+export default function Payment() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <PaymentContent />
+    </Suspense>
   );
 } 

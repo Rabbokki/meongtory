@@ -125,15 +125,20 @@ export default function DogResearchLabPage() {
 
       const result = response.data
 
-      // Python AI 서버는 직접 결과를 반환하므로 success 체크 불필요
-      const breedInfo = getBreedInfo(result.breed)
-      
-      setIdentificationResult({
-        breed: result.breed,
-        confidence: Math.round(result.confidence),
-        characteristics: breedInfo.characteristics,
-        description: breedInfo.description,
-      })
+      // 백엔드에서 ResponseDto로 래핑해서 보내므로 data 필드에서 실제 결과 추출
+      if (result.success && result.data) {
+        const breedData = result.data
+        const breedInfo = getBreedInfo(breedData.breed)
+        
+        setIdentificationResult({
+          breed: breedData.breed,
+          confidence: Math.round(breedData.confidence),
+          characteristics: breedInfo.characteristics,
+          description: breedInfo.description,
+        })
+      } else {
+        throw new Error(result.error?.message || '품종 분석에 실패했습니다.')
+      }
     } catch (error) {
       console.error('품종 분석 오류:', error)
       setIdentificationResult({
@@ -200,10 +205,13 @@ export default function DogResearchLabPage() {
       formData.append("parent1", parent1Blob, "parent1.jpg");
       formData.append("parent2", parent2Blob, "parent2.jpg");
 
-      const response = await axios.post("http://localhost:8080/api/ai/predict-breeding", formData);
+      const backendUrl = getBackendUrl()
+      const response = await axios.post(`${backendUrl}/api/ai/predict-breeding`, formData);
       const result = response.data;
+      
       if (!result) throw new Error("No result received from API");
 
+      // 백엔드에서 BreedingResultDto를 직접 반환하므로 바로 사용
       setBreedingResult(result);
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {

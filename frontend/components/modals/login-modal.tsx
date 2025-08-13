@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import { getApiBaseUrl } from "@/lib/utils/api-config";
 
 
 interface LoginModalProps {
@@ -32,7 +33,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
       axios
-        .get("/api/accounts/me", {
+        .get(`${getApiBaseUrl()}/accounts/me`, {
           headers: { Access_Token: accessToken },
         })
         .then((response) => {
@@ -74,7 +75,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
 
     try {
       const response = await axios.post(
-        "/api/accounts/login",
+        `${getApiBaseUrl()}/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );

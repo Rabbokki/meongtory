@@ -5,9 +5,9 @@ import sys
 import io
 from dotenv import load_dotenv
 
-# 상위 디렉토리의 model.py를 import하기 위해 경로 추가
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-from model import DogBreedClassifier
+# breed 디렉토리의 model.py를 import하기 위해 경로 추가
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(__file__)), 'breed'))
+from breed.model import DogBreedClassifier
 
 # 환경 변수 로드
 load_dotenv()
@@ -44,7 +44,7 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
         prompt = f"""부모 강아지 품종: {parent1_breed} + {parent2_breed}
 
 자녀 강아지의 예상 정보를 JSON 형식으로 생성해주세요:
-- result_breed: 혼합견 이름
+- resultBreed: 혼합견 이름
 - probability: 예측 확률(0-100)
 - traits: 특성 4-5개
 - description: 100-200자 설명
@@ -100,7 +100,7 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
             image_url = ""
 
         return BreedingPrediction(
-            resultBreed=prediction["result_breed"],
+            resultBreed=prediction["resultBreed"],
             probability=probability,
             traits=prediction["traits"],
             description=prediction["description"],

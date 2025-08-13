@@ -40,7 +40,6 @@ axios.interceptors.response.use(
           // 토큰 갱신 실패 시 로그인 페이지로 리다이렉트
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
-          window.location.href = '/login';
         }
       }
     }

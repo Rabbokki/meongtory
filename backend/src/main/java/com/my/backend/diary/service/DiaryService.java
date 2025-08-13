@@ -9,6 +9,7 @@ import com.my.backend.diary.entity.Diary;
 import com.my.backend.diary.repository.DiaryRepository;
 import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -25,6 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DiaryService {
 
     private final DiaryRepository diaryRepository;
@@ -116,6 +118,8 @@ public class DiaryService {
         try {
             // AI 서비스 URL 구성
             String transcribeUrl = aiServiceUrl + "/transcribe";
+            log.info("음성 변환 시작 - AI 서비스 URL: {}", transcribeUrl);
+            log.info("음성 파일 정보 - 이름: {}, 크기: {} bytes", audioFile.getOriginalFilename(), audioFile.getSize());
             
             // 헤더 설정
             HttpHeaders headers = new HttpHeaders();
@@ -132,6 +136,8 @@ public class DiaryService {
             
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
             
+            log.info("AI 서비스로 요청 전송 중...");
+            
             // AI 서비스 호출
             ResponseEntity<TranscribeResponse> response = restTemplate.postForEntity(
                 transcribeUrl,
@@ -139,14 +145,19 @@ public class DiaryService {
                 TranscribeResponse.class
             );
             
+            log.info("AI 서비스 응답 - 상태 코드: {}, 응답 본문: {}", response.getStatusCode(), response.getBody());
+            
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 String transcribedText = response.getBody().getTranscript();
+                log.info("음성 변환 성공 - 변환된 텍스트: {}", transcribedText);
                 return transcribedText;
             } else {
+                log.error("AI 서비스에서 음성 변환 실패 - 상태 코드: {}", response.getStatusCode());
                 throw new RuntimeException("AI 서비스에서 음성 변환 실패");
             }
             
         } catch (Exception e) {
+            log.error("음성 변환 중 오류 발생: {}", e.getMessage(), e);
             throw new RuntimeException("음성 변환 중 오류 발생: " + e.getMessage());
         }
     }

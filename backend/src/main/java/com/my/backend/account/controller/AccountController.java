@@ -55,6 +55,9 @@ public class AccountController {
 
     @GetMapping("/me")
     public ResponseDto<?> getUserInfo(@AuthenticationPrincipal UserDetailsImpl userDetails) throws IOException {
+        if (userDetails == null) {
+            return ResponseDto.fail("UNAUTHORIZED", "인증이 필요합니다.");
+        }
         String email = userDetails.getUsername();
         return ResponseDto.success(accountService.getUserInfoByEmail(email));
     }

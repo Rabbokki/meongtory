@@ -225,7 +225,8 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
     setIsGeneratingStory(true)
 
     try {
-      const response = await axios.post('http://localhost:9000/generate-story', {
+      const backendUrl = getBackendUrl()
+      const response = await axios.post(`${backendUrl}/api/ai/generate-background-story`, {
         petName: newAnimal.name,
         breed: newAnimal.breed,
         age: newAnimal.age,
@@ -235,6 +236,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
       }, {
         headers: {
           'Content-Type': 'application/json',
+          'Access_Token': localStorage.getItem('accessToken') || '',
         },
       })
 
@@ -244,8 +246,12 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
 
       const result = response.data
       
-      // Python AI 서버는 직접 story를 반환
-      setNewAnimal((prev) => ({ ...prev, description: result.story }))
+      // 백엔드에서 ResponseDto로 래핑해서 보내므로 data 필드에서 추출
+      if (result.success && result.data) {
+        setNewAnimal((prev) => ({ ...prev, description: result.data.story }))
+      } else {
+        throw new Error(result.error?.message || 'AI 스토리 생성에 실패했습니다.')
+      }
     } catch (error) {
       console.error('AI 스토리 생성 오류:', error)
       alert('AI 스토리 생성에 실패했습니다.')
