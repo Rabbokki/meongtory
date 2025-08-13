@@ -1,6 +1,5 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from model import DogBreedClassifier
 import io
 import tempfile
 import sys
@@ -11,6 +10,8 @@ from contract.service import ContractAIService
 from contract.models import ContractSuggestionRequest, ClauseSuggestionRequest, ContractGenerationRequest
 from story.service import StoryAIService
 from story.models import BackgroundStoryRequest
+from breed.breed_api import router as breed_router
+from emotion.emotion_api import router as emotion_router
 
 # transcribe.py 모듈을 import하기 위해 경로 추가
 sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
@@ -26,17 +27,22 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 서비스 인스턴스 생성
-classifier = DogBreedClassifier()
-contract_service = ContractAIService()
-story_service = StoryAIService()
+app.include_router(breed_router)
+app.include_router(emotion_router)
 
-@app.post("/predict")
-async def predict_dog_breed(file: UploadFile = File(...)):
-    """강아지 품종 예측"""
-    image_bytes = io.BytesIO(await file.read())
-    result = classifier.predict(image_bytes)
-    return result
+# OpenAI 설정
+openai.api_key = os.getenv("OPENAI_API_KEY", "")
+if not openai.api_key:
+    print("Warning: OPENAI_API_KEY not set")
+
+# 배경스토리 요청 모델
+class BackgroundStoryRequest(BaseModel):
+    petName: str
+    breed: str
+    age: str
+    gender: str
+    personality: str = ""
+    userPrompt: str = ""
 
 @app.post("/generate-story")
 async def generate_background_story(request: BackgroundStoryRequest):
@@ -91,7 +97,3 @@ async def transcribe_audio_endpoint(file: UploadFile = File(...)):
 @app.get("/")
 async def root():
     return {"message": "Dog Breed Classifier API"}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=9000)

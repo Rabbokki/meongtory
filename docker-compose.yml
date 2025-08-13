@@ -1,8 +1,19 @@
 services:
-  db:
+  frontend:
     build:
-      context: ./db
+      context: ./frontend
       dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+    depends_on:
+      - backend
+    networks:
+      - meongtory-network
+
+  db:
+    image: postgres:15
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}

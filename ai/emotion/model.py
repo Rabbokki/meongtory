@@ -1,20 +1,24 @@
 import torch
+import torch.nn as nn
 import torchvision.transforms as transforms
 from torchvision.models import resnet50, ResNet50_Weights
 from PIL import Image
 import torch.nn.functional as F
-from dog_breeds import DOG_BREEDS
+from .emotion_labels import DOG_EMOTIONS, EMOTION_KOREAN
 
-class DogBreedClassifier:
+class DogEmotionClassifier:
     def __init__(self):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model = resnet50(weights=ResNet50_Weights.IMAGENET1K_V2)
+        
+        # 마지막 분류층을 4개 감정으로 변경
+        self.model.fc = nn.Linear(2048, 4)
         self.model.eval()
         self.model.to(self.device)
         
         self.transform = transforms.Compose([
             transforms.Resize(256),
-            transforms.CenterCrop(224),  # ResNet-50 최적 입력 크기
+            transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                std=[0.229, 0.224, 0.225])
@@ -28,23 +32,17 @@ class DogBreedClassifier:
             outputs = self.model(input_tensor)
             probabilities = F.softmax(outputs, dim=1)
             
-        # Get top 3 predictions
-        top3_prob, top3_indices = torch.topk(probabilities, 3)
+        # Get top prediction
+        top_prob, top_idx = torch.max(probabilities, 1)
         
-        results = []
-        for i in range(3):
-            class_idx = top3_indices[0][i].item()
-            confidence = top3_prob[0][i].item() * 100
-            
-            # Check if it's a dog breed
-            if class_idx in DOG_BREEDS:
-                breed_name = DOG_BREEDS[class_idx]
-            else:
-                breed_name = "믹스견"
-            
-            results.append({
-                "breed": breed_name,
-                "confidence": round(confidence, 1)
-            })
+        emotion_idx = top_idx.item()
+        confidence = top_prob.item() * 100
         
-        return results[0]  # Return top prediction
+        emotion_en = DOG_EMOTIONS[emotion_idx]
+        emotion_kr = EMOTION_KOREAN[emotion_en]
+        
+        return {
+            "emotion": emotion_en,
+            "emotion_korean": emotion_kr,
+            "confidence": round(confidence, 1)
+        }
