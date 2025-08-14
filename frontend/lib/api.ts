@@ -1,7 +1,16 @@
 import axios from 'axios';
-import { getApiBaseUrl } from './utils/api-config';
+
+// API 설정을 위한 공통 유틸리티
+export const getBackendUrl = () => {
+  return process.env.BACKEND_URL || 'http://localhost:8080'
+}
+
+export const getApiBaseUrl = () => {
+  return `${getBackendUrl()}/api`
+}
 
 const API_BASE_URL = getApiBaseUrl();
+
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(

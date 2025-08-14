@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { getApiBaseUrl } from "@/lib/utils/api-config";
+import { getApiBaseUrl } from "@/lib/api";
 
 
 interface LoginModalProps {

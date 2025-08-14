@@ -27,7 +27,7 @@ import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
 import axios from "axios"
 import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "@/lib/utils"
-import { getBackendUrl } from "@/lib/utils/api-config"
+import { getBackendUrl } from "@/lib/api"
 
 interface Product {
   id: number

@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { X, Upload, Loader2, Sparkles } from "lucide-react"
 import { petApi, s3Api, handleApiError } from "@/lib/api"
 import axios from "axios"
-import { getBackendUrl } from "@/lib/utils/api-config"
+import { getBackendUrl } from "@/lib/api"
 
 import type { Pet } from "@/types/pets"
 

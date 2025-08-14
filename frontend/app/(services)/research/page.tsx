@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Camera, Upload, Sparkles, Heart, Video, Smile } from "lucide-react"
 import axios from "axios"
-import { getBackendUrl } from "@/lib/utils/api-config"
+import { getBackendUrl } from "@/lib/api"
 
 interface BreedIdentificationResult {
   breed: string

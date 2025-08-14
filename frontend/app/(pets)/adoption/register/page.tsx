@@ -16,7 +16,7 @@ import { petApi, s3Api, Pet as ApiPet, handleApiError } from "@/lib/api"
 import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import axios from "axios"
 import { useToast } from "@/hooks/use-toast"
-import { getBackendUrl } from "@/lib/utils/api-config"
+import { getBackendUrl } from "@/lib/api"
 
 interface AnimalRecord {
   id: string

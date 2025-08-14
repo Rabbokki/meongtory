@@ -253,7 +253,9 @@ export default function DiaryEditPage() {
       mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
 
       mediaRecorder.onstop = async () => {
+        console.log('=== 녹음 중지됨 ===');
         const blob = new Blob(chunks, { type: "audio/webm" });
+        console.log('Created blob:', blob.size, 'bytes');
         const url = URL.createObjectURL(blob);
         setNewAudioUrl(url);
         setNewAudioBlob(blob);
@@ -266,7 +268,9 @@ export default function DiaryEditPage() {
         }
 
         // STT 변환 시작
+        console.log('Calling convertAudioToText...');
         await convertAudioToText(blob);
+        console.log('convertAudioToText completed');
         
         stream.getTracks().forEach(track => track.stop());
       };
@@ -306,11 +310,17 @@ export default function DiaryEditPage() {
   // 오디오를 텍스트로 변환 (덮어쓰기)
   const convertAudioToText = async (audioBlob: Blob) => {
     try {
+      console.log('=== STT 변환 시작 ===');
+      console.log('Audio blob size:', audioBlob.size);
+      console.log('Audio blob type:', audioBlob.type);
+      
       setIsConvertingAudio(true);
       
       // FormData 생성
       const formData = new FormData();
       formData.append('audio', audioBlob, 'recording.webm');
+      
+      console.log('FormData created, sending request to backend...');
 
       // 백엔드로 직접 전송
       const response = await fetch('http://localhost:8080/api/diary/voice', {
@@ -321,15 +331,22 @@ export default function DiaryEditPage() {
         body: formData,
       });
 
+      console.log('Backend response status:', response.status);
+      console.log('Backend response headers:', Object.fromEntries(response.headers.entries()));
+
       if (!response.ok) {
-        throw new Error('음성 변환에 실패했습니다.');
+        const errorText = await response.text();
+        console.error('Backend error response:', errorText);
+        throw new Error(`음성 변환에 실패했습니다. Status: ${response.status}, Error: ${errorText}`);
       }
 
       const transcribedText = await response.text();
+      console.log('Transcribed text received:', transcribedText);
 
       // 변환된 텍스트를 기존 내용에 추가
       setContent(prevContent => {
         const newContent = prevContent + (prevContent ? '\n\n' : '') + transcribedText;
+        console.log('Updated content:', newContent);
         return newContent;
       });
 
@@ -340,6 +357,10 @@ export default function DiaryEditPage() {
 
     } catch (error) {
       console.error('음성 변환 오류:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
       toast({
         title: "음성 변환 실패",
         description: "음성을 텍스트로 변환하는 중 오류가 발생했습니다.",
@@ -347,6 +368,7 @@ export default function DiaryEditPage() {
       });
     } finally {
       setIsConvertingAudio(false);
+      console.log('=== STT 변환 완료 ===');
     }
   };
 
