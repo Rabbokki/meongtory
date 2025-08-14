@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 백엔드 S3 업로드 API 호출
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
     const backendFormData = new FormData();
     backendFormData.append('file', file);
 
