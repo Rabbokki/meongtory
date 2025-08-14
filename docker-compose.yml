@@ -6,7 +6,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - BACKEND_URL=${BACKEND_URL}
     depends_on:
       - backend
     networks:
@@ -45,13 +45,12 @@ services:
     volumes:
       - ./ai:/app
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
-
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
       - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL} 
-      - AI_SERVICE_URL=http://ai:9000
       - OPENAI_BREEDING_MODEL=${OPENAI_BREEDING_MODEL}
+      - AI_SERVICE_URL=${AI_SERVICE_URL}
     networks:
       - meongtory-network
 
@@ -77,7 +76,7 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_S3_REGION=${AWS_S3_REGION}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
-      - AI_SERVICE_URL=http://ai:9000
+      - AI_SERVICE_URL=${AI_SERVICE_URL}
       - TOSS_SECRET_KEY=${TOSS_SECRET_KEY}
       - TOSS_CLIENT_KEY=${TOSS_CLIENT_KEY}
     depends_on:

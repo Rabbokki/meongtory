@@ -4,7 +4,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - BACKEND_URL=${BACKEND_URL}
     depends_on:
       - backend
     networks:
@@ -44,8 +44,11 @@ services:
     ports:
       - "9000:9000"
     environment:
-      # - OPENAI_API_KEY=${OPENAI_API_KEY}
-      # - OPENAI_MODEL=${OPENAI_MODEL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=${OPENAI_MODEL}
+      - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL} 
+      - OPENAI_BREEDING_MODEL=${OPENAI_BREEDING_MODEL}
+      - AI_SERVICE_URL=${AI_SERVICE_URL}
     networks:
       - meongtory-network
     restart: unless-stopped
