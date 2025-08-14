@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const NEXT_PUBLIC_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/diary/user/${params.userId}`, {
+    const response = await fetch(`${NEXT_PUBLIC_BACKEND_URL}/api/diary/user/${params.userId}`, {
       method: 'GET',
       headers: {
         'Authorization': request.headers.get('Authorization') || '',
