@@ -2,7 +2,7 @@
 FROM gradle:8.10.2-jdk17 AS builder
 WORKDIR /app
 COPY build.gradle settings.gradle ./
-RUN gradle dependencies --no-daemon
+RUN gradle dependencies --no-daemon -Dorg.gradle.jvmargs='-Dhttps.protocols=TLSv1.2,TLSv1.3'
 COPY src ./src
 RUN gradle build --no-daemon -x test
 

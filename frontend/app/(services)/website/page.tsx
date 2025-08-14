@@ -603,7 +603,7 @@ export default function PetServiceWebsite() {
     try {
       console.log("로그인 시도:", { email })
       const response = await axios.post(
-        "http://localhost:8080/api/accounts/login",
+        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       )
@@ -680,7 +680,7 @@ export default function PetServiceWebsite() {
       const accessToken = localStorage.getItem("accessToken")
       if (accessToken) {
         await axios.post(
-          "http://localhost:8080/api/accounts/logout",
+          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/logout`,
           {},
           {
             headers: {
@@ -1906,12 +1906,12 @@ export default function PetServiceWebsite() {
                       <br />
                       반려 라이프를 즐기세요
                     </h1>
-                    <p className="text-xl text-gray-600">우리 아이의 시간을 더 행복하게, 반려인의 삶을 더 편하게</p>
+                    <p className="text-xl text-gray-600">우리 아이의 시간을 더 행복하게, 반려동물의 삶을 더 편하게</p>
                   </div>
                   <div className="relative">
                     <div className="relative z-10">
                       <Image
-                        src="/placeholder.svg?height=400&width=600&text=Pet+service+interface+mockup"
+                        src="/jjj_포메라니안.jpg"
                         alt="Pet service interface mockup"
                         width={600}
                         height={400}

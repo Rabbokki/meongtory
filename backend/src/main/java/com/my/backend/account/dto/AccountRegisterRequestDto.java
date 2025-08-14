@@ -23,7 +23,7 @@ public class AccountRegisterRequestDto {
     )
     private String password;
 
-    private String role; // ADMIN 또는 USER
+    private String role = "USER"; // ADMIN 또는 USER
 
     // 회원가입 시 펫 정보 (MyPet 테이블에 저장됨)
     private PetType pet;

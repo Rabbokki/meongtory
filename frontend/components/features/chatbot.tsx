@@ -38,22 +38,24 @@ export default function Chatbot() {
 
       try {
         const response = await axios.post(
-          "http://localhost:8080/api/chatbot/query",
+          `${process.env.NEXT_PUBLIC_API_URL}/api/chatbot/query`,
           { query: inputMessage },
           { headers: { "Content-Type": "application/json" } }
         )
+        console.log("Response status:", response.status)
+        console.log("Response data:", JSON.stringify(response.data)) // 응답 데이터 디버깅
         const botResponse: ChatMessage = {
           id: Date.now() + 1,
-          message: response.data.answer,
+          message: response.data.answer || "응답이 비어 있습니다. 서버를 확인해주세요.",
           isUser: false,
           timestamp: new Date(),
         }
         setMessages((prev) => [...prev, botResponse])
-      } catch (error) {
-        console.error("챗봇 요청 실패:", error)
+      } catch (error: any) {
+        console.error("챗봇 요청 실패:", error.message, error.response?.data)
         const errorMessage: ChatMessage = {
           id: Date.now() + 1,
-          message: "죄송합니다. 서버 오류가 발생했습니다. 다시 시도해주세요.",
+          message: `죄송합니다. 서버 오류가 발생했습니다: ${error.message}`,
           isUser: false,
           timestamp: new Date(),
         }

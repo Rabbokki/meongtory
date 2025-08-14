@@ -1,13 +1,21 @@
+--index-url https://mirrors.aliyun.com/pypi/simple/
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn[standard]
 python-multipart
+openai>=1.86.0
+requests
+langchain
+langchain-openai
+langchain-huggingface
+langchain-postgres
+psycopg2-binary
+sentence-transformers
+tqdm
+pgvector
+torch==2.4.1
+torchvision==0.19.1
+numpy<2
 pydantic
 python-dotenv
 pillow>=10.0.0
-openai>=1.86.0
-
-# ↓ 호환성 핵심
-numpy<2
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.0.1
-torchvision==0.15.2

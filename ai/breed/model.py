@@ -3,7 +3,7 @@ import torchvision.transforms as transforms
 from torchvision.models import resnet50, ResNet50_Weights
 from PIL import Image
 import torch.nn.functional as F
-from .dog_breeds import DOG_BREEDS
+from breed.dog_breeds import DOG_BREEDS
 
 class DogBreedClassifier:
     def __init__(self):

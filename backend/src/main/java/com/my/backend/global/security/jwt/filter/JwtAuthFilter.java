@@ -27,6 +27,12 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+        return path.equals("/api/accounts/register") || path.equals("/api/accounts/login");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         Enumeration<String> headerNames = request.getHeaderNames();
@@ -38,7 +44,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         log.info("Request Content-Type: {}", request.getContentType());
         String accessToken = jwtUtil.getHeaderToken(request, "Access_Token");
-        String refreshToken = jwtUtil.getHeaderToken(request, "Refresh_Token");
+        String refreshToken = jwtUtil.getHeaderToken(request, "Refresh");
 
         log.info("Access Token from header: {}", accessToken);
         log.info("Refresh Token from header: {}", refreshToken);
@@ -48,7 +54,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         if (accessToken != null) {
             if (!jwtUtil.tokenValidation(accessToken)) {
                 log.warn("Token validation failed for Access Token: {}", accessToken);
-                handleAuthenticationFailure(request, response, "AccessToken Expired", HttpStatus.UNAUTHORIZED);
+                jwtExceptionHandler(response, "AccessToken Expired", HttpStatus.UNAUTHORIZED);
                 return;
             }
             String email = jwtUtil.getEmailFromToken(accessToken);
@@ -58,7 +64,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         } else if (refreshToken != null) {
             if (!jwtUtil.refreshTokenValidation(refreshToken)) {
                 log.warn("Token validation failed for Refresh Token: {}", refreshToken);
-                handleAuthenticationFailure(request, response, "RefreshToken Expired", HttpStatus.BAD_REQUEST);
+                jwtExceptionHandler(response, "RefreshToken Expired", HttpStatus.BAD_REQUEST);
                 return;
             }
             String email = jwtUtil.getEmailFromToken(refreshToken);
@@ -83,22 +89,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             log.info("Authentication successfully set in SecurityContext: {}", authentication);
         } catch (Exception e) {
             log.error("Error setting authentication for email: {}. Exception: {}", email, e.getMessage());
-        }
-    }
-
-    /**
-     * 인증 실패 시 API 요청과 웹 페이지 요청을 구분하여 처리
-     */
-    private void handleAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, String msg, HttpStatus status) throws IOException {
-        String requestURI = request.getRequestURI();
-        log.info("Authentication failure for URI: {}", requestURI);
-        
-        // API 요청인 경우 JSON 응답으로 401 상태 코드 반환
-        if (requestURI.startsWith("/api/")) {
-            jwtExceptionHandler(response, msg, status);
-        } else {
-            // 웹 페이지 요청인 경우 로그인 페이지로 리다이렉트
-            response.sendRedirect("/login");
         }
     }
 

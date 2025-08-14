@@ -13,28 +13,20 @@ services:
       - meongtory-network
 
   db:
-    image: postgres:15
+    build:
+      context: ./db
+      dockerfile: Dockerfile
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init-db:/docker-entrypoint-initdb.d
+      - ./db/init-db:/docker-entrypoint-initdb.d
     ports:
-      - "0.0.0.0:5433:5432"
+      - "5433:5432"
     networks:
       - meongtory-network
-    command: |
-      bash -c "
-        docker-entrypoint.sh postgres &
-        sleep 10
-        cp /docker-entrypoint-initdb.d/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf
-        chmod 600 /var/lib/postgresql/data/pg_hba.conf
-        chown postgres:postgres /var/lib/postgresql/data/pg_hba.conf
-        pg_ctl reload -D /var/lib/postgresql/data
-        wait
-      "
 
   ai:
     build:
@@ -44,13 +36,19 @@ services:
       - "9000:9000"
     volumes:
       - ./ai:/app
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
     environment:
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_HOST=db
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
-      - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL} 
+      - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL}
       - OPENAI_BREEDING_MODEL=${OPENAI_BREEDING_MODEL}
       - AI_SERVICE_URL=${AI_SERVICE_URL}
+    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
+    depends_on:
+      - db
     networks:
       - meongtory-network
 

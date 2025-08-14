@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -20,6 +20,7 @@ DB_USER = os.getenv("DB_USER", "jjj")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "1q2w3e4r!")
 DB_HOST = os.getenv("DB_HOST", "db")
 DB_NAME = os.getenv("DB_NAME", "meong")
+# SQLAlchemy용 DSN
 CONNECTION_STRING = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
@@ -34,7 +35,6 @@ except Exception as e:
 
 # PGVector 초기화
 try:
-    logger.debug(f"Attempting to connect to database with: {CONNECTION_STRING}")
     vectorstore = PGVector(
         connection=CONNECTION_STRING,
         embeddings=embeddings,
@@ -43,24 +43,9 @@ try:
         use_jsonb=True
     )
     logger.info("PGVector initialized successfully")
-    # 테이블 및 컬렉션 확인
-    with psycopg2.connect(
-        host=DB_HOST,
-        port=5432,
-        dbname=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
-    ) as conn:
-        with conn.cursor() as cur:
-            cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'langchain_pg_embedding')")
-            table_exists = cur.fetchone()[0]
-            logger.debug(f"langchain_pg_embedding table exists: {table_exists}")
-            cur.execute("SELECT COUNT(*) FROM langchain_pg_collection WHERE name = %s", ("chatbot_vectors",))
-            collection_count = cur.fetchone()[0]
-            logger.debug(f"chatbot_vectors collection exists: {collection_count}")
 except Exception as e:
-    logger.error(f"Failed to initialize PGVector: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail=f"Vectorstore initialization failed: {str(e)}")
+    logger.error(f"Failed to initialize PGVector: {e}")
+    raise HTTPException(status_code=500, detail="Vectorstore initialization failed")
 
 # 샘플 데이터 삽입
 def initialize_vectorstore():
@@ -80,9 +65,9 @@ def initialize_vectorstore():
         ) as conn:
             with conn.cursor() as cur:
                 cur.execute("""
-                    SELECT COUNT(*)
-                    FROM langchain_pg_embedding e
-                    JOIN langchain_pg_collection c ON e.collection_id = c.uuid
+                    SELECT COUNT(*) 
+                    FROM langchain_pg_embedding e 
+                    JOIN langchain_pg_collection c ON e.collection_id = c.uuid 
                     WHERE c.name = %s
                 """, ("chatbot_vectors",))
                 count = cur.fetchone()[0]
@@ -91,7 +76,7 @@ def initialize_vectorstore():
                 if count > 0:
                     logger.info("Deleting existing data in chatbot_vectors")
                     cur.execute("""
-                        DELETE FROM langchain_pg_embedding
+                        DELETE FROM langchain_pg_embedding 
                         WHERE collection_id = (
                             SELECT uuid FROM langchain_pg_collection WHERE name = %s
                         )
@@ -132,10 +117,11 @@ except Exception as e:
     logger.error(f"Failed to initialize ChatOpenAI: {e}")
     raise HTTPException(status_code=500, detail="LLM initialization failed")
 
+# 프롬프트 템플릿
 prompt_template = PromptTemplate(
     input_variables=["context", "query"],
-    template="""You are 멍토리 도우미, a chatbot for a pet All-in-One platform.
-    Answer in Korean, using a friendly tone.
+    template="""You are 멍토리 도우미, a chatbot for a pet All-in-One platform. 
+    Answer in Korean, using a friendly tone. 
     Context: {context}
     Question: {query}
     Answer:"""
@@ -144,24 +130,19 @@ prompt_template = PromptTemplate(
 class QueryRequest(BaseModel):
     query: str
 
-async def process_rag_query(query: str):
-    try:
-        logger.info(f"Processing query: {query}")
-        results = vectorstore.similarity_search(query, k=5)
-        context = "\n".join([doc.page_content for doc in results])
-        prompt = prompt_template.format(context=context, query=query)
-        response = llm.invoke(prompt)
-        logger.info(f"Query response: {response.content}")
-        return {"answer": response.content}
-    except Exception as e:
-        logger.error(f"Error processing query: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Query processing failed: {str(e)}")
-
 @app.post("/rag")
 async def rag_endpoint(request: QueryRequest):
-    return await process_rag_query(request.query)
+    try:
+        logger.info(f"Processing query: {request.query}")
+        results = vectorstore.similarity_search(request.query, k=5)
+        context = "\n".join([doc.page_content for doc in results])
+        prompt = prompt_template.format(context=context, query=request.query)
+        response = llm.invoke(prompt)
+        logger.info("Query processed successfully")
+        return {"answer": response.content}
+    except Exception as e:
+        logger.error(f"Error processing query: {e}")
+        raise HTTPException(status_code=500, detail="Query processing failed")
 
-# 서버 시작 시 vectorstore 초기화 (중복 실행 방지)
-if not hasattr(app, 'vectorstore_initialized'):
-    initialize_vectorstore()
-    app.vectorstore_initialized = True
+# 서버 시작 시 vectorstore 초기화
+initialize_vectorstore()
