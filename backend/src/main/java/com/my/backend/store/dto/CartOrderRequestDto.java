@@ -10,5 +10,5 @@ import lombok.*;
 @Builder
 public class CartOrderRequestDto {
     @NotNull(message = "accountId는 필수입니다.")
-    private Long accountId; // 주문할 사용자 ID
+    private Long accountId;
 }

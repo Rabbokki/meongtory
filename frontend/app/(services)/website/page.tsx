@@ -774,8 +774,19 @@ export default function PetServiceWebsite() {
         return
       }
 
-      // 장바구니 추가 API
-      const url = `http://localhost:8080/api/carts?productId=${product.productId}&quantity=1`
+      // 수량 추출 (상품 상세페이지에서 전달받은 수량 또는 기본값 1)
+      const quantity = (product as any).selectedQuantity || 1
+      console.log("추가할 수량:", quantity)
+
+      // 재고 확인
+      const stock = typeof product.stock === 'number' ? product.stock : 0
+      if (quantity > stock) {
+        toast.error(`재고가 부족합니다. (재고: ${stock}개, 요청: ${quantity}개)`, { duration: 5000 })
+        return
+      }
+
+      // 장바구니 추가 API (수량 포함)
+      const url = `http://localhost:8080/api/carts?productId=${product.productId}&quantity=${quantity}`
       const response = await axios.post(url, null, {
         headers: { 
           "Content-Type": "application/x-www-form-urlencoded",
@@ -791,7 +802,7 @@ export default function PetServiceWebsite() {
       }
 
       await fetchCartItems()
-      toast.success(`${product.name}을(를) 장바구니에 추가했습니다`, { duration: 5000 })
+      toast.success(`${product.name}을(를) 장바구니에 ${quantity}개 추가했습니다`, { duration: 5000 })
       setCurrentPage("cart")
     } catch (error: any) {
       console.error("장바구니 추가 오류:", error)
@@ -800,7 +811,13 @@ export default function PetServiceWebsite() {
         status: error.response?.status,
         data: error.response?.data
       })
-      toast.error("백엔드 서버 연결에 실패했습니다. 장바구니 추가가 불가능합니다.", { duration: 5000 })
+      
+      // 백엔드에서 재고 부족 에러 처리
+      if (error.response?.data?.message?.includes('재고가 부족합니다')) {
+        toast.error(error.response.data.message, { duration: 5000 })
+      } else {
+        toast.error("백엔드 서버 연결에 실패했습니다. 장바구니 추가가 불가능합니다.", { duration: 5000 })
+      }
     }
   }
 
@@ -962,9 +979,15 @@ export default function PetServiceWebsite() {
 
       await fetchCartItems()
       toast.success("장바구니 수량을 업데이트했습니다", { duration: 5000 })
-    } catch (error) {
+    } catch (error: any) {
       console.error("수량 업데이트 오류:", error)
-      toast.error("수량 업데이트에 실패했습니다", { duration: 5000 })
+      
+      // 백엔드에서 재고 부족 에러 처리
+      if (error.response?.data?.message?.includes('재고가 부족합니다')) {
+        toast.error(error.response.data.message, { duration: 5000 })
+      } else {
+        toast.error("수량 업데이트에 실패했습니다", { duration: 5000 })
+      }
     }
   }
 

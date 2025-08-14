@@ -15,6 +15,18 @@ interface CartItem {
   category: string
   quantity: number
   order: number // 순서 고정을 위한 필드
+  product?: {
+    productId: number
+    name: string
+    description: string
+    price: number
+    stock: number
+    imageUrl: string
+    category: string
+    targetAnimal: string
+    registrationDate: string
+    registeredBy: string
+  }
 }
 
 interface CartPageProps {
@@ -180,13 +192,30 @@ export default function CartPage({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => {
+                            const stock = item.product?.stock || 0
+                            if (item.quantity >= stock) {
+                              alert(`재고가 부족합니다. (재고: ${stock}개, 현재: ${item.quantity}개)`)
+                              return
+                            }
+                            onUpdateQuantity(item.id, item.quantity + 1)
+                          }}
+                          disabled={item.quantity >= (item.product?.stock || 0)}
                           className="w-8 h-8 p-0"
                         >
                           +
                         </Button>
                       </div>
                     </div>
+                    {/* 재고 정보 표시 */}
+                    {item.product?.stock && (
+                      <div className="text-xs text-gray-500 mb-2">
+                        재고: {item.product.stock}개
+                        {item.quantity >= item.product.stock && (
+                          <span className="text-red-500 ml-2">최대 재고 수량입니다</span>
+                        )}
+                      </div>
+                    )}
                     
                     <div className="flex space-x-2">
                       <Button

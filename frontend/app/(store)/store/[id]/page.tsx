@@ -234,7 +234,7 @@ export default function StoreProductDetailPage({
     }
   }
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = async (product: Product) => {
     if (propOnAddToCart) {
       // 수량 정보를 포함하여 전달
       const productWithQuantity = {
@@ -245,7 +245,45 @@ export default function StoreProductDetailPage({
     } else {
       // 장바구니 추가 로직 구현
       console.log('장바구니에 추가:', product, '수량:', quantity)
-      alert(`장바구니에 ${quantity}개가 추가되었습니다!`)
+      
+      // 재고 확인
+      const stock = typeof product.stock === 'number' ? product.stock : 0
+      if (quantity > stock) {
+        alert(`재고가 부족합니다. (재고: ${stock}개, 요청: ${quantity}개)`)
+        return
+      }
+      
+      try {
+        const token = localStorage.getItem('accessToken')
+        if (!token) {
+          alert('로그인이 필요합니다.')
+          return
+        }
+
+        // 장바구니 추가 API 호출 (수량 포함)
+        const response = await axios.post(`${API_BASE_URL}/carts?productId=${product.id}&quantity=${quantity}`, null, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Access_Token": token,
+            "Refresh_Token": localStorage.getItem('refreshToken') || ''
+          }
+        })
+
+        if (response.status === 200) {
+          alert(`장바구니에 ${quantity}개가 추가되었습니다!`)
+        } else {
+          alert('장바구니 추가에 실패했습니다.')
+        }
+      } catch (error: any) {
+        console.error('장바구니 추가 오류:', error)
+        
+        // 백엔드에서 재고 부족 에러 처리
+        if (error.response?.data?.message?.includes('재고가 부족합니다')) {
+          alert(error.response.data.message)
+        } else {
+          alert('장바구니 추가에 실패했습니다.')
+        }
+      }
     }
   }
 
@@ -410,12 +448,16 @@ export default function StoreProductDetailPage({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => setQuantity(quantity + 1)}
+                      onClick={() => setQuantity(Math.min((typeof product.stock === 'number' ? product.stock : 0), quantity + 1))}
+                      disabled={quantity >= (typeof product.stock === 'number' ? product.stock : 0)}
                       className="w-8 h-8 p-0"
                     >
                       +
                     </Button>
                   </div>
+                  {quantity >= (typeof product.stock === 'number' ? product.stock : 0) && (
+                    <span className="text-xs text-red-500">최대 재고 수량입니다</span>
+                  )}
                 </div>
 
                 <div className="flex gap-3">

@@ -105,12 +105,18 @@ public Cart addToCart(Long accountId, Long productId, int quantity) {
     // 재고 확인
     int requestedQuantity = (quantity > 0) ? quantity : 1;
 
-    if (product.getStock() < requestedQuantity) {
-        throw new RuntimeException("상품 '" + product.getName() + "'의 재고가 부족합니다. (재고: " + product.getStock() + ", 요청: " + requestedQuantity + ")");
-    }
-
     // 기존 장바구니 항목 확인
     Cart existingCart = cartRepository.findByAccount_IdAndProduct_Id(accountId, productId).orElse(null);
+    
+    // 총 요청 수량 계산 (기존 장바구니 수량 + 새로 요청한 수량)
+    int totalRequestedQuantity = requestedQuantity;
+    if (existingCart != null) {
+        totalRequestedQuantity += existingCart.getQuantity();
+    }
+
+    if (product.getStock() < totalRequestedQuantity) {
+        throw new RuntimeException("상품 '" + product.getName() + "'의 재고가 부족합니다. (재고: " + product.getStock() + ", 요청: " + totalRequestedQuantity + ")");
+    }
     
     if (existingCart != null) {
         // 기존 항목이 있으면 수량 증가
