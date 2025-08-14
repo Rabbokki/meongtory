@@ -94,8 +94,8 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
               <div>
                 <h3 className="font-semibold mb-3">주문 상품</h3>
                 <div className="space-y-3">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  {items.map((item, index) => (
+                    <div key={`${item.id}-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
                           <ShoppingBag className="w-6 h-6 text-gray-500" />

@@ -84,6 +84,14 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
 
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
+      
+      // 토큰 저장 확인
+      console.log("=== 로그인 모달에서 토큰 저장 ===")
+      console.log("저장된 Access Token:", accessToken ? "존재함" : "없음")
+      console.log("저장된 Refresh Token:", refreshToken ? "존재함" : "없음")
+      console.log("Access Token 길이:", accessToken?.length)
+      console.log("localStorage에서 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨")
+      
       setUserEmail(email);
       setIsLoggedIn(true);
       toast.success("로그인 성공");
@@ -94,10 +102,6 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
       }
       
       onClose();
-      // 로그인 성공 콜백 호출
-      if (onLoginSuccess) {
-        onLoginSuccess();
-      }
     } catch (err: any) {
       if (err.response && err.response.data) {
         setError(err.response.data.message || "로그인 중 오류가 발생했습니다.");

@@ -6,14 +6,61 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, ShoppingCart, Star } from "lucide-react"
 import Image from "next/image"
-import { productApi } from "@/lib/api"
-import PaymentPage from "../../payment/page"
+import axios from "axios"
+import { useRouter } from "next/navigation"
+
+
+const API_BASE_URL = 'http://localhost:8080/api'
+
+// axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 응답 인터셉터 - 401 에러 시 토큰 갱신 시도
+axios.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    if (error.response?.status === 401) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/accounts/refresh`, {
+            refreshToken: refreshToken
+          });
+          const newAccessToken = response.data.accessToken;
+          localStorage.setItem('accessToken', newAccessToken);
+          
+          // 원래 요청 재시도
+          error.config.headers.Authorization = `Bearer ${newAccessToken}`;
+          return axios.request(error.config);
+        } catch (refreshError) {
+          // 토큰 갱신 실패 시 로그인 페이지로 리다이렉트
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 interface Product {
   id: number
   name: string
   price: number
-  imageUrl: string // image → imageUrl로 변경
+  imageUrl: string
   category: string
   description: string
   tags: string[]
@@ -25,32 +72,124 @@ interface Product {
   brand?: string
 }
 
-interface StoreProductDetailPageProps {
-  productId: number
-  onBack: () => void
-  onAddToCart: (product: Product) => void
-  onBuyNow: (product: Product) => void
-  isInCart: (id: number) => boolean
+interface PageProps {
+  params?: {
+    id: string
+  }
+  productId?: number
+  onBack?: () => void
+  onAddToCart?: (product: Product) => void
+  onBuyNow?: (product: Product) => void
+  isInCart?: (id: number) => boolean
 }
 
-export default function StoreProductDetailPage({
-  productId,
-  onBack,
-  onAddToCart,
-  onBuyNow,
-  isInCart,
-}: StoreProductDetailPageProps) {
+export default function StoreProductDetailPage({ 
+  params, 
+  productId: propProductId,
+  onBack: propOnBack,
+  onAddToCart: propOnAddToCart,
+  onBuyNow: propOnBuyNow,
+  isInCart: propIsInCart
+}: PageProps) {
+  const router = useRouter()
+  
+  // params에서 productId를 추출하거나 props에서 받기
+  const productId = propProductId || (params ? parseInt(params.id) : null)
+  
   const [product, setProduct] = useState<Product | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showPayment, setShowPayment] = useState(false)
-  const [quantity, setQuantity] = useState(1)
+  const [quantity, setQuantity] = useState(1);
+
+
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(false)
+
+  // 주문 내역 상태 추가
+  const [orders, setOrders] = useState<any[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+
+  // 상품 API 함수들 - 백엔드와 직접 연결
+  const productApi = {
+    // 특정 상품 조회
+    getProduct: async (productId: number): Promise<any> => {
+      try {
+        console.log('상품 조회 요청:', `${API_BASE_URL}/products/${productId}`);
+        console.log('요청할 productId:', productId, '타입:', typeof productId);
+        
+        const response = await axios.get(`${API_BASE_URL}/products/${productId}`);
+        console.log('상품 조회 성공:', response.data);
+        return response.data;
+      } catch (error) {
+        console.error('상품 조회 실패:', error);
+        if (axios.isAxiosError(error)) {
+          console.error('Axios 에러 상세:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            url: error.config?.url,
+            method: error.config?.method
+          });
+        }
+        throw error;
+      }
+    },
+  };
+
+  // 주문 내역 가져오기
+  const fetchOrders = async () => {
+    setOrdersLoading(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      const response = await axios.get(`${API_BASE_URL}/orders`, {
+        headers: {
+          "Access_Token": token,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
+      setOrders(response.data)
+    } catch (error) {
+      console.error('주문 내역을 가져오는데 실패했습니다:', error)
+    } finally {
+      setOrdersLoading(false)
+    }
+  }
+
+  // 현재 사용자 정보 가져오기
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const token = localStorage.getItem('accessToken')
+        if (token) {
+          const response = await axios.get(`${API_BASE_URL}/accounts/me`, {
+            headers: {
+              "Access_Token": token,
+              "Refresh_Token": localStorage.getItem('refreshToken') || ''
+            }
+          })
+          console.log('사용자 정보 응답:', response.data)
+          setCurrentUser(response.data.data)
+        }
+      } catch (error) {
+        console.error('사용자 정보 가져오기 실패:', error)
+      }
+    }
+    fetchCurrentUser()
+  }, [])
 
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true)
+        setError(null)
         console.log('상품 조회 요청 - productId:', productId)
+        console.log('productId 타입:', typeof productId)
+        console.log('propProductId:', propProductId)
+        console.log('params:', params)
+        
+        if (!productId || isNaN(productId)) {
+          throw new Error('유효하지 않은 상품 ID입니다.')
+        }
         
         const rawData = await productApi.getProduct(productId)
         console.log('상품 상세 데이터:', rawData);
@@ -58,15 +197,16 @@ export default function StoreProductDetailPage({
         // 백엔드 응답을 프론트엔드 형식으로 변환
         const data: Product = {
           ...rawData,
-          id: rawData.productId || rawData.id || 0, // productId를 id로 매핑
+          id: rawData.id || rawData.productId || 0,  // id를 우선 사용
+          productId: rawData.id || rawData.productId || 0,  // 호환성을 위해 productId도 설정
           name: rawData.name || '상품명 없음',
-          price: typeof rawData.price === 'number' ? rawData.price : 0, // price 필드 안전하게 매핑
-          imageUrl: rawData.image || rawData.imageUrl || '/placeholder.svg', // image 필드를 imageUrl로 매핑
+          price: typeof rawData.price === 'number' ? rawData.price : 0,
+          imageUrl: rawData.image || rawData.imageUrl || '/placeholder.svg',
           category: rawData.category || '카테고리 없음',
           description: rawData.description || '상품 설명이 없습니다.',
-          petType: rawData.targetAnimal?.toLowerCase() || 'all', // targetAnimal을 petType으로 매핑
-          brand: rawData.brand || '브랜드 없음', // brand 필드 추가
-          tags: rawData.tags || [], // tags 필드 추가
+          petType: rawData.targetAnimal?.toLowerCase() || 'all',
+          brand: rawData.brand || '브랜드 없음',
+          tags: rawData.tags || [],
           stock: typeof rawData.stock === 'number' ? rawData.stock : 0,
           registrationDate: rawData.registrationDate || '등록일 없음',
           registeredBy: rawData.registeredBy || '등록자 없음'
@@ -75,39 +215,83 @@ export default function StoreProductDetailPage({
         setProduct(data)
       } catch (error) {
         console.error('상품 조회 오류:', error)
-        
-        console.error('상품 조회 오류:', error);
         setError('상품을 불러오는데 실패했습니다.')
       } finally {
         setLoading(false)
       }
     }
 
-    fetchProduct()
+    if (productId) {
+      fetchProduct()
+    }
   }, [productId])
 
-  const handleBuyNow = () => {
-    if (product) {
-      setShowPayment(true)
+  const handleBack = () => {
+    if (propOnBack) {
+      propOnBack()
+    } else {
+      router.back()
     }
   }
 
-  const handlePaymentSuccess = (paymentInfo: any) => {
-    console.log("결제 성공:", paymentInfo)
-    setShowPayment(false)
-    alert("결제가 완료되었습니다!")
-    // 성공 후 상품 목록으로 돌아가기
-    onBack()
+  const handleAddToCart = (product: Product) => {
+    if (propOnAddToCart) {
+      // 수량 정보를 포함하여 전달
+      const productWithQuantity = {
+        ...product,
+        selectedQuantity: quantity
+      }
+      propOnAddToCart(productWithQuantity)
+    } else {
+      // 장바구니 추가 로직 구현
+      console.log('장바구니에 추가:', product, '수량:', quantity)
+      alert(`장바구니에 ${quantity}개가 추가되었습니다!`)
+    }
   }
 
-  const handlePaymentFail = (error: any) => {
-    console.log("결제 실패:", error)
-    setShowPayment(false)
+  const handleBuyNow = async () => {
+    console.log('handleBuyNow 함수 호출됨')
+    console.log('product:', product)
+    console.log('currentUser:', currentUser)
+    
+    if (!product) {
+      console.log('product가 없음')
+      return
+    }
+
+    // propOnBuyNow가 전달된 경우에도 직접 Payment 페이지로 이동
+    // (website/page.tsx에서 사용될 때도 동일하게 처리)
+
+    if (!currentUser) {
+      console.log('currentUser가 없음 - 로그인 필요')
+      alert('로그인이 필요합니다.')
+      return
+    }
+
+    if ((typeof product.stock === 'number' ? product.stock : 0) === 0) {
+      console.log('품절된 상품')
+      alert('품절된 상품입니다.')
+      return
+    }
+
+    console.log('Payment 페이지로 이동 시도')
+    // URL 파라미터를 통해 Payment 페이지로 이동
+    const paymentUrl = `/payment?productId=${product.id}&quantity=${quantity}&price=${product.price}&productName=${encodeURIComponent(product.name)}&imageUrl=${encodeURIComponent(product.imageUrl)}`
+    console.log('이동할 URL:', paymentUrl)
+    router.push(paymentUrl)
   }
 
-  const handleBackFromPayment = () => {
-    setShowPayment(false)
+  const isInCart = (id: number) => {
+    if (propIsInCart) {
+      return propIsInCart(id)
+    }
+    // 장바구니 확인 로직 구현
+    return false
   }
+
+
+
+
 
   if (loading) {
     return (
@@ -127,37 +311,23 @@ export default function StoreProductDetailPage({
           <CardContent className="pt-6 text-center">
             <h2 className="text-xl font-semibold mb-2">상품을 찾을 수 없습니다</h2>
             <p className="text-gray-600 mb-4">{error || '요청하신 상품이 존재하지 않습니다.'}</p>
-            <Button onClick={onBack}>돌아가기</Button>
+            <Button onClick={handleBack}>돌아가기</Button>
           </CardContent>
         </Card>
       </div>
     )
   }
 
-  // PaymentPage가 표시되어야 하는 경우
-  if (showPayment) {
-    return (
-      <PaymentPage
-        items={[{
-          id: product.id,
-          name: product.name,
-          price: product.price,
-          quantity: quantity,
-          image: product.imageUrl
-        }]}
-        onBack={handleBackFromPayment}
-        onSuccess={handlePaymentSuccess}
-        onFail={handlePaymentFail}
-      />
-    )
-  }
+
+
+
 
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" onClick={onBack} className="hover:bg-gray-100">
+          <Button variant="ghost" onClick={handleBack} className="hover:bg-gray-100">
             <ArrowLeft className="w-4 h-4 mr-2" />
             스토어로 돌아가기
           </Button>
@@ -250,7 +420,7 @@ export default function StoreProductDetailPage({
 
                 <div className="flex gap-3">
                   <Button
-                    onClick={() => onAddToCart(product)}
+                    onClick={() => handleAddToCart(product)}
                     disabled={(typeof product.stock === 'number' ? product.stock : 0) === 0 || isInCart(product.id)}
                     className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black"
                   >
@@ -260,10 +430,10 @@ export default function StoreProductDetailPage({
                   <Button
                     onClick={handleBuyNow}
                     variant="outline"
-                    disabled={(typeof product.stock === 'number' ? product.stock : 0) === 0}
+                    disabled={(typeof product.stock === 'number' ? product.stock : 0) === 0 || isLoading}
                     className="flex-1"
                   >
-                    바로 구매
+                    {isLoading ? '주문 중...' : '바로 구매'}
                   </Button>
                 </div>
               </CardContent>

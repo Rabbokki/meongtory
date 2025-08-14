@@ -34,6 +34,15 @@ export default function CartPage({
   onPurchaseSingle,
   onUpdateQuantity,
 }: CartPageProps) {
+  // 디버깅: cartItems 배열 확인
+  console.log('CartPage - cartItems:', cartItems);
+  if (cartItems) {
+    const ids = cartItems.map(item => item.id);
+    const uniqueIds = new Set(ids);
+    if (ids.length !== uniqueIds.size) {
+      console.warn('CartPage - 중복된 ID가 있습니다:', ids);
+    }
+  }
   const [showPayment, setShowPayment] = useState(false)
   const [paymentItems, setPaymentItems] = useState<CartItem[]>([])
 
@@ -133,8 +142,8 @@ export default function CartPage({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {cartItems?.sort((a, b) => a.order - b.order).map((item) => (
-                <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              {cartItems?.sort((a, b) => a.order - b.order).map((item, index) => (
+                <Card key={`${item.id}-${index}`} className="overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="relative">
                     <Image
                       src={item.image || "/placeholder.svg"}

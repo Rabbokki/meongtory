@@ -2,6 +2,7 @@ package com.my.backend.account.entity;
 
 import com.my.backend.account.dto.AccountRegisterRequestDto;
 import com.my.backend.pet.entity.MyPet;
+import com.my.backend.store.entity.Order;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -44,6 +45,9 @@ public class Account extends BaseEntity {
     // MyPet과의 관계 설정
     @OneToMany(mappedBy = "owner", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<MyPet> myPets = new ArrayList<>();
+
+    @OneToMany(mappedBy = "account")
+    private List<Order> orders = new ArrayList<>();
 
     public Account(AccountRegisterRequestDto requestDto) {
         this.name = requestDto.getName();

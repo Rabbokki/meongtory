@@ -224,71 +224,96 @@ export default function AdminPage({
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   // 상품 목록을 백엔드에서 가져오기
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const data = await productApi.getProducts();
-        
-        // 백엔드 응답을 프론트엔드 형식으로 변환
-        const convertedProducts = data.map((product: any) => ({
-          id: product.productId,
-          name: product.name,
-          price: product.price,
-          image: product.imageUrl,
-          category: product.category,
-          description: product.description,
-          tags: [],
-          stock: product.stock,
-          registrationDate: product.registrationDate,
-          registeredBy: product.registeredBy
-        }));
-        
-        // 최신순으로 정렬 (registrationDate 기준 내림차순)
-        const sortedProducts = convertedProducts.sort((a: any, b: any) => {
-          const dateA = new Date(a.registrationDate).getTime();
-          const dateB = new Date(b.registrationDate).getTime();
-          return dateB - dateA; // 내림차순 (최신순)
-        });
-        
-        setProducts(sortedProducts);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      }
-    };
+ useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      console.log('Fetching products...');
+      const response = await productApi.getProducts();
+      console.log('Raw product data from API:', response);
 
-    fetchProducts();
-    fetchContractTemplates();
-    fetchGeneratedContracts();
-  }, []);
+      const convertedProducts = response.map((product: any) => {
+        console.log('Converting product:', product); // 각 상품 데이터 로그
+        return {
+          id: product.id || product.productId || 0, // 백엔드에서 id 또는 productId 사용
+          name: product.name || '이름 없음',
+          price: product.price || 0,
+          image: product.image_url || product.imageUrl || '/placeholder.svg', // image_url 또는 imageUrl 처리
+          category: product.category || '카테고리 없음',
+          description: product.description || '',
+          tags: product.tags ? product.tags.split(',').map((tag: string) => tag.trim()) : [],
+          stock: product.stock || 0,
+          registrationDate: product.registration_date || product.registrationDate || getCurrentKSTDate(),
+          registeredBy: product.registered_by || product.registeredBy || 'admin',
+        };
+      });
+
+      console.log('Converted products:', convertedProducts);
+
+      const sortedProducts = convertedProducts.sort((a: Product, b: Product) => {
+        const dateA = new Date(a.registrationDate).getTime();
+        const dateB = new Date(b.registrationDate).getTime();
+        return dateB - dateA; // 최신순 정렬
+      });
+
+      setProducts(sortedProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      alert('상품 목록을 불러오는 데 실패했습니다.');
+    }
+  };
+
+  fetchProducts();
+}, []);
 
   // 주문 목록을 백엔드에서 가져오기
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         console.log('주문 데이터 가져오기 시작...');
-        const response = await axios.get('/api/orders');
+        const response = await axios.get('http://localhost:8080/api/orders/admin/all');
         console.log('주문 API 응답:', response);
         
         const data: any[] = response.data;
         console.log('받은 주문 데이터:', data);
         
-        // 데이터를 Order 형태로 변환
-        const orders: Order[] = data.map((order: any) => {
-          console.log('처리 중인 주문:', order);
-          console.log('주문의 orderItems:', order.orderItems);
-          
-          return {
-            orderId: order.orderId,
-            userId: order.userId,
-            totalPrice: order.totalPrice,
-            paymentStatus: order.paymentStatus,
-            orderedAt: order.orderedAt,
-            orderItems: order.orderItems || []
-          };
-        });
+        // 각 주문의 상세 정보를 가져와서 orderItems 포함
+        const ordersWithItems: Order[] = await Promise.all(
+          data.map(async (order: any) => {
+            try {
+              // 개별 주문 조회 API를 사용하여 상품 정보 가져오기
+              const detailResponse = await axios.get(`http://localhost:8080/api/orders/${order.orderId}`);
+              const orderDetail = detailResponse.data;
+              console.log(`주문 ${order.orderId} 상세 정보:`, orderDetail);
+              
+              return {
+                orderId: order.orderId,
+                userId: order.accountId || order.userId, // 백엔드에서 accountId로 오는 경우 처리
+                totalPrice: order.totalPrice,
+                paymentStatus: order.orderStatus === 'PAID' ? 'COMPLETED' : 
+                              order.orderStatus === 'CREATED' ? 'PENDING' : 
+                              order.orderStatus === 'CANCELED' ? 'CANCELLED' : 'PENDING',
+                orderedAt: order.orderedAt || order.createdAt,
+                orderItems: orderDetail.orderItems || order.orderItems || []
+              };
+            } catch (detailError) {
+              console.error(`주문 ${order.orderId} 상세 정보 가져오기 실패:`, detailError);
+              // 상세 정보 가져오기 실패 시 기본 정보만 사용
+              return {
+                orderId: order.orderId,
+                userId: order.accountId || order.userId,
+                totalPrice: order.totalPrice,
+                paymentStatus: order.orderStatus === 'PAID' ? 'COMPLETED' : 
+                              order.orderStatus === 'CREATED' ? 'PENDING' : 
+                              order.orderStatus === 'CANCELED' ? 'CANCELLED' : 'PENDING',
+                orderedAt: order.orderedAt || order.createdAt,
+                orderItems: order.orderItems || []
+              };
+            }
+          })
+        );
         
         // 최신순으로 정렬 (orderedAt 기준 내림차순)
-        const sortedOrders = orders.sort((a, b) => {
+        const sortedOrders = ordersWithItems.sort((a, b) => {
           const dateA = new Date(a.orderedAt).getTime();
           const dateB = new Date(b.orderedAt).getTime();
           return dateB - dateA; // 내림차순 (최신순)
@@ -597,32 +622,39 @@ export default function AdminPage({
     onEditProduct(product);
   };
 
-  const handleDeleteProduct = async (productId: number) => {
-    if (window.confirm('정말로 이 상품을 삭제하시겠습니까?')) {
-      try {
-        console.log('상품 삭제 요청:', productId);
-        
-        await productApi.deleteProduct(productId);
-        console.log('삭제 완료');
-
-        // 상품 목록에서 제거
-        setProducts(prev => prev.filter(p => p.id !== productId));
-        alert('상품이 성공적으로 삭제되었습니다.');
-      } catch (error) {
-        console.error('상품 삭제 오류:', error);
-        const errorMessage = axios.isAxiosError(error) && error.response?.data?.error 
-          ? error.response.data.error 
-          : '상품 삭제 중 오류가 발생했습니다.';
-        alert('상품 삭제 중 오류가 발생했습니다: ' + errorMessage);
-      }
+ const handleDeleteProduct = async (productId: number) => {
+  if (!productId || isNaN(productId)) {
+    alert('유효하지 않은 상품 ID입니다.');
+    console.error('Invalid productId:', productId);
+    return;
+  }
+  if (window.confirm('정말로 이 상품을 삭제하시겠습니까?')) {
+    try {
+      console.log('상품 삭제 요청:', productId);
+      await productApi.deleteProduct(productId);
+      console.log('삭제 완료');
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      alert('상품이 성공적으로 삭제되었습니다.');
+    } catch (error) {
+      console.error('상품 삭제 오류:', error);
+      const errorMessage = axios.isAxiosError(error) && error.response?.data?.error 
+        ? error.response.data.error 
+        : '상품 삭제 중 오류가 발생했습니다.';
+      alert('상품 삭제 중 오류가 발생했습니다: ' + errorMessage);
     }
-  };
+  }
+};
 
   const handleUpdateOrderStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
     try {
       console.log(`주문 상태 변경 요청: 주문ID ${orderId}, 상태 ${status}`);
       
-      const response = await axios.put(`/api/orders/${orderId}/status?status=${status}`);
+      // 백엔드 상태값으로 변환
+      const backendStatus = status === 'COMPLETED' ? 'PAID' : 
+                           status === 'PENDING' ? 'CREATED' : 
+                           status === 'CANCELLED' ? 'CANCELED' : 'CREATED';
+      
+      const response = await axios.patch(`http://localhost:8080/api/orders/${orderId}/status?status=${backendStatus}`);
       console.log('업데이트된 주문:', response.data);
       
       // 현재 주문 목록에서 해당 주문만 업데이트
@@ -1900,7 +1932,7 @@ export default function AdminPage({
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-3">
-                            <h3 className="font-semibold">주문 #{order.orderId}</h3>
+                            <h3 className="font-semibold">주문 #{order.orderId || order.id || 'N/A'}</h3>
                             <Badge 
                               className={
                                 order.paymentStatus === "COMPLETED"
@@ -1917,7 +1949,7 @@ export default function AdminPage({
                           
                           <div className="space-y-2 mb-4">
                             <p className="text-sm text-gray-600">사용자 ID: {order.userId}</p>
-                            <p className="text-sm text-gray-600">총 금액: {order.totalPrice.toLocaleString()}원</p>
+                            <p className="text-sm text-gray-600">총 금액: {(order.totalPrice || 0).toLocaleString()}원</p>
                             <p className="text-sm text-gray-600">
                               주문일: {order.orderedAt ? 
                                 (() => {
@@ -1988,21 +2020,12 @@ export default function AdminPage({
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateOrderStatus(order.orderId, "COMPLETED")}
-                            disabled={order.paymentStatus === "COMPLETED"}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            승인
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
+                            variant="destructive"
                             onClick={() => handleUpdateOrderStatus(order.orderId, "CANCELLED")}
                             disabled={order.paymentStatus === "CANCELLED"}
                           >
                             <XCircle className="h-4 w-4 mr-1" />
-                            거절
+                            주문취소
                           </Button>
                         </div>
                       </div>

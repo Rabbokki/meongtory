@@ -8,13 +8,20 @@ export default function Payment() {
   const searchParams = useSearchParams();
   
   // URL 파라미터에서 결제 정보를 가져오거나 기본값 설정
+  const orderId = searchParams.get('orderId');
+  const productId = searchParams.get('productId');
+  const quantity = parseInt(searchParams.get('quantity') || '1');
+  const price = parseInt(searchParams.get('price') || '0');
+  const productName = searchParams.get('productName') || '상품명';
+  const imageUrl = searchParams.get('imageUrl') || '/placeholder.svg';
+  
   const items = [
     {
-      id: 1,
-      name: "상품명",
-      price: 10000,
-      quantity: 1,
-      image: "/placeholder.svg"
+      id: parseInt(productId || '1'),
+      name: productName,
+      price: price,
+      quantity: quantity,
+      image: imageUrl
     }
   ];
 

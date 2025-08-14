@@ -1,11 +1,12 @@
 package com.my.backend.store.service;
 
+import com.my.backend.global.dto.ResponseDto;
 import com.my.backend.store.entity.Product;
 import com.my.backend.store.entity.Category;
 import com.my.backend.store.entity.TargetAnimal;
+import com.my.backend.store.repository.OrderItemRepository;
 import com.my.backend.store.repository.ProductRepository;
 import com.my.backend.store.repository.CartRepository;
-import com.my.backend.store.repository.OrderItemRepository;
 import com.my.backend.store.dto.ProductDto;
 import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
@@ -26,25 +27,25 @@ public class ProductService {
 
     public List<Product> getAllProducts() {
         List<Product> products = productRepository.findAll();
-        
-        // 데이터가 없으면 테스트 데이터 생성
+        System.out.println("조회된 상품 수: " + products.size());
+        products.forEach(product -> {
+            System.out.println("상품 ID: " + product.getId() + ", 이름: " + product.getName());
+        });
         if (products.isEmpty()) {
             System.out.println("상품 데이터가 없어서 테스트 데이터를 생성합니다.");
             createTestProducts();
             products = productRepository.findAll();
         }
-        
         return products;
     }
 
     private void createTestProducts() {
         try {
-            // 테스트 상품 1
             Product product1 = Product.builder()
                     .name("프리미엄 강아지 사료 (성견용)")
                     .description("성견을 위한 프리미엄 사료입니다.")
-                    .price(45000)
-                    .stock(50)
+                    .price(45000L)
+                    .stock(50L)
                     .imageUrl("/placeholder.svg?height=300&width=300")
                     .category(Category.사료)
                     .targetAnimal(TargetAnimal.DOG)
@@ -53,12 +54,11 @@ public class ProductService {
                     .build();
             productRepository.save(product1);
 
-            // 테스트 상품 2
             Product product2 = Product.builder()
                     .name("고양이 장난감 세트")
                     .description("다양한 고양이 장난감으로 구성된 세트입니다.")
-                    .price(25000)
-                    .stock(100)
+                    .price(25000L)
+                    .stock(100L)
                     .imageUrl("/placeholder.svg?height=300&width=300")
                     .category(Category.장난감)
                     .targetAnimal(TargetAnimal.CAT)
@@ -79,30 +79,25 @@ public class ProductService {
         System.out.println("상품명: " + product.getName());
         System.out.println("이미지 URL: " + (product.getImageUrl() != null ? product.getImageUrl().substring(0, Math.min(50, product.getImageUrl().length())) + "..." : "null"));
 
-        // registrationDate가 설정되지 않은 경우 현재 날짜로 설정
         if (product.getRegistrationDate() == null) {
             product.setRegistrationDate(LocalDate.now());
             System.out.println("등록일 자동 설정: " + product.getRegistrationDate());
         }
 
-        // registeredBy가 설정되지 않은 경우 기본값 설정
         if (product.getRegisteredBy() == null || product.getRegisteredBy().trim().isEmpty()) {
             product.setRegisteredBy("admin");
             System.out.println("등록자 자동 설정: " + product.getRegisteredBy());
         }
 
-        // 이미지가 Base64 형태로 전달된 경우 S3에 업로드
         if (product.getImageUrl() != null && product.getImageUrl().startsWith("data:")) {
             System.out.println("Base64 이미지 감지됨 - S3 업로드 시작");
             try {
-                // Base64 이미지를 S3에 업로드하고 URL 반환 (스토어 상품용)
                 String s3ImageUrl = s3Service.uploadProductBase64Image(product.getImageUrl());
                 product.setImageUrl(s3ImageUrl);
                 System.out.println("S3 업로드 완료: " + s3ImageUrl);
             } catch (Exception e) {
                 System.out.println("S3 업로드 실패: " + e.getMessage());
                 e.printStackTrace();
-                // S3 업로드 실패 시 기본 이미지 사용
                 product.setImageUrl("/placeholder.svg?height=300&width=300");
             }
         } else {
@@ -110,16 +105,16 @@ public class ProductService {
         }
 
         Product savedProduct = productRepository.save(product);
-        System.out.println("상품 저장 완료: " + savedProduct.getProductId());
+        System.out.println("상품 저장 완료: " + savedProduct.getId());
         return savedProduct;
     }
 
-    public Product getProductById(Integer id) {
+    public Product getProductById(Long id) {
         System.out.println("=== 상품 조회 시작 ===");
         System.out.println("조회할 상품 ID: " + id);
 
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("상품 없음"));
+                .orElseThrow(() -> new RuntimeException("상품을 찾을 수 없습니다."));
 
         System.out.println("조회된 상품: " + product.getName());
         System.out.println("상품 이미지 URL: " + product.getImageUrl());
@@ -127,24 +122,20 @@ public class ProductService {
         return product;
     }
 
-    public Product updateProduct(Integer id, Product updatedProduct) {
+    public Product updateProduct(Long id, Product updatedProduct) {
         Product product = getProductById(id);
         product.setName(updatedProduct.getName());
         product.setDescription(updatedProduct.getDescription());
         product.setPrice(updatedProduct.getPrice());
         product.setStock(updatedProduct.getStock());
 
-        // 기존 이미지 URL 저장
         String oldImageUrl = product.getImageUrl();
 
-        // 이미지가 Base64 형태로 전달된 경우 S3에 업로드
         if (updatedProduct.getImageUrl() != null && updatedProduct.getImageUrl().startsWith("data:")) {
             try {
-                // Base64 이미지를 S3에 업로드하고 URL 반환
                 String s3ImageUrl = s3Service.uploadBase64Image(updatedProduct.getImageUrl());
                 product.setImageUrl(s3ImageUrl);
-                
-                // 기존 S3 이미지가 있으면 삭제
+
                 if (oldImageUrl != null && oldImageUrl.startsWith("https://")) {
                     try {
                         String fileName = oldImageUrl.substring(oldImageUrl.lastIndexOf("/") + 1);
@@ -156,76 +147,46 @@ public class ProductService {
                 }
             } catch (Exception e) {
                 System.out.println("S3 업로드 실패: " + e.getMessage());
-                // S3 업로드 실패 시 기존 이미지 유지
             }
         } else if (updatedProduct.getImageUrl() != null) {
-            // Base64가 아닌 경우 그대로 설정
             product.setImageUrl(updatedProduct.getImageUrl());
         }
-        // imageUrl이 null인 경우 기존 이미지 유지
 
         return productRepository.save(product);
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void deleteProduct(Integer id) {
+    public ResponseDto<?> deleteProduct(Long id) {
+        System.out.println("=== 상품 삭제 서비스 시작 ===");
+        System.out.println("삭제할 상품 ID: " + id);
+        
+        // 상품 존재 여부 확인
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("상품을 찾을 수 없습니다: " + id));
+        
+        System.out.println("삭제할 상품: " + product.getName());
+        
         try {
-            System.out.println("=== 상품 삭제 시작 ===");
-            System.out.println("삭제할 상품 ID: " + id);
-
-            // 1단계: 상품 존재 여부 확인
-            Product product = getProductById(id);
-            if (product == null) {
-                throw new RuntimeException("상품을 찾을 수 없습니다: " + id);
-            }
-
-            System.out.println("상품 정보: " + product.getName());
-
-            // 2단계: 장바구니에서 해당 상품 삭제 (먼저 실행)
-            System.out.println("2단계: 장바구니 항목 삭제 시작");
-            try {
-                int deletedCartItems = cartRepository.deleteByProduct_ProductId(id);
-                System.out.println("장바구니 항목 삭제 완료: " + deletedCartItems + "개 항목 삭제됨");
-            } catch (Exception e) {
-                System.out.println("장바구니 항목 삭제 실패: " + e.getMessage());
-                // 장바구니 삭제 실패해도 상품 삭제는 계속 진행
-            }
-
-            // 2-1단계: 주문 항목에서 해당 상품 삭제
-            System.out.println("2-1단계: 주문 항목 삭제 시작");
-            try {
-                int deletedOrderItems = orderItemRepository.deleteByProductProductId(id);
-                System.out.println("주문 항목 삭제 완료: " + deletedOrderItems + "개 항목 삭제됨");
-            } catch (Exception e) {
-                System.out.println("주문 항목 삭제 실패: " + e.getMessage());
-                e.printStackTrace();
-                // 주문 항목 삭제 실패해도 상품 삭제는 계속 진행
-            }
-
-            // 3단계: S3에서 이미지 파일 삭제
-            System.out.println("3단계: S3 이미지 삭제 시작");
-            if (product.getImageUrl() != null && product.getImageUrl().contains("s3.amazonaws.com")) {
-                try {
-                    s3Service.deleteFile(product.getImageUrl());
-                    System.out.println("S3 이미지 삭제 완료: " + product.getImageUrl());
-                } catch (Exception e) {
-                    System.out.println("S3 이미지 삭제 실패 (무시): " + e.getMessage());
-                }
-            } else {
-                System.out.println("S3 이미지가 없어서 삭제 건너뜀");
-            }
-
-            // 4단계: 상품 삭제 (마지막에 실행)
-            System.out.println("4단계: 상품 삭제 시작");
-            productRepository.deleteById(id);
-            System.out.println("상품 삭제 완료: " + id);
-
-            System.out.println("=== 상품 삭제 완료 ===");
-
+            // 1. 관련된 장바구니 항목들 먼저 삭제
+            int deletedCartItems = cartRepository.deleteByProduct_Id(id);
+            System.out.println("삭제된 장바구니 항목 수: " + deletedCartItems);
+            
+            // 2. 관련된 주문 항목들 먼저 삭제
+            int deletedOrderItems = orderItemRepository.deleteByProduct_Id(id);
+            System.out.println("삭제된 주문 항목 수: " + deletedOrderItems);
+            
+            // 3. 상품 삭제
+            productRepository.delete(product);
+            System.out.println("상품 삭제 완료");
+            
+            System.out.println("=== 상품 삭제 서비스 성공 ===");
+            return ResponseDto.success("삭제 완료");
+            
         } catch (Exception e) {
-            System.out.println("상품 삭제 실패: " + e.getMessage());
+            System.out.println("=== 상품 삭제 서비스 실패 ===");
+            System.out.println("에러 메시지: " + e.getMessage());
             e.printStackTrace();
-            throw new RuntimeException("상품 삭제에 실패했습니다: " + e.getMessage());
+            throw new RuntimeException("상품 삭제 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
@@ -233,14 +194,11 @@ public class ProductService {
         return s3Service;
     }
 
-    /**
-     * Product Entity -> ProductDto 변환 메서드
-     */
     public ProductDto toDto(Product product) {
         if (product == null) return null;
 
         return ProductDto.builder()
-                .productId(product.getProductId())
+                .id(product.getId()) // productId -> id
                 .name(product.getName())
                 .description(product.getDescription())
                 .price(product.getPrice())

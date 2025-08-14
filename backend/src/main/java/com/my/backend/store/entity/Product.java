@@ -7,15 +7,14 @@ import java.time.LocalDate;
 
 @Entity
 @Table(name = "product")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer productId;
+    private Long id;
 
     @Column(nullable = false)
     private String name;
@@ -24,10 +23,11 @@ public class Product {
     private String description;
 
     @Column(nullable = false)
-    private Integer price;
+    private Long price;
 
     @Column(nullable = false)
-    private Integer stock = 0;
+    @Builder.Default
+    private Long stock = 0L;
 
     @Column(nullable = true)
     private String imageUrl;

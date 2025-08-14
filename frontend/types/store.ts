@@ -1,7 +1,8 @@
 // 스토어 관련 타입들
 
 export interface Product {
-  productId: number  // id -> productId로 변경
+  id: number  // productId -> id로 변경
+  productId?: number  // 호환성을 위해 유지
   name: string
   description: string
   price: number
@@ -11,6 +12,7 @@ export interface Product {
   targetAnimal: 'ALL' | 'DOG' | 'CAT'  // petType -> targetAnimal으로 변경
   registrationDate: string  // LocalDate를 string으로 표현
   registeredBy: string
+  selectedQuantity?: number  // 선택된 수량 (장바구니 추가 시 사용)
 }
 
 export interface WishlistItem {

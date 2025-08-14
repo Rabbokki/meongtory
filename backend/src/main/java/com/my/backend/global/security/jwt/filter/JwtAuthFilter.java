@@ -92,7 +92,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private void handleAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, String msg, HttpStatus status) throws IOException {
         String requestURI = request.getRequestURI();
         log.info("Authentication failure for URI: {}", requestURI);
-        
+
         // API 요청인 경우 JSON 응답으로 401 상태 코드 반환
         if (requestURI.startsWith("/api/")) {
             jwtExceptionHandler(response, msg, status);

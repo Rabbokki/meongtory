@@ -17,6 +17,7 @@ import { formatToKST } from "@/lib/utils"
 import { adoptionRequestApi, userApi } from "@/lib/api"
 import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "@/lib/api/mypet"
 import { Edit, X, Plus, Trash2, Camera } from "lucide-react"
+import axios from "axios"
 
 interface User {
   email: string
@@ -106,6 +107,48 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>("")
 
+  // 주문 내역 상태 추가
+  const [orders, setOrders] = useState<any[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+
+  // 주문 내역 가져오기
+  const fetchOrders = async () => {
+    setOrdersLoading(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      
+      // 먼저 현재 사용자 정보를 가져와서 accountId를 얻습니다
+      const userResponse = await axios.get('http://localhost:8080/api/accounts/me', {
+        headers: {
+          "Access_Token": token,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
+      
+      const accountId = userResponse.data.id
+      console.log('현재 사용자 accountId:', accountId)
+      
+      // 사용자별 주문 조회 API 호출
+      const response = await axios.get(`http://localhost:8080/api/orders/user/${accountId}`, {
+        headers: {
+          "Access_Token": token,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
+      
+      console.log('사용자별 주문 데이터:', response.data)
+      setOrders(response.data)
+    } catch (error) {
+      console.error('주문 내역을 가져오는데 실패했습니다:', error)
+      if (axios.isAxiosError(error)) {
+        console.error('Axios 오류:', error.response?.data)
+        console.error('상태 코드:', error.response?.status)
+      }
+    } finally {
+      setOrdersLoading(false)
+    }
+  }
+
   // 사용자 정보 가져오기
   const fetchUserInfo = async () => {
     try {
@@ -153,6 +196,8 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
     fetchAdoptionRequests()
     console.log("fetchMyPets 함수 호출 시작")
     fetchMyPets()
+    console.log("fetchOrders 함수 호출 시작")
+    fetchOrders()
     console.log("MyPage useEffect 완료")
   }, [])
 
@@ -535,21 +580,25 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
           <TabsContent value="orders" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">주문 내역</h2>
-              {onRefreshOrders && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onRefreshOrders}
-                  className="flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  새로고침
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchOrders}
+                className="flex items-center gap-2"
+                disabled={ordersLoading}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {ordersLoading ? '로딩 중...' : '새로고침'}
+              </Button>
             </div>
-            {userOrders.length > 0 ? (
+            {ordersLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+                <p className="text-gray-600">주문 내역을 불러오는 중...</p>
+              </div>
+            ) : orders.length > 0 ? (
               <Card>
                 <CardContent className="p-0">
                   <Table>
@@ -565,26 +614,26 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {userOrders.map((order, index) => (
-                        <TableRow key={`${order.productId}-${order.orderDate}-${index}`}>
+                      {orders.map((order, index) => (
+                        <TableRow key={`${order.id}-${order.createdAt}-${index}`}>
                           <TableCell>
                             <Image
-                              src={order.ImageUrl || "/placeholder.svg"}
-                              alt={order.productName}
+                              src={order.productName ? "/placeholder.svg" : "/placeholder.svg"}
+                              alt={order.productName || "상품"}
                               width={60}
                               height={60}
                               className="rounded-md object-cover"
                             />
                           </TableCell>
-                          <TableCell className="font-medium">{order.productName}</TableCell>
+                          <TableCell className="font-medium">{order.productName || "상품명 없음"}</TableCell>
                           <TableCell>{order.productId || "N/A"}</TableCell>
                           <TableCell>{order.quantity}</TableCell>
-                          <TableCell>{((order.price || 0) * (order.quantity || 1)).toLocaleString()}원</TableCell>
+                          <TableCell>{((order.amount || 0)).toLocaleString()}원</TableCell>
                           <TableCell>
-                            {order.orderDate ? 
+                            {order.createdAt ? 
                               (() => {
                                 try {
-                                  return format(new Date(order.orderDate), "yyyy-MM-dd")
+                                  return format(new Date(order.createdAt), "yyyy-MM-dd")
                                 } catch {
                                   return "날짜 없음"
                                 }
@@ -595,14 +644,19 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                           <TableCell className="text-right">
                             <Badge
                               className={
-                                order.status === "completed"
+                                order.status === "PAID"
                                   ? "bg-green-100 text-green-800"
-                                  : order.status === "pending"
+                                  : order.status === "CREATED"
                                     ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
+                                  : order.status === "CANCELED"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-gray-100 text-gray-800"
                               }
                             >
-                              {order.status === "completed" ? "완료" : order.status === "pending" ? "대기중" : "취소됨"}
+                              {order.status === "PAID" ? "결제완료" : 
+                               order.status === "CREATED" ? "주문생성" : 
+                               order.status === "CANCELED" ? "취소됨" : 
+                               order.status || "알 수 없음"}
                             </Badge>
                           </TableCell>
                         </TableRow>
