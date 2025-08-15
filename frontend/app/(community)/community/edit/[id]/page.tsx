@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,27 +25,14 @@ interface CommunityPost {
   images?: string[];
 }
 
-interface CommunityPageProps {
-  posts: CommunityPost[];
-  onViewPost: (post: CommunityPost) => void;
-  onNavigateToWrite: () => void;
-  onNavigateToEdit: (post: CommunityPost) => void;
-  onUpdatePosts: (posts: CommunityPost[]) => void;
-}
-
-export default function CommunityPage({
-  posts,
-  onViewPost,
-  onNavigateToWrite,
-  onNavigateToEdit,
-  onUpdatePosts,
-}: CommunityPageProps) {
+export default function CommunityPage() {
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([]);
   const [currentUser, setCurrentUser] = useState("");
   const API_BASE_URL = getApiBaseUrl();
 
-  // 로그인한 사용자 닉네임 로드
+  // 로그인한 사용자 닉네임 가져오기
   useEffect(() => {
     if (typeof window !== "undefined") {
       const nickname = localStorage.getItem("nickname");
@@ -52,7 +40,7 @@ export default function CommunityPage({
     }
   }, []);
 
-  // 게시글 목록 불러오기
+  // API에서 게시글 목록 가져오기
   useEffect(() => {
     const fetchPosts = async () => {
       try {
@@ -60,22 +48,20 @@ export default function CommunityPage({
         if (!res.ok) throw new Error("게시글 불러오기 실패");
         const data = await res.json();
         setCommunityPosts(data);
-        onUpdatePosts(data);
       } catch (err) {
         console.error(err);
       }
     };
     fetchPosts();
-  }, [API_BASE_URL, onUpdatePosts]);
+  }, [API_BASE_URL]);
 
   const filteredPosts = communityPosts.filter((post) => {
-    const term = searchTerm.toLowerCase();
-    return (
-      post.title.toLowerCase().includes(term) ||
-      post.content.toLowerCase().includes(term) ||
-      post.author.toLowerCase().includes(term) ||
-      post.tags.some((tag) => tag.toLowerCase().includes(term))
-    );
+    const matchesSearch =
+      post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      post.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      post.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesSearch;
   });
 
   const sortedPosts = [...filteredPosts].sort(
@@ -85,8 +71,8 @@ export default function CommunityPage({
   const popularPosts = [...communityPosts].sort((a, b) => b.views - a.views).slice(0, 5);
 
   const handleLike = (postId: number) => {
-    onUpdatePosts(
-      communityPosts.map((post) =>
+    setCommunityPosts((prev) =>
+      prev.map((post) =>
         post.id === postId ? { ...post, likes: post.likes + 1 } : post
       )
     );
@@ -111,15 +97,15 @@ export default function CommunityPage({
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
-        {/* 헤더 */}
+        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">커뮤니티</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* 메인 리스트 */}
+          {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
-            {/* 검색 + 글쓰기 */}
+            {/* Search + Write Button */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Input
                 type="text"
@@ -133,7 +119,7 @@ export default function CommunityPage({
                 검색
               </Button>
               <Button
-                onClick={onNavigateToWrite}
+                onClick={() => router.push("/community/write")}
                 className="bg-yellow-400 hover:bg-yellow-500 text-black"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -141,15 +127,16 @@ export default function CommunityPage({
               </Button>
             </div>
 
-            {/* 게시글 목록 */}
+            {/* Post List */}
             {sortedPosts.length > 0 ? (
               sortedPosts.map((post) => (
                 <Card
                   key={post.id}
                   className="hover:shadow-md transition-shadow cursor-pointer"
+                  onClick={() => router.push(`/community/detail?id=${post.id}`)}
                 >
-                  <CardContent className="p-6 relative" onClick={() => onViewPost(post)}>
-                    {/* 수정/삭제 버튼 */}
+                  <CardContent className="p-6 relative">
+                    {/* 수정/삭제 버튼 (작성자만 표시) */}
                     {currentUser === post.author && (
                       <div className="absolute top-4 right-4 flex space-x-2 z-10">
                         <Button
@@ -157,7 +144,7 @@ export default function CommunityPage({
                           size="icon"
                           onClick={(e) => {
                             e.stopPropagation();
-                            onNavigateToEdit(post);
+                            router.push(`/community/edit?id=${post.id}`);
                           }}
                         >
                           <Pencil className="h-4 w-4" />
@@ -179,15 +166,25 @@ export default function CommunityPage({
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <Badge
-                            variant={post.boardType === "Q&A" ? "default" : "secondary"}
+                            variant={
+                              post.boardType === "Q&A" ? "default" : "secondary"
+                            }
                           >
                             {post.boardType}
                           </Badge>
-                          <span className="text-sm text-gray-500">{post.author}</span>
-                          <span className="text-sm text-gray-500">{post.date}</span>
+                          <span className="text-sm text-gray-500">
+                            {post.author}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            {post.date}
+                          </span>
                         </div>
-                        <h2 className="text-xl font-semibold mb-2">{post.title}</h2>
-                        <p className="text-gray-700 line-clamp-2 mb-4">{post.content}</p>
+                        <h2 className="text-xl font-semibold mb-2">
+                          {post.title}
+                        </h2>
+                        <p className="text-gray-700 line-clamp-2 mb-4">
+                          {post.content}
+                        </p>
                         <div className="flex items-center space-x-4 text-sm text-gray-500">
                           <span className="flex items-center">
                             <Eye className="h-4 w-4 mr-1" />
@@ -212,7 +209,7 @@ export default function CommunityPage({
                       {post.images && post.images.length > 0 && (
                         <div className="ml-4 flex-shrink-0">
                           <Image
-                            src={post.images[0] || "/placeholder.svg"}
+                            src={post.images?.[0] || "/placeholder.svg"}
                             alt={post.title}
                             width={120}
                             height={90}
@@ -231,7 +228,7 @@ export default function CommunityPage({
             )}
           </div>
 
-          {/* 사이드 인기글 */}
+          {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             <Card>
               <CardContent className="p-6">
@@ -243,7 +240,7 @@ export default function CommunityPage({
                       className="border-b pb-3 last:border-b-0 last:pb-0"
                     >
                       <button
-                        onClick={() => onViewPost(post)}
+                        onClick={() => router.push(`/community/detail?id=${post.id}`)}
                         className="text-left w-full"
                       >
                         <p className="text-sm font-medium text-gray-800 hover:text-blue-600 line-clamp-2">

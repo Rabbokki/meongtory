@@ -1426,34 +1426,22 @@ export default function PetServiceWebsite() {
   ])
 
   const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
-  const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([
-    {
-      id: 1,
-      title: "강아지 훈련 방법 문의",
-      content: "우리 강아지가 짖는 버릇이 있는데 어떻게 훈련시켜야 할까요?",
-      author: "펫러버123",
-      date: "2024-01-20",
-      category: "훈련",
-      boardType: "자유게시판",
-      views: 45,
-      likes: 12,
-      comments: 8,
-      tags: ["훈련", "짖음", "행동교정"],
-    },
-    {
-      id: 2,
-      title: "고양이와 행복한 하루",
-      content: "오늘 우리 고양이랑 놀아줬는데 너무 귀여워요! 사진 공유합니다.",
-      author: "냥집사",
-      date: "2024-02-10",
-      category: "일상",
-      boardType: "자유게시판",
-      views: 120,
-      likes: 30,
-      comments: 15,
-      tags: ["고양이", "일상", "사진"],
-    },
-  ])
+ const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([]);
+
+useEffect(() => {
+  const fetchPosts = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts`);
+      if (!res.ok) throw new Error("게시글 불러오기 실패");
+      const data = await res.json();
+      setCommunityPosts(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  fetchPosts();
+}, []);
 
   const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>([
     {
