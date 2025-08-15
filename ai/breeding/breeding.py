@@ -18,7 +18,8 @@ if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not set")
 
 # OpenAI 클라이언트 초기화
-client = OpenAI(api_key=openai_api_key)
+client = OpenAI(api_key=openai_api_key)iter
+
 
 classifier = DogBreedClassifier()
 

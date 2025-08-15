@@ -104,21 +104,25 @@ def initialize_vectorstore():
         sample_docs = [
             Document(
                 page_content="강아지 입양 절차는 동물보호소 방문, 신분증 제출, 입양 신청서 작성, 면담, 입양비 납부 순으로 진행됩니다.",
-                metadata={"source": "adoption_guide"}
+                metadata={"source": "adoption_guide"},
+                id=1
             ),
             Document(
                 page_content="고양이 입양 시 고려해야 할 점은 집 환경, 사료 선택, 건강 검진 주기입니다.",
-                metadata={"source": "cat_adoption"}
+                metadata={"source": "cat_adoption"},
+                id=2
             ),
             Document(
                 page_content="애완동물 건강 관리를 위해 정기적인 예방접종과 구충제 투여가 중요합니다.",
-                metadata={"source": "pet_care"}
-            )
+                metadata={"source": "pet_care"},
+                id=3
+            ),
         ]
+        logger.info("Inserting sample data into chatbot_vectors")
         vectorstore.add_documents(sample_docs)
         logger.info("Sample data inserted successfully")
     except Exception as e:
-        logger.error(f"Failed to insert sample data: {e}", exc_info=True)
+        logger.error(f"Failed to insert sample data: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Sample data insertion failed: {str(e)}")
 
 # OpenAI 모델
