@@ -18,8 +18,7 @@ if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not set")
 
 # OpenAI 클라이언트 초기화
-client = OpenAI(api_key=openai_api_key)iter
-
+client = OpenAI(api_key=openai_api_key)
 
 classifier = DogBreedClassifier()
 
@@ -54,7 +53,7 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
 - description: 100-200자 설명
 
 자연스러운 한국어로 작성해주세요."""
-        # 3. OpenAI API 호출
+        #  Gengxin(3. OpenAI API 호출
         model_name = os.getenv("OPENAI_BREEDING_MODEL", "gpt-3.5-turbo")
         response = client.chat.completions.create(
             model=model_name,

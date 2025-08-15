@@ -17,7 +17,8 @@ export async function POST(request: NextRequest) {
     const backendFormData = new FormData();
     backendFormData.append('file', file);
 
-    const response = await fetch(`${backendUrl}/api/s3/upload`, {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/s3/upload`, {
       method: 'POST',
       body: backendFormData,
     });

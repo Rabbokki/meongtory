@@ -1,13 +1,15 @@
 package com.my.backend.chatbot.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.my.backend.chatbot.dto.ChatbotRequest;
 import com.my.backend.chatbot.dto.ChatbotResponse;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.Arrays;
 
 //@Service
 //public class ChatbotService {
@@ -41,17 +43,28 @@ public class ChatbotService {
             String aiServiceUrl = "http://ai:9000/rag";
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON, MediaType.APPLICATION_JSON_UTF8));
             HttpEntity<ChatbotRequest> entity = new HttpEntity<>(request, headers);
 
             System.out.println("Sending request to AI service: " + aiServiceUrl + " with query: " + request.getQuery());
-            ChatbotResponse response = restTemplate.postForObject(aiServiceUrl, entity, ChatbotResponse.class);
 
-            if (response == null || response.getAnswer() == null) {
-                System.out.println("Received null or empty response from AI service");
-                return new ChatbotResponse("AI 서비스로부터 응답이 없습니다.");
-            }
+            // ResponseEntity로 원본 응답 확인
+            ResponseEntity<String> rawResponse = restTemplate.exchange(
+                    aiServiceUrl,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
 
-            System.out.println("Received response from AI service: " + response.getAnswer());
+            System.out.println("Raw AI service response: " + rawResponse.getBody());
+
+            // JSON 파싱
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(rawResponse.getBody());
+            String answer = jsonNode.get("answer").asText();
+
+            ChatbotResponse response = new ChatbotResponse(answer);
+            System.out.println("Parsed response from AI service: " + response.getAnswer());
             return response;
         } catch (Exception e) {
             System.err.println("Error in AI service request: " + e.getMessage());
