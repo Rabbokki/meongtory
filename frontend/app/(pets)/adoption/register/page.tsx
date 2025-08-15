@@ -200,7 +200,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
       try {
         // REG005 -> 5로 변환
         const petId = parseInt(animalId.replace('REG', ''))
-        await axios.delete(`http://localhost:8080/api/pets/${petId}`)
+        await axios.delete(`${getBackendUrl()}/api/pets/${petId}`)
         setAnimalRecords(prev => prev.filter(record => record.id !== animalId))
         toast({
           title: "성공",

@@ -18,8 +18,7 @@ if not openai_api_key:
     raise ValueError("OPENAI_API_KEY not set")
 
 # OpenAI 클라이언트 초기화
-client = OpenAI(api_key=openai_api_key)iter
-
+client = OpenAI(api_key=openai_api_key)
 
 classifier = DogBreedClassifier()
 
@@ -47,11 +46,14 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
         # 2. LLM 프롬프트 구성
         prompt = f"""부모 강아지 품종: {parent1_breed} + {parent2_breed}
 
-자녀 강아지의 예상 정보를 JSON 형식으로 생성해주세요:
-- resultBreed: 혼합견 이름
-- probability: 예측 확률(0-100)
-- traits: 특성 4-5개
-- description: 100-200자 설명
+다음 JSON 형식으로만 응답해주세요. 다른 텍스트는 포함하지 마세요:
+
+{{
+  "resultBreed": "혼합견 이름",
+  "probability": 예측확률숫자,
+  "traits": ["특성1", "특성2", "특성3", "특성4"],
+  "description": "100-200자 설명"
+}}
 
 자연스러운 한국어로 작성해주세요."""
         # 3. OpenAI API 호출
@@ -68,8 +70,20 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
 
         # 4. 응답 파싱
         result = response.choices[0].message.content.strip()
+        print(f"OpenAI 응답: {result}")
+        
         import json
-        prediction = json.loads(result)
+        try:
+            prediction = json.loads(result)
+        except json.JSONDecodeError:
+            # JSON이 아닌 경우 기본값 반환
+            print(f"JSON 파싱 실패, 응답 내용: {result}")
+            prediction = {
+                "resultBreed": f"{parent1_breed} × {parent2_breed} 믹스",
+                "probability": 75,
+                "traits": ["활발함", "친근함", "충성심", "지능적"],
+                "description": f"{parent1_breed}와 {parent2_breed}의 특성을 모두 가진 활발하고 사랑스러운 믹스견입니다."
+            }
 
         # probability 값을 정수로 변환 (% 기호 제거)
         probability = prediction["probability"]

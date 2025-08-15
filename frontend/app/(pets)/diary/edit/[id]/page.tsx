@@ -11,8 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { updateDiary, fetchDiaries, fetchDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/api/diary";
 import { useToast } from "@/components/ui/use-toast";
-import type { DiaryEntry } from "@/diary";
+import type { DiaryEntry } from "@/types/diary";
 import { Mic, MicOff, Play, Pause, X, Camera, ChevronLeft, ImageIcon, Edit, Check, RotateCcw } from "lucide-react";
+import { getBackendUrl } from "@/lib/api"
 
 export default function DiaryEditPage() {
   const router = useRouter();
@@ -323,7 +324,7 @@ export default function DiaryEditPage() {
       console.log('FormData created, sending request to backend...');
 
       // 백엔드로 직접 전송
-      const response = await fetch('http://localhost:8080/api/diary/voice', {
+      const response = await fetch(`${getBackendUrl()}/api/diary/voice`, {
         method: 'POST',
         headers: {
           'Access_Token': localStorage.getItem('accessToken') || '',

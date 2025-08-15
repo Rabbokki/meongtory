@@ -34,6 +34,8 @@ import GrowthDiaryWritePage from "../../(pets)/diary/write/page"
 import axios from "axios"
 import { Toaster, toast } from "react-hot-toast"
 import { getCurrentKSTDate } from "@/lib/utils"
+import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
+
 
 
 // Types
@@ -391,7 +393,7 @@ const refreshAccessToken = async () => {
     if (!refreshToken) throw new Error("No refresh token available")
 
     const response = await axios.post(
-      "http://localhost:8080/api/accounts/refresh",
+      `${getBackendUrl()}/api/accounts/refresh`,
       { refreshToken },
       { headers: { "Content-Type": "application/json" } }
     )
@@ -459,7 +461,7 @@ export default function PetServiceWebsite() {
       }
 
       try {
-        const response = await axios.get("http://localhost:8080/api/accounts/me", {
+        const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
           headers: { "Access_Token": accessToken },
           timeout: 5000, // 5초 타임아웃 추가
         })
@@ -487,7 +489,7 @@ export default function PetServiceWebsite() {
           accessToken = await refreshAccessToken()
           if (accessToken) {
             try {
-              const response = await axios.get("http://localhost:8080/api/accounts/me", {
+              const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
                 headers: { "Access_Token": accessToken },
                 timeout: 5000,
               })
@@ -554,7 +556,7 @@ export default function PetServiceWebsite() {
       const fetchUserInfo = async () => {
         try {
           console.log("OAuth 사용자 정보 조회 시작...")
-          const response = await axios.get("http://localhost:8080/api/accounts/me")
+          const response = await axios.get(`${getBackendUrl()}/api/accounts/me`)
           console.log("OAuth 사용자 정보 응답:", response)
           const userData = response.data?.data
           if (!userData) {
@@ -680,7 +682,7 @@ export default function PetServiceWebsite() {
       const accessToken = localStorage.getItem("accessToken")
       if (accessToken) {
         await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/logout`,
+          `${getBackendUrl()}/api/accounts/logout`,
           {},
           {
             headers: {
@@ -729,7 +731,7 @@ export default function PetServiceWebsite() {
     try {
       console.log('장바구니 추가 시작...')
       const currentUserId = currentUser?.id || 1
-      const url = `http://localhost:8080/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
+      const url = `${getBackendUrl()}/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
       const response = await axios.post(url, null, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         timeout: 5000
@@ -790,7 +792,7 @@ export default function PetServiceWebsite() {
         return;
       }
 
-      const response = await axios.get(`http://localhost:8080/api/carts`, {
+      const response = await axios.get(`${getBackendUrl()}/api/carts`, {
         headers: {
           "Access_Token": accessToken,
         },
@@ -845,7 +847,7 @@ export default function PetServiceWebsite() {
 
   const handleRemoveFromCart = async (cartId: number) => {
     try {
-      const response = await axios.delete(`http://localhost:8080/api/carts/${cartId}`)
+      const response = await axios.delete(`${getBackendUrl()}/api/carts/${cartId}`)
 
       if (response.status !== 200) {
         throw new Error("장바구니에서 삭제에 실패했습니다.")
@@ -861,7 +863,7 @@ export default function PetServiceWebsite() {
 
   const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
     try {
-      const response = await axios.put(`http://localhost:8080/api/carts/${cartId}?quantity=${quantity}`)
+      const response = await axios.put(`${getBackendUrl()}/api/carts/${cartId}?quantity=${quantity}`)
 
       if (response.status !== 200) {
         throw new Error("수량 업데이트에 실패했습니다.")
@@ -888,7 +890,7 @@ export default function PetServiceWebsite() {
 
   const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
     try {
-      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
+      const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers: { "Content-Type": "application/json" },
       })
 
@@ -915,7 +917,7 @@ export default function PetServiceWebsite() {
     }
 
     try {
-      const response = await axios.post(`http://localhost:8080/api/orders/purchase-all/${currentUser.id}`)
+      const response = await axios.post(`${getBackendUrl()}/api/orders/purchase-all/${currentUser.id}`)
 
       if (response.status !== 200) {
         throw new Error("전체 구매에 실패했습니다.")
@@ -969,7 +971,7 @@ export default function PetServiceWebsite() {
 
       console.log("개별 구매 요청 데이터:", orderData)
 
-      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
+      const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers: headers,
         timeout: 10000
       })
@@ -998,7 +1000,7 @@ export default function PetServiceWebsite() {
     if (!isLoggedIn || !currentUser) return
 
     try {
-      const response = await axios.get(`http://localhost:8080/api/orders/user/${currentUser.id}`)
+      const response = await axios.get(`${getBackendUrl()}/api/orders/user/${currentUser.id}`)
       if (response.status !== 200) {
         throw new Error("주문 조회에 실패했습니다.")
       }
@@ -1043,7 +1045,7 @@ export default function PetServiceWebsite() {
 
   const deleteOrder = async (orderId: number) => {
     try {
-      const response = await axios.delete(`http://localhost:8080/api/orders/${orderId}`)
+      const response = await axios.delete(`${getBackendUrl()}/api/orders/${orderId}`)
 
       if (response.status !== 200) {
         throw new Error("주문 삭제에 실패했습니다.")
@@ -1059,7 +1061,7 @@ export default function PetServiceWebsite() {
 
   const updatePaymentStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
     try {
-      const response = await axios.put(`http://localhost:8080/api/orders/${orderId}/status?status=${status}`)
+      const response = await axios.put(`${getBackendUrl()}/api/orders/${orderId}/status?status=${status}`)
 
       if (response.status !== 200) {
         throw new Error("결제 상태 업데이트에 실패했습니다.")
@@ -1095,11 +1097,11 @@ export default function PetServiceWebsite() {
   const fetchProducts = async () => {
     try {
       console.log('상품 목록 조회 시작...')
-      console.log('요청 URL:', 'http://localhost:8080/api/products')
+      console.log('요청 URL:', `${getBackendUrl()}/api/products`)
       
       // 백엔드 서버 상태 확인
       try {
-        const healthCheck = await axios.get('http://localhost:8080/actuator/health', {
+        const healthCheck = await axios.get(`${getBackendUrl()}/actuator/health`, {
           timeout: 3000
         })
         console.log('백엔드 서버 상태:', healthCheck.data)
@@ -1123,7 +1125,7 @@ export default function PetServiceWebsite() {
         console.log('인증 토큰 없음 - 익명 접근')
       }
       
-      const response = await axios.get('http://localhost:8080/api/products', {
+      const response = await axios.get(`${getBackendUrl()}/api/products`, {
         timeout: 10000, // 10초로 증가
         headers: headers
       })
@@ -1332,7 +1334,7 @@ export default function PetServiceWebsite() {
 
       console.log('주문 데이터:', orderData)
 
-      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
+      const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers: headers,
         timeout: 10000
       })
@@ -2062,7 +2064,7 @@ export default function PetServiceWebsite() {
             try {
               const accessToken = localStorage.getItem("accessToken")
               if (accessToken) {
-                const response = await axios.get("http://localhost:8080/api/accounts/me", {
+                const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
                   headers: { "Access_Token": accessToken },
                 })
                 const { id, email, name, role } = response.data.data

@@ -3,10 +3,11 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        BUILD_ENV: dev
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
     depends_on:
       - backend
     networks:
@@ -33,7 +34,7 @@ services:
       context: ./ai
       dockerfile: Dockerfile
     ports:
-      - "10000:9000"
+      - "9000:9000"
     volumes:
       - ./ai:/app
     environment:
@@ -57,7 +58,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     ports:
-      - "5000:5000"
+      - "8080:8080"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${DB_USER}

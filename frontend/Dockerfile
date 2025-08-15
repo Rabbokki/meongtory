@@ -15,7 +15,11 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# 빌드 환경에 따라 env 파일 처리
+ARG BUILD_ENV=dev
 ARG NEXT_PUBLIC_BACKEND_URL=PLACEHOLDER
+
+# 환경변수를 직접 설정 (env 파일 대신)
 ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
 RUN npm run build
