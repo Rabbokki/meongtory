@@ -2,15 +2,17 @@ import axios from 'axios';
 
 // API 설정을 위한 공통 유틸리티
 export const getBackendUrl = () => {
-  return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-}
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8080';
+  console.log('Backend URL:', url);
+  console.log('NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+  return url;
+};
 
 export const getApiBaseUrl = () => {
-  return `${getBackendUrl()}/api`
-}
+  return `${getBackendUrl()}/api`;
+};
 
 const API_BASE_URL = getApiBaseUrl();
-
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(
@@ -18,6 +20,7 @@ axios.interceptors.request.use(
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      config.headers['Access_Token'] = token; // 백엔드에서 Access_Token 헤더 사용
     }
     return config;
   },
@@ -37,18 +40,20 @@ axios.interceptors.response.use(
       if (refreshToken) {
         try {
           const response = await axios.post(`${API_BASE_URL}/accounts/refresh`, {
-            refreshToken: refreshToken
+            refreshToken: refreshToken,
           });
           const newAccessToken = response.data.accessToken;
           localStorage.setItem('accessToken', newAccessToken);
-          
+
           // 원래 요청 재시도
           error.config.headers.Authorization = `Bearer ${newAccessToken}`;
+          error.config.headers['Access_Token'] = newAccessToken;
           return axios.request(error.config);
         } catch (refreshError) {
           // 토큰 갱신 실패 시 로그인 페이지로 리다이렉트
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
+          window.location.href = '/login';
         }
       }
     }
@@ -83,7 +88,6 @@ export interface Pet {
 
 // 펫 API 함수들
 export const petApi = {
-  // 모든 펫 조회 (필터링 지원)
   getPets: async (filters?: {
     name?: string;
     breed?: string;
@@ -107,89 +111,79 @@ export const petApi = {
         }
       });
     }
-
+    console.log('Fetching pets with URL:', `${API_BASE_URL}/pets?${params.toString()}`);
     const response = await axios.get(`${API_BASE_URL}/pets?${params.toString()}`);
-    return response.data;
+    return response.data.data;
   },
 
-  // 펫 생성
   createPet: async (petData: Omit<Pet, 'petId'>): Promise<Pet> => {
+    console.log('Creating pet with URL:', `${API_BASE_URL}/pets`);
+    console.log('Pet data:', petData);
     const response = await axios.post(`${API_BASE_URL}/pets`, petData, {
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    return response.data;
+    console.log('Create pet response:', response.data);
+    return response.data.data;
   },
 
-  // 펫 수정
   updatePet: async (petId: number, petData: Partial<Pet>): Promise<Pet> => {
     const response = await axios.put(`${API_BASE_URL}/pets/${petId}`, petData, {
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 
-  // 펫 삭제
   deletePet: async (petId: number): Promise<void> => {
     await axios.delete(`${API_BASE_URL}/pets/${petId}`);
   },
 
-  // 펫 이미지 URL 업데이트
   updatePetImageUrl: async (petId: number, imageUrl: string): Promise<Pet> => {
     const response = await axios.patch(`${API_BASE_URL}/pets/${petId}/image-url`, null, {
       params: { imageUrl },
     });
-    return response.data;
+    return response.data.data;
   },
 
-  // 펫 입양 상태 업데이트
   updateAdoptionStatus: async (petId: number, adopted: boolean): Promise<Pet> => {
     const response = await axios.patch(`${API_BASE_URL}/pets/${petId}/adoption-status`, null, {
       params: { adopted },
     });
-    return response.data;
+    return response.data.data;
   },
 };
 
 // S3 API 함수들
 export const s3Api = {
-  // 파일 업로드 (일반)
   uploadFile: async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
-
     const response = await axios.post(`${API_BASE_URL}/s3/upload`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    
-    return response.data;
+    return response.data.data;
   },
 
-  // 입양 펫 이미지 업로드
   uploadAdoptionFile: async (file: File): Promise<string> => {
     const formData = new FormData();
     formData.append('file', file);
-
     const response = await axios.post(`${API_BASE_URL}/s3/upload/adoption`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
     });
-    
-    return response.data;
+    return response.data.data;
   },
 
-  // 파일 삭제
   deleteFile: async (fileName: string): Promise<void> => {
     const response = await axios.delete(`${API_BASE_URL}/s3/delete`, {
       params: { fileName },
     });
-    
     if (response.status !== 200) {
       throw new Error(`Failed to delete file: ${response.statusText}`);
     }
@@ -198,88 +192,80 @@ export const s3Api = {
 
 // 사용자 정보 API 함수들
 export const userApi = {
-  // 현재 로그인한 사용자 정보 가져오기
   getCurrentUser: async (): Promise<any> => {
-    const response = await axios.get(`${API_BASE_URL}/accounts/me`)
-    return response.data.data
+    const response = await axios.get(`${API_BASE_URL}/accounts/me`);
+    return response.data.data;
   },
-}
+};
 
 // 입양신청 API 함수들
 export const adoptionRequestApi = {
-  // 입양신청 생성
   createAdoptionRequest: async (requestData: {
-    petId: number
-    applicantName: string
-    contactNumber: string
-    email: string
-    message: string
-  }): Promise<any> => {
-    const response = await axios.post(`${API_BASE_URL}/adoption-requests`, requestData)
-    return response.data
-  },
-
-  // 관리자용 전체 입양신청 조회
-  getAdoptionRequests: async (): Promise<any[]> => {
-    const response = await axios.get(`${API_BASE_URL}/adoption-requests`)
-    return response.data.data
-  },
-
-  // 사용자별 입양신청 조회
-  getUserAdoptionRequests: async (): Promise<any[]> => {
-    const response = await axios.get(`${API_BASE_URL}/adoption-requests/user`)
-    return response.data.data
-  },
-
-  // 특정 입양신청 조회
-  getAdoptionRequest: async (requestId: number): Promise<any> => {
-    const response = await axios.get(`${API_BASE_URL}/adoption-requests/${requestId}`)
-    return response.data.data
-  },
-
-  // 입양신청 상태 변경
-  updateAdoptionRequestStatus: async (requestId: number, status: string): Promise<any> => {
-    const response = await axios.put(`${API_BASE_URL}/adoption-requests/${requestId}/status`, {
-      status: status
-    })
-    return response.data
-  },
-
-  // 입양신청 수정
-  updateAdoptionRequest: async (requestId: number, data: {
+    petId: number;
     applicantName: string;
     contactNumber: string;
     email: string;
     message: string;
   }): Promise<any> => {
-    const response = await axios.put(`${API_BASE_URL}/adoption-requests/${requestId}`, data)
-    return response.data
+    const response = await axios.post(`${API_BASE_URL}/adoption-requests`, requestData);
+    return response.data.data;
   },
 
-  // 상태별 입양신청 조회
-  getAdoptionRequestsByStatus: async (status: string): Promise<any[]> => {
-    const response = await axios.get(`${API_BASE_URL}/adoption-requests/status/${status}`)
-    return response.data.data
+  getAdoptionRequests: async (): Promise<any[]> => {
+    const response = await axios.get(`${API_BASE_URL}/adoption-requests`);
+    return response.data.data;
   },
-}
+
+  getUserAdoptionRequests: async (): Promise<any[]> => {
+    const response = await axios.get(`${API_BASE_URL}/adoption-requests/user`);
+    return response.data.data;
+  },
+
+  getAdoptionRequest: async (requestId: number): Promise<any> => {
+    const response = await axios.get(`${API_BASE_URL}/adoption-requests/${requestId}`);
+    return response.data.data;
+  },
+
+  updateAdoptionRequestStatus: async (requestId: number, status: string): Promise<any> => {
+    const response = await axios.put(`${API_BASE_URL}/adoption-requests/${requestId}/status`, {
+      status: status,
+    });
+    return response.data.data;
+  },
+
+  updateAdoptionRequest: async (
+    requestId: number,
+    data: {
+      applicantName: string;
+      contactNumber: string;
+      email: string;
+      message: string;
+    }
+  ): Promise<any> => {
+    const response = await axios.put(`${API_BASE_URL}/adoption-requests/${requestId}`, data);
+    return response.data.data;
+  },
+
+  getAdoptionRequestsByStatus: async (status: string): Promise<any[]> => {
+    const response = await axios.get(`${API_BASE_URL}/adoption-requests/status/${status}`);
+    return response.data.data;
+  },
+};
 
 // 상품 API 함수들
 export const productApi = {
-  // 모든 상품 조회
   getProducts: async (): Promise<any[]> => {
     const response = await axios.get(`${API_BASE_URL}/products`);
-    return response.data;
+    return response.data.data;
   },
 
-  // 특정 상품 조회
   getProduct: async (productId: number): Promise<any> => {
     console.log('상품 조회 요청:', `${API_BASE_URL}/products/${productId}`);
     console.log('요청할 productId:', productId, '타입:', typeof productId);
-    
     try {
       const response = await axios.get(`${API_BASE_URL}/products/${productId}`);
       console.log('상품 조회 성공:', response.data);
-      return response.data;
+      return response.data.data;
     } catch (error) {
       console.error('상품 조회 실패:', error);
       if (axios.isAxiosError(error)) {
@@ -288,34 +274,31 @@ export const productApi = {
           statusText: error.response?.statusText,
           data: error.response?.data,
           url: error.config?.url,
-          method: error.config?.method
+          method: error.config?.method,
         });
       }
       throw error;
     }
   },
 
-  // 상품 생성
   createProduct: async (productData: any): Promise<any> => {
     const response = await axios.post(`${API_BASE_URL}/products`, productData, {
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 
-  // 상품 수정
   updateProduct: async (productId: number, productData: any): Promise<any> => {
     const response = await axios.put(`${API_BASE_URL}/products/${productId}`, productData, {
       headers: {
         'Content-Type': 'application/json',
       },
     });
-    return response.data;
+    return response.data.data;
   },
 
-  // 상품 삭제
   deleteProduct: async (productId: number): Promise<void> => {
     await axios.delete(`${API_BASE_URL}/products/${productId}`);
   },
@@ -323,8 +306,8 @@ export const productApi = {
 
 // 에러 처리 유틸리티
 export const handleApiError = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
+  if (axios.isAxiosError(error)) {
+    return error.response?.data?.message || '서버 오류가 발생했습니다.';
   }
-  return '알 수 없는 오류가 발생했습니다.';
-}; 
+  return error instanceof Error ? error.message : '알 수 없는 오류가 발생했습니다.';
+};

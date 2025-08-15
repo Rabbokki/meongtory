@@ -752,7 +752,11 @@ export default function AdminPage({
       }
 
       const backendUrl = getBackendUrl()
+<<<<<<< HEAD
       const response = await axios.post(`${getBackendUrl()}/api/contract-templates/ai-suggestions/generate-contract`, {
+=======
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/contract-templates/ai-suggestions/generate-contract`, {
+>>>>>>> develop
         templateId: selectedTemplate,
         templateSections: selectedTemplateData.sections?.map((section: any) => ({ 
           title: section.title, 

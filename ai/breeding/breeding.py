@@ -56,7 +56,7 @@ def predict_breeding(parent1_image: bytes, parent2_image: bytes) -> BreedingPred
 }}
 
 자연스러운 한국어로 작성해주세요."""
-        # 3. OpenAI API 호출
+        #  Gengxin(3. OpenAI API 호출
         model_name = os.getenv("OPENAI_BREEDING_MODEL", "gpt-3.5-turbo")
         response = client.chat.completions.create(
             model=model_name,

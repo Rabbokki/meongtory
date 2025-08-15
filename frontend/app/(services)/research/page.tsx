@@ -117,7 +117,9 @@ export default function DogResearchLabPage() {
       const formData = new FormData()
       formData.append('image', uploadedFile)
       const backendUrl = getBackendUrl()
-      const response = await axios.post(`${backendUrl}/api/ai/predict-breed`, formData, {
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/predict-breed`, 
+        formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -206,7 +208,9 @@ export default function DogResearchLabPage() {
       formData.append("parent2", parent2Blob, "parent2.jpg");
 
       const backendUrl = getBackendUrl()
-      const response = await axios.post(`${backendUrl}/api/ai/predict-breeding`, formData);
+      const response = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/predict-breeding`, 
+        formData);
       const result = response.data;
       
       if (!result) throw new Error("No result received from API");
@@ -291,7 +295,9 @@ export default function DogResearchLabPage() {
       formData.append('image', file)
 
       const backendUrl = getBackendUrl()
-      const apiResponse = await axios.post(`${backendUrl}/api/ai/analyze-emotion`, formData, {
+      const apiResponse = await axios.post(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze-emotion`, 
+        formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
