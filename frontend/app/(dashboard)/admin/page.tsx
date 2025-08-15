@@ -270,47 +270,53 @@ export default function AdminPage({
     const fetchOrders = async () => {
       try {
         console.log('주문 데이터 가져오기 시작...');
-        const response = await axios.get('http://localhost:8080/api/orders/admin/all');
+        
+        // 인증 토큰 가져오기
+        const accessToken = localStorage.getItem("accessToken");
+        const refreshToken = localStorage.getItem("refreshToken");
+        
+        if (!accessToken) {
+          console.error('인증 토큰이 없습니다.');
+          return;
+        }
+        
+        const headers = {
+          "Authorization": `Bearer ${accessToken}`,
+          "Access_Token": accessToken,
+          "Refresh_Token": refreshToken || ''
+        };
+        
+        console.log('요청 헤더:', headers);
+        const response = await axios.get('http://localhost:8080/api/orders/admin/all', { headers });
         console.log('주문 API 응답:', response);
         
         const data: any[] = response.data;
         console.log('받은 주문 데이터:', data);
         
-        // 각 주문의 상세 정보를 가져와서 orderItems 포함
-        const ordersWithItems: Order[] = await Promise.all(
-          data.map(async (order: any) => {
-            try {
-              // 개별 주문 조회 API를 사용하여 상품 정보 가져오기
-              const detailResponse = await axios.get(`http://localhost:8080/api/orders/${order.orderId}`);
-              const orderDetail = detailResponse.data;
-              console.log(`주문 ${order.orderId} 상세 정보:`, orderDetail);
-              
-              return {
-                orderId: order.orderId,
-                userId: order.accountId || order.userId, // 백엔드에서 accountId로 오는 경우 처리
-                totalPrice: order.totalPrice,
-                paymentStatus: order.orderStatus === 'PAID' ? 'COMPLETED' : 
-                              order.orderStatus === 'CREATED' ? 'PENDING' : 
-                              order.orderStatus === 'CANCELED' ? 'CANCELLED' : 'PENDING',
-                orderedAt: order.orderedAt || order.createdAt,
-                orderItems: orderDetail.orderItems || order.orderItems || []
-              };
-            } catch (detailError) {
-              console.error(`주문 ${order.orderId} 상세 정보 가져오기 실패:`, detailError);
-              // 상세 정보 가져오기 실패 시 기본 정보만 사용
-              return {
-                orderId: order.orderId,
-                userId: order.accountId || order.userId,
-                totalPrice: order.totalPrice,
-                paymentStatus: order.orderStatus === 'PAID' ? 'COMPLETED' : 
-                              order.orderStatus === 'CREATED' ? 'PENDING' : 
-                              order.orderStatus === 'CANCELED' ? 'CANCELLED' : 'PENDING',
-                orderedAt: order.orderedAt || order.createdAt,
-                orderItems: order.orderItems || []
-              };
-            }
-          })
-        );
+        // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료된 주문만)
+        const ordersWithItems: Order[] = data
+          .filter((order: any) => order.status === 'PAID') // 결제 완료된 주문만 필터링
+          .map((order: any) => {
+            console.log('변환 중인 주문 데이터:', order);
+            
+            return {
+              orderId: order.id || order.orderId, // 백엔드에서는 id 필드 사용
+              userId: order.accountId || order.userId,
+              totalPrice: order.amount || order.totalPrice, // 백엔드에서는 amount 필드 사용
+              paymentStatus: 'COMPLETED', // 결제 완료된 주문만 표시하므로 항상 COMPLETED
+              orderedAt: order.createdAt || order.orderedAt,
+              orderItems: [{
+                id: order.id,
+                productId: order.productId,
+                productName: order.productName,
+                price: order.amount,
+                quantity: order.quantity,
+                orderDate: order.createdAt,
+                status: 'completed', // 결제 완료된 주문만 표시하므로 항상 completed
+                ImageUrl: order.imageUrl || "/placeholder.svg"
+              }]
+            };
+          });
         
         // 최신순으로 정렬 (orderedAt 기준 내림차순)
         const sortedOrders = ordersWithItems.sort((a, b) => {
@@ -1954,8 +1960,14 @@ export default function AdminPage({
                               주문일: {order.orderedAt ? 
                                 (() => {
                                   try {
+                                    // ISO 문자열이나 다른 형식의 날짜를 안전하게 파싱
+                                    const date = new Date(order.orderedAt);
+                                    if (isNaN(date.getTime())) {
+                                      return "날짜 형식 오류";
+                                    }
                                     return formatToKST(order.orderedAt)
-                                  } catch {
+                                  } catch (error) {
+                                    console.error('날짜 파싱 오류:', error, '원본 데이터:', order.orderedAt);
                                     return "날짜 없음"
                                   }
                                 })() 

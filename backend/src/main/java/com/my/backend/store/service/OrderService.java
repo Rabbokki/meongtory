@@ -126,18 +126,20 @@ public class OrderService {
         return mapToResponseDto(order);
     }
 
-    // 모든 사용자의 주문 조회 (관리자용)
+    // 모든 사용자의 주문 조회 (관리자용) - 결제 완료된 주문만
     @Transactional(readOnly = true)
     public List<OrderResponseDto> getAllOrders() {
         return orderRepository.findAll().stream()
+                .filter(order -> order.getStatus() == OrderStatus.PAID) // 결제 완료된 주문만 필터링
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
 
-    // 특정 사용자의 주문 조회
+    // 특정 사용자의 주문 조회 (결제 완료된 주문만)
     @Transactional(readOnly = true)
     public List<OrderResponseDto> getUserOrders(Long accountId) {
         return orderRepository.findByAccountId(accountId).stream()
+                .filter(order -> order.getStatus() == OrderStatus.PAID) // 결제 완료된 주문만 필터링
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -187,6 +189,17 @@ public class OrderService {
 
     // 주문 엔티티 → DTO 매핑
     private OrderResponseDto mapToResponseDto(Order order) {
+        // 상품이 삭제된 경우를 대비한 안전한 처리
+        Long productId = null;
+        String productName = "삭제된 상품";
+        String imageUrl = "/placeholder.svg";
+        
+        if (order.getProduct() != null) {
+            productId = order.getProduct().getId();
+            productName = order.getProduct().getName();
+            imageUrl = order.getProduct().getImageUrl() != null ? order.getProduct().getImageUrl() : "/placeholder.svg";
+        }
+        
         return OrderResponseDto.builder()
                 .id(order.getId())
                 .merchantOrderId(order.getMerchantOrderId())
@@ -195,6 +208,9 @@ public class OrderService {
                 .createdAt(order.getCreatedAt())
                 .paidAt(order.getPaidAt())
                 .accountId(order.getAccount().getId())
+                .productId(productId)
+                .productName(productName)
+                .imageUrl(imageUrl)
                 .quantity(order.getQuantity())
                 .build();
     }

@@ -69,8 +69,10 @@ public class WebSecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/verifyAmount", "/api/verifyAmount", "/api/accounts/register", "/api/accounts/login", "/api/accounts/me", "/login/**", "/oauth2/**", "/file/**", "/test", "/ws/**", "/post/**").permitAll()
                         .requestMatchers("/api/products/**").permitAll()
+                        .requestMatchers("/api/orders/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/orders/**").permitAll()
                         .requestMatchers("/api/carts/**").authenticated()
                         .requestMatchers("/api/diary/**").permitAll()

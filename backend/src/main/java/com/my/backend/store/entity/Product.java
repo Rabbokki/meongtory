@@ -49,8 +49,8 @@ public class Product {
 
     private String registeredBy;
 
-    // 주문 목록 (역방향 연관관계)
-    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
+    // 주문 목록 (역방향 연관관계) - 상품 삭제 시 주문은 유지
+    @OneToMany(mappedBy = "product")
     @JsonIgnore
     private List<Order> orders = new ArrayList<>();
 

@@ -6,9 +6,13 @@ import com.my.backend.store.dto.OrderResponseDto;
 import com.my.backend.store.dto.PaymentOrderRequest;
 import com.my.backend.store.entity.OrderStatus;
 import com.my.backend.store.service.OrderService;
+import com.my.backend.global.security.user.UserDetailsImpl;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -68,8 +72,34 @@ public class OrderController {
     // 특정 사용자의 주문 조회
     @GetMapping("/user/{accountId}")
     public ResponseEntity<List<OrderResponseDto>> getUserOrders(@PathVariable Long accountId) {
-        List<OrderResponseDto> userOrders = orderService.getUserOrders(accountId);
-        return ResponseEntity.ok(userOrders);
+        try {
+            // 현재 로그인한 사용자의 권한 확인
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            String userRole = userDetails.getAccount().getRole();
+            Long currentUserId = userDetails.getAccount().getId();
+            
+            System.out.println("사용자별 주문 조회 요청 - 요청자: " + userDetails.getAccount().getEmail() + 
+                             ", 요청된 accountId: " + accountId + ", 현재 사용자 ID: " + currentUserId);
+            
+            // 관리자이거나 본인의 주문만 조회 가능
+            if (!"ADMIN".equals(userRole) && !currentUserId.equals(accountId)) {
+                System.out.println("권한이 없습니다. 본인의 주문만 조회 가능합니다.");
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            List<OrderResponseDto> userOrders = orderService.getUserOrders(accountId);
+            System.out.println("사용자별 주문 조회 성공: " + userOrders.size() + "개 주문");
+            return ResponseEntity.ok(userOrders);
+        } catch (Exception e) {
+            System.out.println("사용자별 주문 조회 실패: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // 장바구니 기반 전체 주문 생성
@@ -82,8 +112,31 @@ public class OrderController {
     // 관리자용 모든 사용자의 주문 조회
     @GetMapping("/admin/all")
     public ResponseEntity<List<OrderResponseDto>> getAllOrdersForAdmin() {
-        List<OrderResponseDto> allOrders = orderService.getAllOrders(); // 서비스에서 전체 조회
-        return ResponseEntity.ok(allOrders);
+        try {
+            // 현재 로그인한 사용자의 권한 확인
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            String userRole = userDetails.getAccount().getRole();
+            
+            System.out.println("관리자 주문 조회 요청 - 사용자: " + userDetails.getAccount().getEmail() + ", 권한: " + userRole);
+            
+            if (!"ADMIN".equals(userRole)) {
+                System.out.println("관리자 권한이 없습니다: " + userRole);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            List<OrderResponseDto> allOrders = orderService.getAllOrders(); // 서비스에서 전체 조회
+            System.out.println("관리자 주문 조회 성공: " + allOrders.size() + "개 주문");
+            return ResponseEntity.ok(allOrders);
+        } catch (Exception e) {
+            System.out.println("관리자 주문 조회 실패: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     // 주문 삭제

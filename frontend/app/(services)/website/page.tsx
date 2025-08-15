@@ -1230,14 +1230,15 @@ export default function PetServiceWebsite() {
       console.log('상품 목록 조회 시작...')
       console.log('요청 URL:', 'http://localhost:8080/api/products')
       
-      // 백엔드 서버 상태 확인
+      // 백엔드 서버 상태 확인 (선택적)
       try {
         const healthCheck = await axios.get('http://localhost:8080/actuator/health', {
           timeout: 3000
         })
         console.log('백엔드 서버 상태:', healthCheck.data)
       } catch (healthError) {
-        console.warn('백엔드 서버 상태 확인 실패:', healthError)
+        console.warn('백엔드 서버 상태 확인 실패 (무시됨):', healthError)
+        // 헬스체크 실패는 무시하고 계속 진행
       }
       
       // 인증 토큰 가져오기

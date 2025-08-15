@@ -132,7 +132,7 @@ export default function PaymentSuccessPage() {
             {paymentInfo && (
               <div className="space-y-4 mb-6">
                 <div className="bg-gray-50 rounded-lg p-4">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <p className="text-gray-500">주문번호</p>
                       <p className="font-medium">{paymentInfo.orderId}</p>
@@ -144,12 +144,6 @@ export default function PaymentSuccessPage() {
                     <div>
                       <p className="text-gray-500">결제금액</p>
                       <p className="font-medium">{paymentInfo.totalAmount?.toLocaleString()}원</p>
-                    </div>
-                    <div>
-                      <p className="text-gray-500">결제일시</p>
-                      <p className="font-medium">
-                        {paymentInfo.approvedAt ? new Date(paymentInfo.approvedAt).toLocaleString('ko-KR') : '-'}
-                      </p>
                     </div>
                   </div>
                 </div>

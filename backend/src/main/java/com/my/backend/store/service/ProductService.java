@@ -4,7 +4,9 @@ import com.my.backend.global.dto.ResponseDto;
 import com.my.backend.store.entity.Product;
 import com.my.backend.store.entity.Category;
 import com.my.backend.store.entity.TargetAnimal;
+import com.my.backend.store.entity.Order;
 import com.my.backend.store.repository.OrderItemRepository;
+import com.my.backend.store.repository.OrderRepository;
 import com.my.backend.store.repository.ProductRepository;
 import com.my.backend.store.repository.CartRepository;
 import com.my.backend.store.dto.ProductDto;
@@ -23,6 +25,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CartRepository cartRepository;
     private final OrderItemRepository orderItemRepository;
+    private final OrderRepository orderRepository;
     private final S3Service s3Service;
 
     public List<Product> getAllProducts() {
@@ -171,11 +174,21 @@ public class ProductService {
             int deletedCartItems = cartRepository.deleteByProduct_Id(id);
             System.out.println("삭제된 장바구니 항목 수: " + deletedCartItems);
             
-            // 2. 관련된 주문 항목들 먼저 삭제
+            // 2. 관련된 주문들의 product 참조를 null로 설정 (주문은 유지)
+            List<Order> relatedOrders = orderRepository.findByProduct_Id(id);
+            System.out.println("관련된 주문 수: " + relatedOrders.size());
+            
+            for (Order order : relatedOrders) {
+                order.setProduct(null);
+                orderRepository.save(order);
+                System.out.println("주문 ID " + order.getId() + "의 product 참조를 null로 설정");
+            }
+            
+            // 3. 관련된 주문 항목들 삭제 (OrderItem)
             int deletedOrderItems = orderItemRepository.deleteByProduct_Id(id);
             System.out.println("삭제된 주문 항목 수: " + deletedOrderItems);
             
-            // 3. 상품 삭제
+            // 4. 상품 삭제
             productRepository.delete(product);
             System.out.println("상품 삭제 완료");
             

@@ -27,6 +27,7 @@ public class PaymentService {
 
     private final TossPaymentRepository tossPaymentRepository;
     private final OrderRepository orderRepository;
+    private final OrderService orderService;
     private final ObjectMapper objectMapper;
 
     /**
@@ -153,6 +154,15 @@ public class PaymentService {
         
         if (status == TossPaymentStatus.FAILED) {
             payment.setFailedAt(LocalDateTime.now());
+        }
+        
+        // 결제 취소 시 주문 상태도 함께 업데이트
+        if (status == TossPaymentStatus.CANCELED || status == TossPaymentStatus.PARTIAL_CANCELED) {
+            Order order = payment.getOrder();
+            if (order != null) {
+                orderService.updateOrderStatus(order.getId(), OrderStatus.CANCELED);
+                log.info("결제 취소로 인한 주문 상태 업데이트: orderId={}, status=CANCELED", order.getId());
+            }
         }
         
         log.info("결제 상태 업데이트: paymentKey={}, status={}", paymentKey, status);
