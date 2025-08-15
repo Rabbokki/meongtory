@@ -901,7 +901,7 @@ export default function PetServiceWebsite() {
           quantity: item.quantity,
           order: index,
           product: {
-            productId: item.product.productId,
+            id: item.product.id,
             name: item.product.name,
             description: item.product.description,
             price: item.product.price,
@@ -931,12 +931,14 @@ export default function PetServiceWebsite() {
 
   const handleRemoveFromCart = async (cartId: number) => {
     try {
+      console.log("handleRemoveFromCart 시작 - cartId:", cartId)
       const accessToken = localStorage.getItem("accessToken");
       if (!accessToken) {
         toast.error("인증 토큰이 없습니다. 다시 로그인해주세요.", { duration: 5000 })
         return
       }
 
+      console.log("백엔드 API 호출 시작 - DELETE /api/carts/" + cartId)
       const response = await axios.delete(`http://localhost:8080/api/carts/${cartId}`, {
         headers: {
           "Authorization": `Bearer ${accessToken}`,
@@ -945,11 +947,15 @@ export default function PetServiceWebsite() {
         }
       })
 
+      console.log("백엔드 API 응답:", response.status, response.data)
+
       if (response.status !== 200) {
         throw new Error("장바구니에서 삭제에 실패했습니다.")
       }
 
+      console.log("fetchCartItems 호출 시작")
       await fetchCartItems()
+      console.log("fetchCartItems 완료")
       toast.success("장바구니에서 상품을 삭제했습니다", { duration: 5000 })
     } catch (error) {
       console.error("장바구니 삭제 오류:", error)
@@ -1069,21 +1075,30 @@ export default function PetServiceWebsite() {
         headers['access_token'] = accessToken
       }
 
+      // 사용자 정보 확인
+      if (!currentUser || !currentUser.id) {
+        console.error("사용자 정보가 없습니다:", currentUser)
+        toast.error("로그인이 필요합니다. 다시 로그인해주세요.", { duration: 5000 })
+        return
+      }
+
+      // 상품 정보 확인
+      if (!cartItem.product?.id) {
+        console.error("상품 정보가 없습니다:", cartItem)
+        toast.error("상품 정보를 찾을 수 없습니다.", { duration: 5000 })
+        return
+      }
+
       const orderData = {
-        userId: currentUser.id,
-        totalPrice: cartItem.price * cartItem.quantity,
-        orderItems: [
-          {
-            productId: cartItem.product?.productId || cartItem.id, // 실제 상품 ID 사용
-            productName: cartItem.product?.name || cartItem.name || cartItem.brand + " " + cartItem.category,
-            imageUrl: cartItem.product?.imageUrl || cartItem.image || "/placeholder.svg",
-            quantity: cartItem.quantity,
-            price: cartItem.product?.price || cartItem.price,
-          },
-        ],
+        accountId: currentUser.id,
+        productId: cartItem.product.id, // 실제 상품 ID 사용
+        quantity: cartItem.quantity
       }
 
       console.log("개별 구매 요청 데이터:", orderData)
+      console.log("cartItem 상세 정보:", cartItem)
+      console.log("cartItem.product:", cartItem.product)
+      console.log("currentUser:", currentUser)
 
       const response = await axios.post("http://localhost:8080/api/orders", orderData, {
         headers: headers,
@@ -1096,8 +1111,10 @@ export default function PetServiceWebsite() {
         throw new Error("개별 구매에 실패했습니다.")
       }
 
-      // 장바구니에서 해당 상품 제거
-      await handleRemoveFromCart(cartItem.id)
+      // 백엔드에서 자동으로 장바구니에서 삭제하므로 프론트엔드에서만 새로고침
+      console.log("구매 성공, 장바구니 새로고침 시작")
+      await fetchCartItems()
+      console.log("장바구니 새로고침 완료")
       await fetchUserOrders()
       toast.success("개별 구매가 완료되었습니다", { duration: 5000 })
       setCurrentPage("myPage")

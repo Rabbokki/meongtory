@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Trash2, ShoppingCart } from "lucide-react"
 import { useState } from "react"
-import PaymentPage from "../../payment/page"
+import PaymentPage from "../../payment/PaymentPage"
 
 interface CartItem {
   id: number
@@ -16,7 +16,7 @@ interface CartItem {
   quantity: number
   order: number // 순서 고정을 위한 필드
   product?: {
-    productId: number
+    id: number
     name: string
     description: string
     price: number
@@ -94,7 +94,7 @@ export default function CartPage({
     return (
       <PaymentPage
         items={paymentItems.map(item => ({
-          id: item.id,
+          id: item.product?.id || item.id, // 실제 상품 ID 사용
           name: item.name,
           price: item.price,
           quantity: item.quantity,

@@ -49,7 +49,31 @@ public class OrderService {
         // 상품 조회
         Product product = productRepository.findById(requestDto.getProductId())
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + requestDto.getProductId()));
-        System.out.println("찾은 상품: " + product.getName() + " (ID: " + product.getId() + ", 가격: " + product.getPrice() + ")");
+        System.out.println("찾은 상품: " + product.getName() + " (ID: " + product.getId() + ", 가격: " + product.getPrice() + ", 재고: " + product.getStock() + ")");
+
+        // 재고 확인 및 차감
+        if (product.getStock() < requestDto.getQuantity()) {
+            throw new IllegalArgumentException("재고가 부족합니다. (재고: " + product.getStock() + "개, 요청: " + requestDto.getQuantity() + "개)");
+        }
+        
+        // 재고 차감
+        product.setStock(product.getStock() - requestDto.getQuantity());
+        productRepository.save(product);
+        System.out.println("재고 차감 완료: " + product.getStock() + "개 남음");
+
+        // 중복 주문 방지: 최근 10초 내에 같은 사용자가 같은 상품에 대해 주문한 경우 기존 주문 반환
+        LocalDateTime tenSecondsAgo = LocalDateTime.now().minusSeconds(10);
+        List<Order> recentOrders = orderRepository.findByAccountIdAndProductIdAndCreatedAtAfter(
+                requestDto.getAccountId(), 
+                requestDto.getProductId(), 
+                tenSecondsAgo
+        );
+        
+        if (!recentOrders.isEmpty()) {
+            Order existingOrder = recentOrders.get(0);
+            System.out.println("중복 주문 방지: 기존 주문 반환 - " + existingOrder.getMerchantOrderId());
+            return mapToResponseDto(existingOrder);
+        }
 
         // 금액 계산
         long amount = (long) product.getPrice() * requestDto.getQuantity();
@@ -72,6 +96,23 @@ public class OrderService {
 
         Order saved = orderRepository.save(order);
         System.out.println("주문 저장 완료: " + saved.getId());
+        
+        // 장바구니에서 해당 상품 삭제
+        try {
+            List<Cart> cartItems = cartRepository.findByAccount_Id(requestDto.getAccountId());
+            List<Cart> itemsToDelete = cartItems.stream()
+                .filter(cart -> cart.getProduct().getId().equals(requestDto.getProductId()))
+                .collect(Collectors.toList());
+            
+            if (!itemsToDelete.isEmpty()) {
+                cartRepository.deleteAll(itemsToDelete);
+                System.out.println("장바구니에서 상품 삭제 완료: " + itemsToDelete.size() + "개 항목");
+            }
+        } catch (Exception e) {
+            System.out.println("장바구니 삭제 중 오류 발생: " + e.getMessage());
+            // 장바구니 삭제 실패는 주문 생성에 영향을 주지 않도록 함
+        }
+        
         System.out.println("================================");
         
         return mapToResponseDto(saved);

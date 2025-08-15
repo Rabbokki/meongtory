@@ -14,4 +14,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
     
     List<Order> findByAccountId(Long accountId);
+    
+    // 중복 주문 방지를 위한 메서드
+    List<Order> findByAccountIdAndProductIdAndCreatedAtAfter(Long accountId, Long productId, LocalDateTime createdAt);
 }

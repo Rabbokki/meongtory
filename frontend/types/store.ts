@@ -34,7 +34,7 @@ export interface CartItem {
   quantity: number
   order: number
   product?: {
-    productId: number
+    id: number
     name: string
     description: string
     price: number

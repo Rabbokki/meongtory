@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, CreditCard, ShoppingBag } from "lucide-react";
@@ -33,16 +33,27 @@ declare global {
 
 export default function PaymentPage({ items, onBack, onSuccess, onFail }: PaymentPageProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<string>("CARD");
+  const [paymentMethod] = useState<string>("CARD");
   const [tossPayments, setTossPayments] = useState<any>(null);
   const [payment, setPayment] = useState<any>(null);
   const [userInfo, setUserInfo] = useState<any>(null);
 
   const totalAmount = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   const [orderId, setOrderId] = useState<string>('');
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
+  const hasInitialized = useRef(false);
 
   // 주문 생성
   const createOrder = async (userData: any) => {
+    // 이미 주문이 생성되었거나 생성 중이면 중복 생성 방지
+    if (orderId || isCreatingOrder) {
+      console.log('주문이 이미 생성되어 있거나 생성 중입니다:', { orderId, isCreatingOrder });
+      return;
+    }
+    
+    setIsCreatingOrder(true);
+    
     try {
       const accessToken = localStorage.getItem('accessToken');
 
@@ -52,6 +63,9 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
 
       // 첫 번째 아이템으로 주문 생성 (단일 상품 주문)
       const firstItem = items[0];
+      console.log('결제 아이템 정보:', firstItem);
+      console.log('사용자 정보:', userData);
+      
       const orderData = {
         accountId: userData.id,
         productId: firstItem.id,
@@ -59,6 +73,11 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
       };
 
       console.log('주문 생성 요청:', orderData);
+      console.log('요청 데이터 타입 확인:', {
+        accountId: typeof orderData.accountId,
+        productId: typeof orderData.productId,
+        quantity: typeof orderData.quantity
+      });
 
       const response = await axios.post(`${API_BASE_URL}/orders`, orderData, {
         headers: {
@@ -75,11 +94,19 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
     } catch (error) {
       console.error('주문 생성 오류:', error);
       throw error;
+    } finally {
+      setIsCreatingOrder(false);
     }
   };
 
   // 사용자 정보 가져오기
   const fetchUserInfo = async () => {
+    // useRef와 state 모두 체크해서 중복 실행 방지
+    if (hasInitialized.current && isInitialized) {
+      console.log('이미 초기화되었습니다.');
+      return;
+    }
+    
     try {
       // 메인 웹사이트와 동일한 토큰 저장 방식 사용
       const accessToken = localStorage.getItem('accessToken');
@@ -110,6 +137,9 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
         
         // 사용자 정보를 가져온 후 주문 생성
         await createOrder(userData);
+        
+        // 초기화 완료 표시
+        setIsInitialized(true);
       } else {
         throw new Error('사용자 정보를 가져올 수 없습니다.');
       }
@@ -126,6 +156,12 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
   };
 
   useEffect(() => {
+    // useRef를 사용해서 정확히 한 번만 실행
+    if (hasInitialized.current) {
+      return;
+    }
+    hasInitialized.current = true;
+    
     // 사용자 정보 불러오기
     fetchUserInfo();
 
@@ -182,7 +218,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
         onFail(error);
       }
     })();
-  }, [onFail]);
+  }, []); // 빈 의존성 배열로 컴포넌트 마운트 시 한 번만 실행
 
   // tossPayments와 userInfo가 준비되면 payment 인스턴스를 미리 생성
   useEffect(() => {
@@ -359,39 +395,17 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                <label className="flex items-center space-x-3 cursor-pointer">
+                <div className="flex items-center space-x-3">
                   <input
                     type="radio"
                     name="paymentMethod"
                     value="CARD"
-                    checked={paymentMethod === "CARD"}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    checked={true}
+                    disabled
                     className="text-blue-600"
                   />
-                  <span>신용카드</span>
-                </label>
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="TRANSFER"
-                    checked={paymentMethod === "TRANSFER"}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="text-blue-600"
-                  />
-                  <span>계좌이체</span>
-                </label>
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="VIRTUAL_ACCOUNT"
-                    checked={paymentMethod === "VIRTUAL_ACCOUNT"}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="text-blue-600"
-                  />
-                  <span>가상계좌</span>
-                </label>
+                  <span className="text-gray-900">신용카드</span>
+                </div>
               </div>
             </CardContent>
           </Card>
