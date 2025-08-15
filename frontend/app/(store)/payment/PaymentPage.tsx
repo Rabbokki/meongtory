@@ -8,7 +8,7 @@ import axios from 'axios';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
 
 const API_BASE_URL = 'http://localhost:8080/api';
-const CLIENT_KEY = `test_ck_4yKeq5bgrp2mdOw6yOYJ3GX0lzW6`;
+const CLIENT_KEY = ``;
 console.log("CLIENT_KEY:", CLIENT_KEY);
 
 
