@@ -311,6 +311,8 @@ export const productApi = {
   },
 };
 
+
+
 // 에러 처리 유틸리티
 export const handleApiError = (error: unknown): string => {
   if (error instanceof Error) {

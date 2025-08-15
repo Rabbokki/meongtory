@@ -1,9 +1,22 @@
-// TossPaymentStatus.java
 package com.my.backend.store.entity;
 
 public enum TossPaymentStatus {
-    READY, // 결제 요청 완료
-    IN_PROGRESS, // 결제 승인 진행 중
-    DONE, // 결제 완료
-    CANCELED // 결제 취소
+    READY("준비됨"),
+    IN_PROGRESS("진행중"),
+    DONE("완료"),
+    CANCELED("취소됨"),
+    PARTIAL_CANCELED("부분 취소됨"),
+    ABORTED("중단됨"),
+    FAILED("실패");
+
+    private final String displayName;
+
+    TossPaymentStatus(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
 }
+

@@ -2,8 +2,12 @@ package com.my.backend.store.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "product")
@@ -14,6 +18,7 @@ import java.time.LocalDate;
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "product_id")
     private Long id;
 
     @Column(nullable = false)
@@ -43,6 +48,11 @@ public class Product {
     private LocalDate registrationDate;
 
     private String registeredBy;
+
+    // 주문 목록 (역방향 연관관계)
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL)
+    @JsonIgnore
+    private List<Order> orders = new ArrayList<>();
 
     // 문자열을 Category enum으로 변환하는 setter
     public void setCategory(String categoryStr) {

@@ -1,10 +1,7 @@
 package com.my.backend.store.dto;
 
-import lombok.Builder;
-
-@Builder
 public record ConfirmPaymentRequest(
-        String orderId,
-        String amount,
-        String paymentKey
+    String paymentKey,
+    String orderId,
+    Long amount
 ) {}

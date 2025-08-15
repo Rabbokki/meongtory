@@ -5,6 +5,7 @@ import lombok.Builder;
 
 @Builder
 public record PaymentErrorResponse(
-        int code,
-        String message
+    Integer code,
+    String message,
+    String errorCode
 ) {}

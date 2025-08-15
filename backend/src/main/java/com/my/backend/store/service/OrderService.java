@@ -67,6 +67,7 @@ public class OrderService {
                 .createdAt(LocalDateTime.now())
                 .quantity(requestDto.getQuantity())
                 .account(account)
+                .product(product)
                 .build();
 
         Order saved = orderRepository.save(order);
@@ -131,6 +132,7 @@ public class OrderService {
                     .createdAt(LocalDateTime.now())
                     .account(account)
                     .quantity(cart.getQuantity())
+                    .product(product)
                     .build();
 
             return orderRepository.save(order);
@@ -163,7 +165,10 @@ public class OrderService {
                 LocalDate.now().atStartOfDay(),
                 LocalDate.now().plusDays(1).atStartOfDay()
         ) + 1;
-        return String.format("order-%s-%03d", datePart, countToday);
+        
+        // 중복 방지를 위해 랜덤 숫자 추가
+        String randomSuffix = String.format("%03d", (int)(Math.random() * 1000));
+        return String.format("order-%s-%03d-%s", datePart, countToday, randomSuffix);
     }
     @Transactional
     public OrderResponseDto updateOrderStatus(Long orderId, OrderStatus newStatus) {

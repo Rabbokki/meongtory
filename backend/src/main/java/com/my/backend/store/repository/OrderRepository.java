@@ -8,6 +8,8 @@ import java.util.List;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean existsByMerchantOrderId(String merchantOrderId);
+    
+    java.util.Optional<Order> findByMerchantOrderId(String merchantOrderId);
 
     long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
     

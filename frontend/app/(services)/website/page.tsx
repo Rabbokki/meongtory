@@ -1251,6 +1251,10 @@ export default function PetServiceWebsite() {
       
       console.log('응답 상태:', response.status)
       console.log('응답 헤더:', response.headers)
+      console.log('응답 데이터 타입:', typeof response.data)
+      console.log('응답 데이터:', response.data)
+      console.log('응답 데이터가 배열인가?', Array.isArray(response.data))
+      console.log('응답 데이터 길이:', response.data?.length)
       const backendProducts = response.data
       console.log('백엔드에서 받은 상품 데이터:', backendProducts)
       

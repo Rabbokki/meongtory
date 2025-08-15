@@ -1,8 +1,11 @@
 package com.my.backend.store.entity;
 
 import com.my.backend.account.entity.Account;
+import com.my.backend.store.entity.Product;
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -43,13 +46,22 @@ public class Order {
     // 주문자 정보 (Account)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "account_id", nullable = false)
+    @JsonIgnore
     private Account account;
+
+    // 상품 정보 (결제용 주문의 경우 null일 수 있음)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "product_id", nullable = true)
+    @JsonIgnore
+    private Product product;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     @Builder.Default
+    @JsonIgnore
     private List<OrderItem> orderItems = new ArrayList<>();
 
     @OneToOne(mappedBy = "order", cascade = CascadeType.ALL)
+    @JsonIgnore
     private TossPayment tossPayment;
 
     // 주문 수량
