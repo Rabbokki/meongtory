@@ -37,13 +37,17 @@ export default function Chatbot() {
       setMessages((prev) => [...prev, userMessage])
 
       try {
+        console.log("NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
+        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/chatbot/query`;
+        console.log("Sending request to:", apiUrl);
+        console.log("Request payload:", { query: inputMessage });
         const response = await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/chatbot/query`,
+          apiUrl,
           { query: inputMessage },
           { headers: { "Content-Type": "application/json" } }
         )
         console.log("Response status:", response.status)
-        console.log("Response data:", JSON.stringify(response.data)) // 응답 데이터 디버깅
+        console.log("Response data:", JSON.stringify(response.data))
         const botResponse: ChatMessage = {
           id: Date.now() + 1,
           message: response.data.answer || "응답이 비어 있습니다. 서버를 확인해주세요.",

@@ -25,7 +25,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init-db:/docker-entrypoint-initdb.d
     ports:
-      - "5433:5432"
+      - "7000:5432"
     networks:
       - meongtory-network
 
