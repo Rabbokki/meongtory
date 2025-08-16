@@ -40,11 +40,20 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - DB_HOST=db
+      - DB_PORT=${DB_PORT}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
       - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL}
       - OPENAI_BREEDING_MODEL=${OPENAI_BREEDING_MODEL}
       - AI_SERVICE_URL=${AI_SERVICE_URL}
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME}
+      - VECTORSTORE_COLLECTION_NAME=${VECTORSTORE_COLLECTION_NAME}
+      - VECTORSTORE_DISTANCE_STRATEGY=${VECTORSTORE_DISTANCE_STRATEGY}
+      - VECTORSTORE_SEARCH_LIMIT=${VECTORSTORE_SEARCH_LIMIT}
+      - SAMPLE_DATA_PATH=${SAMPLE_DATA_PATH}
+      - PROMPT_TEMPLATE_PATH=${PROMPT_TEMPLATE_PATH}
+    volumes:
+      - ./ai/chatBot:/app/chatBot
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "9000", "--reload"]
     depends_on:
       - db
@@ -58,7 +67,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:5432/${DB_NAME}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
       - SPRING_DATASOURCE_USERNAME=${DB_USER}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - SERVER_PORT=${BACKEND_PORT}

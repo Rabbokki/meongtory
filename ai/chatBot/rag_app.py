@@ -1,5 +1,4 @@
-﻿from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+﻿from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_postgres import PGVector
@@ -8,29 +7,35 @@ from langchain_core.documents import Document
 import os
 import logging
 import psycopg2
+import json
 
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-app = FastAPI()
-
 # 환경 변수
 DB_USER = os.getenv("DB_USER", "jjj")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "1q2w3e4r!")
 DB_HOST = os.getenv("DB_HOST", "db")
+DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "meong")
-CONNECTION_STRING = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
+CONNECTION_STRING = f"postgresql+psycopg2://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+EMBEDDING_MODEL_NAME = os.getenv("EMBEDDING_MODEL_NAME", "all-MiniLM-L6-v2")
+VECTORSTORE_COLLECTION_NAME = os.getenv("VECTORSTORE_COLLECTION_NAME", "chatbot_vectors")
+VECTORSTORE_DISTANCE_STRATEGY = os.getenv("VECTORSTORE_DISTANCE_STRATEGY", "cosine")
+VECTORSTORE_SEARCH_LIMIT = int(os.getenv("VECTORSTORE_SEARCH_LIMIT", "5"))
+SAMPLE_DATA_PATH = os.getenv("SAMPLE_DATA_PATH", "/app/chatBot/sample_data.json")
+PROMPT_TEMPLATE_PATH = os.getenv("PROMPT_TEMPLATE_PATH", "/app/chatBot/prompt_template.txt")
 
 # 임베딩 모델
 try:
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    logger.info("HuggingFaceEmbeddings initialized successfully")
+    embeddings = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
+    logger.info(f"HuggingFaceEmbeddings initialized successfully with model: {EMBEDDING_MODEL_NAME}")
 except Exception as e:
     logger.error(f"Failed to initialize HuggingFaceEmbeddings: {e}")
-    raise HTTPException(status_code=500, detail="Embedding initialization failed")
+    raise Exception("Embedding initialization failed")
 
 # PGVector 초기화
 try:
@@ -38,15 +43,15 @@ try:
     vectorstore = PGVector(
         connection=CONNECTION_STRING,
         embeddings=embeddings,
-        collection_name="chatbot_vectors",
-        distance_strategy="cosine",
+        collection_name=VECTORSTORE_COLLECTION_NAME,
+        distance_strategy=VECTORSTORE_DISTANCE_STRATEGY,
         use_jsonb=True
     )
     logger.info("PGVector initialized successfully")
     # 테이블 및 컬렉션 확인
     with psycopg2.connect(
         host=DB_HOST,
-        port=5432,
+        port=DB_PORT,
         dbname=DB_NAME,
         user=DB_USER,
         password=DB_PASSWORD
@@ -55,25 +60,25 @@ try:
             cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'langchain_pg_embedding')")
             table_exists = cur.fetchone()[0]
             logger.debug(f"langchain_pg_embedding table exists: {table_exists}")
-            cur.execute("SELECT COUNT(*) FROM langchain_pg_collection WHERE name = %s", ("chatbot_vectors",))
+            cur.execute("SELECT COUNT(*) FROM langchain_pg_collection WHERE name = %s", (VECTORSTORE_COLLECTION_NAME,))
             collection_count = cur.fetchone()[0]
-            logger.debug(f"chatbot_vectors collection exists: {collection_count}")
+            logger.debug(f"{VECTORSTORE_COLLECTION_NAME} collection exists: {collection_count}")
 except Exception as e:
     logger.error(f"Failed to initialize PGVector: {e}", exc_info=True)
-    raise HTTPException(status_code=500, detail=f"Vectorstore initialization failed: {str(e)}")
+    raise Exception(f"Vectorstore initialization failed: {str(e)}")
 
 # 샘플 데이터 삽입
 def initialize_vectorstore():
     try:
         logger.debug("Starting initialize_vectorstore")
-        logger.info("Checking for existing data in chatbot_vectors")
+        logger.info(f"Checking for existing data in {VECTORSTORE_COLLECTION_NAME}")
         existing_docs = vectorstore.similarity_search("강아지 입양", k=1)
         logger.debug(f"Existing docs: {existing_docs}")
 
         # 기존 데이터 확인 및 삭제
         with psycopg2.connect(
             host=DB_HOST,
-            port=5432,
+            port=DB_PORT,
             dbname=DB_NAME,
             user=DB_USER,
             password=DB_PASSWORD
@@ -84,66 +89,57 @@ def initialize_vectorstore():
                     FROM langchain_pg_embedding e
                     JOIN langchain_pg_collection c ON e.collection_id = c.uuid
                     WHERE c.name = %s
-                """, ("chatbot_vectors",))
+                """, (VECTORSTORE_COLLECTION_NAME,))
                 count = cur.fetchone()[0]
-                logger.debug(f"Existing records in chatbot_vectors: {count}")
+                logger.debug(f"Existing records in {VECTORSTORE_COLLECTION_NAME}: {count}")
 
                 if count > 0:
-                    logger.info("Deleting existing data in chatbot_vectors")
+                    logger.info(f"Deleting existing data in {VECTORSTORE_COLLECTION_NAME}")
                     cur.execute("""
                         DELETE FROM langchain_pg_embedding
                         WHERE collection_id = (
                             SELECT uuid FROM langchain_pg_collection WHERE name = %s
                         )
-                    """, ("chatbot_vectors",))
+                    """, (VECTORSTORE_COLLECTION_NAME,))
                     conn.commit()
                     logger.info("Existing data deleted")
 
         # 샘플 데이터 삽입
-        logger.info("Inserting sample data into chatbot_vectors")
-        sample_docs = [
-            Document(
-                page_content="강아지 입양 절차는 동물보호소 방문, 신분증 제출, 입양 신청서 작성, 면담, 입양비 납부 순으로 진행됩니다.",
-                metadata={"source": "adoption_guide"},
-                id=1
-            ),
-            Document(
-                page_content="고양이 입양 시 고려해야 할 점은 집 환경, 사료 선택, 건강 검진 주기입니다.",
-                metadata={"source": "cat_adoption"},
-                id=2
-            ),
-            Document(
-                page_content="애완동물 건강 관리를 위해 정기적인 예방접종과 구충제 투여가 중요합니다.",
-                metadata={"source": "pet_care"},
-                id=3
-            ),
-        ]
-        logger.info("Inserting sample data into chatbot_vectors")
+        logger.info(f"Inserting sample data into {VECTORSTORE_COLLECTION_NAME}")
+        try:
+            with open(SAMPLE_DATA_PATH, 'r', encoding='utf-8') as f:
+                sample_data = json.load(f)
+            sample_docs = [Document(**doc) for doc in sample_data]
+        except Exception as e:
+            logger.error(f"Failed to load sample data from {SAMPLE_DATA_PATH}: {str(e)}")
+            raise Exception(f"Sample data loading failed: {str(e)}")
         vectorstore.add_documents(sample_docs)
         logger.info("Sample data inserted successfully")
     except Exception as e:
         logger.error(f"Failed to insert sample data: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Sample data insertion failed: {str(e)}")
+        raise Exception(f"Sample data insertion failed: {str(e)}")
 
 # OpenAI 모델
 try:
     llm = ChatOpenAI(
         api_key=OPENAI_API_KEY,
-        model=OPENAI_MODEL
+        model=OPENAI_MODEL,
+        max_tokens=100  # 응답 길이 제한
     )
     logger.info("ChatOpenAI initialized successfully")
 except Exception as e:
     logger.error(f"Failed to initialize ChatOpenAI: {e}")
-    raise HTTPException(status_code=500, detail="LLM initialization failed")
+    raise Exception("LLM initialization failed")
 
-prompt_template = PromptTemplate(
-    input_variables=["context", "query"],
-    template="""You are 멍토리 도우미, a chatbot for a pet All-in-One platform.
-    Answer in Korean, using a friendly tone.
-    Context: {context}
-    Question: {query}
-    Answer:"""
-)
+# 프롬프트 템플릿
+try:
+    with open(PROMPT_TEMPLATE_PATH, 'r', encoding='utf-8') as f:
+        prompt_template_content = f.read()
+    prompt_template = PromptTemplate(input_variables=["context", "query"], template=prompt_template_content)
+    logger.info(f"Prompt template loaded successfully from {PROMPT_TEMPLATE_PATH}")
+except Exception as e:
+    logger.error(f"Failed to load prompt template from {PROMPT_TEMPLATE_PATH}: {e}")
+    raise Exception("Prompt template loading failed")
 
 class QueryRequest(BaseModel):
     query: str
@@ -151,7 +147,7 @@ class QueryRequest(BaseModel):
 async def process_rag_query(query: str):
     try:
         logger.info(f"Processing query: {query}")
-        results = vectorstore.similarity_search(query, k=5)
+        results = vectorstore.similarity_search(query, k=VECTORSTORE_SEARCH_LIMIT)
         context = "\n".join([doc.page_content for doc in results])
         prompt = prompt_template.format(context=context, query=query)
         response = llm.invoke(prompt)
@@ -159,13 +155,7 @@ async def process_rag_query(query: str):
         return {"answer": response.content}
     except Exception as e:
         logger.error(f"Error processing query: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Query processing failed: {str(e)}")
+        raise Exception(f"Query processing failed: {str(e)}")
 
-@app.post("/rag")
-async def rag_endpoint(request: QueryRequest):
-    return await process_rag_query(request.query)
-
-# 서버 시작 시 vectorstore 초기화 (중복 실행 방지)
-if not hasattr(app, 'vectorstore_initialized'):
-    initialize_vectorstore()
-    app.vectorstore_initialized = True
+# 서버 시작 시 vectorstore 초기화
+initialize_vectorstore()
