@@ -2,10 +2,12 @@ import axios from 'axios';
 
 // API 설정을 위한 공통 유틸리티
 export const getBackendUrl = () => {
-  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8080';
-  console.log('Backend URL:', url);
+  const url = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8080';
+  // URL 끝의 슬래시 제거
+  const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+  console.log('Backend URL:', normalizedUrl);
   console.log('NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
-  return url;
+  return normalizedUrl;
 };
 
 export const getApiBaseUrl = () => {
@@ -19,7 +21,7 @@ axios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('accessToken');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `${token}`;
       config.headers['Access_Token'] = token; // 백엔드에서 Access_Token 헤더 사용
     }
     return config;
@@ -46,14 +48,13 @@ axios.interceptors.response.use(
           localStorage.setItem('accessToken', newAccessToken);
 
           // 원래 요청 재시도
-          error.config.headers.Authorization = `Bearer ${newAccessToken}`;
+          error.config.headers.Authorization = `${newAccessToken}`;
           error.config.headers['Access_Token'] = newAccessToken;
           return axios.request(error.config);
         } catch (refreshError) {
           // 토큰 갱신 실패 시 로그인 페이지로 리다이렉트
           localStorage.removeItem('accessToken');
           localStorage.removeItem('refreshToken');
-          window.location.href = '/login';
         }
       }
     }
@@ -282,6 +283,8 @@ export const productApi = {
   },
 
   createProduct: async (productData: any): Promise<any> => {
+    console.log('Creating product with URL:', `${API_BASE_URL}/products`);
+    console.log('Product data:', productData);
     const response = await axios.post(`${API_BASE_URL}/products`, productData, {
       headers: {
         'Content-Type': 'application/json',

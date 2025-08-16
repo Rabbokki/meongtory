@@ -33,6 +33,7 @@ public class Pet {
     private Gender gender;
     
     @Column(name = "vaccinated")
+    @Builder.Default
     private Boolean vaccinated = false;
     
     @Column(name = "description", columnDefinition = "TEXT")
@@ -42,6 +43,7 @@ public class Pet {
     private String imageUrl; // 이미지 URL 저장
     
     @Column(name = "adopted")
+    @Builder.Default
     private Boolean adopted = false;
     
     // 추가 필드들
@@ -76,12 +78,14 @@ public class Pet {
     private String aiBackgroundStory;
     
     @Column(name = "status")
+    @Builder.Default
     private String status = "보호중"; // 보호중, 입양대기, 입양완료 등
     
     @Column(name = "type")
     private String type; // 강아지, 고양이 등
     
     @Column(name = "neutered")
+    @Builder.Default
     private Boolean neutered = false;
     
     public enum Gender {

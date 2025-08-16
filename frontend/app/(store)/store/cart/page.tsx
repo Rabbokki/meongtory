@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Trash2, ShoppingCart } from "lucide-react"
 import { useState } from "react"
-import PaymentPage from "../../payment/page"
+import PaymentPage from "../../payment/PaymentPage"
 
 interface CartItem {
   id: number
@@ -15,6 +15,18 @@ interface CartItem {
   category: string
   quantity: number
   order: number // 순서 고정을 위한 필드
+  product?: {
+    id: number
+    name: string
+    description: string
+    price: number
+    stock: number
+    imageUrl: string
+    category: string
+    targetAnimal: string
+    registrationDate: string
+    registeredBy: string
+  }
 }
 
 interface CartPageProps {
@@ -34,6 +46,15 @@ export default function CartPage({
   onPurchaseSingle,
   onUpdateQuantity,
 }: CartPageProps) {
+  // 디버깅: cartItems 배열 확인
+  console.log('CartPage - cartItems:', cartItems);
+  if (cartItems) {
+    const ids = cartItems.map(item => item.id);
+    const uniqueIds = new Set(ids);
+    if (ids.length !== uniqueIds.size) {
+      console.warn('CartPage - 중복된 ID가 있습니다:', ids);
+    }
+  }
   const [showPayment, setShowPayment] = useState(false)
   const [paymentItems, setPaymentItems] = useState<CartItem[]>([])
 
@@ -73,7 +94,7 @@ export default function CartPage({
     return (
       <PaymentPage
         items={paymentItems.map(item => ({
-          id: item.id,
+          id: item.product?.id || item.id, // 실제 상품 ID 사용
           name: item.name,
           price: item.price,
           quantity: item.quantity,
@@ -133,8 +154,8 @@ export default function CartPage({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {cartItems?.sort((a, b) => a.order - b.order).map((item) => (
-                <Card key={item.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+              {cartItems?.sort((a, b) => a.order - b.order).map((item, index) => (
+                <Card key={`${item.id}-${index}`} className="overflow-hidden hover:shadow-lg transition-shadow">
                   <div className="relative">
                     <Image
                       src={item.image || "/placeholder.svg"}
@@ -171,13 +192,30 @@ export default function CartPage({
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                          onClick={() => {
+                            const stock = item.product?.stock || 0
+                            if (item.quantity >= stock) {
+                              alert(`재고가 부족합니다. (재고: ${stock}개, 현재: ${item.quantity}개)`)
+                              return
+                            }
+                            onUpdateQuantity(item.id, item.quantity + 1)
+                          }}
+                          disabled={item.quantity >= (item.product?.stock || 0)}
                           className="w-8 h-8 p-0"
                         >
                           +
                         </Button>
                       </div>
                     </div>
+                    {/* 재고 정보 표시 */}
+                    {item.product?.stock && (
+                      <div className="text-xs text-gray-500 mb-2">
+                        재고: {item.product.stock}개
+                        {item.quantity >= item.product.stock && (
+                          <span className="text-red-500 ml-2">최대 재고 수량입니다</span>
+                        )}
+                      </div>
+                    )}
                     
                     <div className="flex space-x-2">
                       <Button

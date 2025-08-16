@@ -96,4 +96,15 @@ logging:
 toss:
   payments:
     secret-key: ${TOSS_SECRET_KEY}
-    client-key: ${TOSS_CLIENT_KEY}
+    client-key: ${NEXT_PUBLIC_TOSS_CLIENT_KEY}
+
+# Spring Boot Actuator 설정
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always

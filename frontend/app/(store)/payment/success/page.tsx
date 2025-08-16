@@ -1,207 +1,189 @@
-"use client";
+'use client';
 
-import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Home, ShoppingBag, Sparkles, Gift, PartyPopper } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CheckCircle, Home, Receipt } from "lucide-react";
+import axios from 'axios';
+
+const API_BASE_URL = 'http://localhost:8080/api';
+
+interface PaymentInfo {
+  paymentKey: string;
+  orderId: string;
+  amount: number;
+  status: string;
+  method: string;
+  approvedAt: string;
+  totalAmount: number;
+  receipt?: {
+    url: string;
+  };
+}
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
-  const [paymentInfo, setPaymentInfo] = useState<any>(null);
-  const [showConfetti, setShowConfetti] = useState(false);
+  const router = useRouter();
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const paymentKey = searchParams.get("paymentKey");
-    const orderId = searchParams.get("orderId");
-    const amount = searchParams.get("amount");
+    const confirmPayment = async () => {
+      try {
+        const paymentKey = searchParams.get('paymentKey');
+        const orderId = searchParams.get('orderId');
+        const amount = searchParams.get('amount');
 
-    if (paymentKey && orderId && amount) {
-      setPaymentInfo({
-        paymentKey,
-        orderId,
-        amount: parseInt(amount),
-      });
-    }
+        if (!paymentKey || !orderId || !amount) {
+          setError('결제 정보가 올바르지 않습니다.');
+          setIsLoading(false);
+          return;
+        }
 
-    // 성공 애니메이션 시작
-    setShowConfetti(true);
-    setTimeout(() => setShowConfetti(false), 3000);
+        console.log('결제 승인 요청:', { paymentKey, orderId, amount });
+
+        const accessToken = localStorage.getItem('accessToken');
+        if (!accessToken) {
+          throw new Error('인증 토큰이 없습니다.');
+        }
+
+        const response = await axios.post(
+          `${API_BASE_URL}/confirm`,
+          {
+            paymentKey,
+            orderId,
+            amount: parseInt(amount)
+          },
+          {
+            headers: {
+              'Access_Token': accessToken,
+              'Content-Type': 'application/json',
+            },
+            withCredentials: true,
+          }
+        );
+
+        console.log('결제 승인 성공:', response.data);
+        setPaymentInfo(response.data);
+      } catch (error: any) {
+        console.error('결제 승인 실패:', error);
+        if (axios.isAxiosError(error)) {
+          console.error('Axios error details:', {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            url: error.config?.url,
+          });
+          setError(error.response?.data?.message || '결제 승인 중 네트워크 오류가 발생했습니다.');
+        } else {
+          setError('결제 승인 중 오류가 발생했습니다.');
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    confirmPayment();
   }, [searchParams]);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50 relative overflow-hidden">
-      {/* 배경 장식 */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-yellow-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-40 w-80 h-80 bg-pink-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
-      </div>
+  const handleGoHome = () => {
+    router.push('/');
+  };
 
-      {/* 성공 애니메이션 */}
-      {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-50">
-          {[...Array(50)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute animate-confetti"
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 3}s`,
-                animationDuration: `${Math.random() * 2 + 2}s`,
-              }}
-            >
-              <div className="w-2 h-2 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full"></div>
-            </div>
-          ))}
+  const handleViewReceipt = () => {
+    if (paymentInfo?.receipt?.url) {
+      window.open(paymentInfo.receipt.url, '_blank');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">결제를 확인하는 중입니다...</p>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      <div className="relative container mx-auto p-6">
-        <div className="max-w-4xl mx-auto">
-          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm overflow-hidden">
-            {/* 성공 헤더 */}
-            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 p-8 text-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-white/10"></div>
-              <div className="relative z-10">
-                <div className="flex justify-center mb-4">
-                  <div className="p-4 bg-white/20 rounded-full backdrop-blur-sm">
-                    <CheckCircle className="h-12 w-12 text-white" />
-                  </div>
-                </div>
-                <CardTitle className="text-3xl font-bold text-white mb-2">
-                  결제 성공!
-                </CardTitle>
-                <p className="text-white/90 text-lg">
-                  주문이 성공적으로 완료되었습니다
-                </p>
-              </div>
-              
-              {/* 장식 요소들 */}
-              <div className="absolute top-4 left-4">
-                <Sparkles className="h-6 w-6 text-white/60 animate-pulse" />
-              </div>
-              <div className="absolute top-4 right-4">
-                <Gift className="h-6 w-6 text-white/60 animate-pulse animation-delay-1000" />
-              </div>
-              <div className="absolute bottom-4 left-4">
-                <PartyPopper className="h-6 w-6 text-white/60 animate-pulse animation-delay-2000" />
-              </div>
-              <div className="absolute bottom-4 right-4">
-                <Sparkles className="h-6 w-6 text-white/60 animate-pulse animation-delay-3000" />
-              </div>
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-red-600 text-center">결제 오류</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 text-center mb-6">{error}</p>
+            <Button onClick={handleGoHome} className="w-full">
+              <Home className="h-4 w-4 mr-2" />
+              홈으로 돌아가기
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-2xl mx-auto px-4">
+        <Card className="text-center">
+          <CardHeader>
+            <div className="flex justify-center mb-4">
+              <CheckCircle className="h-16 w-16 text-green-500" />
             </div>
-
-            <CardContent className="p-8">
-              {/* 주문 정보 */}
-              {paymentInfo && (
-                <div className="space-y-4 mb-8">
-                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 rounded-xl border border-gray-200">
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-600">주문 ID</span>
-                        <span className="font-mono text-sm bg-gray-200 px-2 py-1 rounded">
-                          {paymentInfo.orderId}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-600">결제 금액</span>
-                        <span className="text-3xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
-                          {paymentInfo.amount.toLocaleString()}원
-                        </span>
-                      </div>
+            <CardTitle className="text-2xl text-green-600">결제가 완료되었습니다!</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {paymentInfo && (
+              <div className="space-y-4 mb-6">
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <p className="text-gray-500">주문번호</p>
+                      <p className="font-medium">{paymentInfo.orderId}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">결제수단</p>
+                      <p className="font-medium">{paymentInfo.method}</p>
+                    </div>
+                    <div>
+                      <p className="text-gray-500">결제금액</p>
+                      <p className="font-medium">{paymentInfo.totalAmount?.toLocaleString()}원</p>
                     </div>
                   </div>
                 </div>
-              )}
-
-              {/* 성공 메시지 */}
-              <div className="text-center mb-8">
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
-                  <div className="flex items-center justify-center gap-2 text-green-700">
-                    <CheckCircle className="h-5 w-5" />
-                    <span className="font-medium">안전한 결제가 완료되었습니다</span>
-                  </div>
-                </div>
-             
               </div>
+            )}
 
-              {/* 액션 버튼들 */}
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => window.location.href = "/"}
-                  className="w-full bg-yellow-400 hover:bg-yellow-500 text-black font-semibold py-4 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                >
-                  <Home className="w-5 h-5 mr-2" />
-                  홈으로
+            <div className="flex gap-4">
+              <Button onClick={handleGoHome} className="flex-1">
+                <Home className="h-4 w-4 mr-2" />
+                홈으로 돌아가기
+              </Button>
+              {paymentInfo?.receipt?.url && (
+                <Button onClick={handleViewReceipt} variant="outline" className="flex-1">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  영수증 보기
                 </Button>
-               
-              </div>
-
-              {/* 추가 안내 */}
-              <div className="mt-6 text-center">
-                <p className="text-xs text-gray-500">
-                  문의사항이 있으시면 고객센터로 연락해주세요
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      <style jsx>{`
-        @keyframes confetti {
-          0% {
-            transform: translateY(-100vh) rotate(0deg);
-            opacity: 1;
-          }
-          100% {
-            transform: translateY(100vh) rotate(720deg);
-            opacity: 0;
-          }
-        }
-        .animate-confetti {
-          animation: confetti linear infinite;
-        }
-        @keyframes blob {
-          0% {
-            transform: translate(0px, 0px) scale(1);
-          }
-          33% {
-            transform: translate(30px, -50px) scale(1.1);
-          }
-          66% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          100% {
-            transform: translate(0px, 0px) scale(1);
-          }
-        }
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-      `}</style>
     </div>
   );
 }
 
-export default function PaymentSuccess() {
+export default function PaymentSuccessPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">로딩 중...</div>}>
       <PaymentSuccessContent />
     </Suspense>
   );
-} 
+}

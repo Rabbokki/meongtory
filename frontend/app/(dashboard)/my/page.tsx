@@ -17,6 +17,7 @@ import { formatToKST } from "@/lib/utils"
 import { adoptionRequestApi, userApi } from "@/lib/api"
 import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "@/lib/api/mypet"
 import { Edit, X, Plus, Trash2, Camera } from "lucide-react"
+import axios from "axios"
 
 interface User {
   email: string
@@ -106,6 +107,86 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>("")
 
+  // 주문 내역 상태 추가
+  const [orders, setOrders] = useState<any[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+
+  // 주문 내역 가져오기
+  const fetchOrders = async () => {
+    setOrdersLoading(true)
+    try {
+      const token = localStorage.getItem('accessToken')
+      
+      // 먼저 현재 사용자 정보를 가져와서 accountId를 얻습니다
+      const userResponse = await axios.get('http://localhost:8080/api/accounts/me', {
+        headers: {
+          "Access_Token": token,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
+      
+      console.log('사용자 정보 응답 전체:', userResponse.data)
+      const accountId = userResponse.data.data?.id || userResponse.data.id
+      console.log('현재 사용자 accountId:', accountId)
+      
+      if (!accountId) {
+        console.error('사용자 ID를 찾을 수 없습니다.')
+        return
+      }
+      
+      // 사용자별 주문 조회 API 호출
+      const response = await axios.get(`http://localhost:8080/api/orders/user/${accountId}`, {
+        headers: {
+          "Access_Token": token,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
+      
+      console.log('사용자별 주문 데이터:', response.data)
+      
+      // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료된 주문만)
+      const convertedOrders = response.data
+        .filter((order: any) => order.status === 'PAID') // 결제 완료된 주문만 필터링
+        .map((order: any) => ({
+          orderId: order.id,
+          userId: order.accountId,
+          totalPrice: order.amount,
+          paymentStatus: 'COMPLETED', // 결제 완료된 주문만 표시하므로 항상 COMPLETED
+          orderedAt: order.createdAt,
+          orderItems: [{
+            id: order.id,
+            productId: order.productId,
+            productName: order.productName,
+            price: order.amount,
+            quantity: order.quantity,
+            orderDate: order.createdAt,
+            status: 'completed', // 결제 완료된 주문만 표시하므로 항상 completed
+            ImageUrl: order.imageUrl || "/placeholder.svg"
+          }]
+        }))
+      
+      console.log('변환된 주문 데이터:', convertedOrders)
+      setOrders(convertedOrders)
+    } catch (error) {
+      console.error('주문 내역을 가져오는데 실패했습니다:', error)
+      if (axios.isAxiosError(error)) {
+        console.error('Axios 오류:', error.response?.data)
+        console.error('상태 코드:', error.response?.status)
+        console.error('에러 메시지:', error.message)
+        
+        // 401 Unauthorized인 경우 로그인 페이지로 리다이렉트
+        if (error.response?.status === 401) {
+          console.error('인증이 필요합니다. 로그인 페이지로 이동합니다.')
+          // 로그인 페이지로 리다이렉트 로직 추가
+        }
+      }
+      // 에러가 발생해도 빈 배열로 설정하여 UI가 깨지지 않도록 함
+      setOrders([])
+    } finally {
+      setOrdersLoading(false)
+    }
+  }
+
   // 사용자 정보 가져오기
   const fetchUserInfo = async () => {
     try {
@@ -153,6 +234,8 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
     fetchAdoptionRequests()
     console.log("fetchMyPets 함수 호출 시작")
     fetchMyPets()
+    console.log("fetchOrders 함수 호출 시작")
+    fetchOrders()
     console.log("MyPage useEffect 완료")
   }, [])
 
@@ -535,21 +618,25 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
           <TabsContent value="orders" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold">주문 내역</h2>
-              {onRefreshOrders && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onRefreshOrders}
-                  className="flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  새로고침
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchOrders}
+                className="flex items-center gap-2"
+                disabled={ordersLoading}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                {ordersLoading ? '로딩 중...' : '새로고침'}
+              </Button>
             </div>
-            {userOrders.length > 0 ? (
+            {ordersLoading ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+                <p className="text-gray-600">주문 내역을 불러오는 중...</p>
+              </div>
+            ) : orders.length > 0 ? (
               <Card>
                 <CardContent className="p-0">
                   <Table>
@@ -565,48 +652,63 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {userOrders.map((order, index) => (
-                        <TableRow key={`${order.productId}-${order.orderDate}-${index}`}>
-                          <TableCell>
-                            <Image
-                              src={order.ImageUrl || "/placeholder.svg"}
-                              alt={order.productName}
-                              width={60}
-                              height={60}
-                              className="rounded-md object-cover"
-                            />
-                          </TableCell>
-                          <TableCell className="font-medium">{order.productName}</TableCell>
-                          <TableCell>{order.productId || "N/A"}</TableCell>
-                          <TableCell>{order.quantity}</TableCell>
-                          <TableCell>{((order.price || 0) * (order.quantity || 1)).toLocaleString()}원</TableCell>
-                          <TableCell>
-                            {order.orderDate ? 
-                              (() => {
-                                try {
-                                  return format(new Date(order.orderDate), "yyyy-MM-dd")
-                                } catch {
-                                  return "날짜 없음"
-                                }
-                              })() 
-                              : "날짜 없음"
-                            }
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Badge
-                              className={
-                                order.status === "completed"
-                                  ? "bg-green-100 text-green-800"
-                                  : order.status === "pending"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
+                      {orders.map((order, index) => {
+                        const orderItem = order.orderItems && order.orderItems[0];
+                        return (
+                          <TableRow key={`${order.orderId}-${order.orderedAt}-${index}`}>
+                            <TableCell>
+                              <Image
+                                src={orderItem?.ImageUrl || "/placeholder.svg"}
+                                alt={orderItem?.productName || "상품"}
+                                width={60}
+                                height={60}
+                                className="rounded-md object-cover"
+                              />
+                            </TableCell>
+                            <TableCell className="font-medium">{orderItem?.productName || "상품명 없음"}</TableCell>
+                            <TableCell>{orderItem?.productId || "N/A"}</TableCell>
+                            <TableCell>{orderItem?.quantity || 0}</TableCell>
+                            <TableCell>{((order.totalPrice || 0)).toLocaleString()}원</TableCell>
+                            <TableCell>
+                              {order.orderedAt ? 
+                                (() => {
+                                  try {
+                                    // 백엔드에서 yyyy-MM-dd HH:mm:ss 형식으로 전송됨
+                                    const date = new Date(order.orderedAt);
+                                    if (isNaN(date.getTime())) {
+                                      console.error('날짜 파싱 실패:', order.orderedAt);
+                                      return "날짜 형식 오류";
+                                    }
+                                    return format(date, "yyyy-MM-dd")
+                                  } catch (error) {
+                                    console.error('날짜 파싱 오류:', error, '원본 데이터:', order.orderedAt);
+                                    return "날짜 없음"
+                                  }
+                                })() 
+                                : "날짜 없음"
                               }
-                            >
-                              {order.status === "completed" ? "완료" : order.status === "pending" ? "대기중" : "취소됨"}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge
+                                className={
+                                  order.paymentStatus === "COMPLETED"
+                                    ? "bg-green-100 text-green-800"
+                                    : order.paymentStatus === "PENDING"
+                                      ? "bg-yellow-100 text-yellow-800"
+                                    : order.paymentStatus === "CANCELLED"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-gray-100 text-gray-800"
+                                }
+                              >
+                                {order.paymentStatus === "COMPLETED" ? "결제완료" : 
+                                 order.paymentStatus === "PENDING" ? "주문생성" : 
+                                 order.paymentStatus === "CANCELLED" ? "취소됨" : 
+                                 order.paymentStatus || "알 수 없음"}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
                     </TableBody>
                   </Table>
                 </CardContent>

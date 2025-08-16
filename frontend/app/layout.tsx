@@ -31,7 +31,6 @@ html {
       </head>
       <body>
         {children}
-        <Script src="https://js.tosspayments.com/v1/payment" strategy="beforeInteractive" />
         <Toaster />
       </body>
     </html>

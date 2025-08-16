@@ -1,206 +1,196 @@
-"use client";
+'use client';
 
-import { useEffect, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 import { Button } from "@/components/ui/button";
-import { XCircle, Home, RefreshCw, AlertTriangle, HelpCircle, ArrowLeft } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AlertTriangle, Home, RefreshCw } from "lucide-react";
 
+// Suspense 바운더리로 감싸기 위한 컴포넌트
 function PaymentFailContent() {
   const searchParams = useSearchParams();
-  const [errorInfo, setErrorInfo] = useState<any>(null);
+  const router = useRouter();
 
-  useEffect(() => {
-    const code = searchParams.get("code");
-    const message = searchParams.get("message");
-    const orderId = searchParams.get("orderId");
+  const code = searchParams.get('code');
+  const message = searchParams.get('message');
+  const orderId = searchParams.get('orderId');
 
-    if (code || message || orderId) {
-      setErrorInfo({
-        code,
-        message,
-        orderId,
-      });
+  const handleGoHome = () => {
+    router.push('/');
+  };
+
+  const handleRetry = () => {
+    router.back();
+  };
+
+  const getErrorMessage = (code: string | null) => {
+    switch (code) {
+      case 'PAY_PROCESS_CANCELED':
+        return '결제가 취소되었습니다.';
+      case 'PAY_PROCESS_ABORTED':
+        return '결제가 중단되었습니다.';
+      case 'INVALID_CARD':
+        return '유효하지 않은 카드입니다.';
+      case 'INSUFFICIENT_BALANCE':
+        return '잔액이 부족합니다.';
+      case 'CARD_EXPIRED':
+        return '만료된 카드입니다.';
+      case 'INVALID_PASSWORD':
+        return '카드 비밀번호가 올바르지 않습니다.';
+      case 'EXCEED_DAILY_LIMIT':
+        return '일일 결제 한도를 초과했습니다.';
+      case 'EXCEED_MONTHLY_LIMIT':
+        return '월 결제 한도를 초과했습니다.';
+      case 'INVALID_ACCOUNT':
+        return '유효하지 않은 계좌입니다.';
+      case 'ACCOUNT_CLOSED':
+        return '폐쇄된 계좌입니다.';
+      case 'INSUFFICIENT_ACCOUNT_BALANCE':
+        return '계좌 잔액이 부족합니다.';
+      case 'INVALID_PHONE_NUMBER':
+        return '유효하지 않은 휴대폰 번호입니다.';
+      case 'INVALID_EMAIL':
+        return '유효하지 않은 이메일입니다.';
+      case 'INVALID_ORDER_ID':
+        return '유효하지 않은 주문번호입니다.';
+      case 'DUPLICATE_ORDER_ID':
+        return '중복된 주문번호입니다.';
+      case 'INVALID_AMOUNT':
+        return '유효하지 않은 결제 금액입니다.';
+      case 'INVALID_PAYMENT_KEY':
+        return '유효하지 않은 결제 키입니다.';
+      case 'PAYMENT_NOT_FOUND':
+        return '결제 정보를 찾을 수 없습니다.';
+      case 'PAYMENT_ALREADY_PROCESSED':
+        return '이미 처리된 결제입니다.';
+      case 'PAYMENT_EXPIRED':
+        return '결제 유효기간이 만료되었습니다.';
+      case 'PAYMENT_CANCELED':
+        return '결제가 취소되었습니다.';
+      case 'PAYMENT_FAILED':
+        return '결제에 실패했습니다.';
+      case 'PAYMENT_ABORTED':
+        return '결제가 중단되었습니다.';
+      case 'PAYMENT_TIMEOUT':
+        return '결제 시간이 초과되었습니다.';
+      case 'PAYMENT_NETWORK_ERROR':
+        return '네트워크 오류가 발생했습니다.';
+      case 'PAYMENT_SYSTEM_ERROR':
+        return '시스템 오류가 발생했습니다.';
+      case 'PAYMENT_UNKNOWN_ERROR':
+        return '알 수 없는 오류가 발생했습니다.';
+      default:
+        return message || '결제 중 오류가 발생했습니다.';
     }
-  }, [searchParams]);
+  };
 
-  const getErrorMessage = (code: string) => {
-    const errorMessages: { [key: string]: string } = {
-      "PAY_PROCESS_CANCELED": "결제가 취소되었습니다.",
-      "PAY_PROCESS_ABORTED": "결제가 중단되었습니다.",
-      "INVALID_CARD": "유효하지 않은 카드입니다.",
-      "INSUFFICIENT_FUNDS": "잔액이 부족합니다.",
-      "CARD_EXPIRED": "만료된 카드입니다.",
-      "INVALID_PIN": "잘못된 PIN 번호입니다.",
-      "CARD_NOT_SUPPORTED": "지원되지 않는 카드입니다.",
-      "NETWORK_ERROR": "네트워크 오류가 발생했습니다.",
-      "TIMEOUT": "결제 시간이 초과되었습니다.",
-    };
-    return errorMessages[code] || "결제 중 문제가 발생했습니다.";
+  const getErrorDescription = (code: string | null) => {
+    switch (code) {
+      case 'PAY_PROCESS_CANCELED':
+        return '사용자가 결제를 취소했습니다. 다시 시도해주세요.';
+      case 'PAY_PROCESS_ABORTED':
+        return '결제 과정이 중단되었습니다. 다시 시도해주세요.';
+      case 'INVALID_CARD':
+        return '카드 정보를 다시 확인해주세요.';
+      case 'INSUFFICIENT_BALANCE':
+        return '카드 잔액을 확인하고 다시 시도해주세요.';
+      case 'CARD_EXPIRED':
+        return '유효한 카드로 다시 시도해주세요.';
+      case 'INVALID_PASSWORD':
+        return '카드 비밀번호를 다시 입력해주세요.';
+      case 'EXCEED_DAILY_LIMIT':
+      case 'EXCEED_MONTHLY_LIMIT':
+        return '결제 한도를 확인하고 다시 시도해주세요.';
+      case 'INVALID_ACCOUNT':
+      case 'ACCOUNT_CLOSED':
+      case 'INSUFFICIENT_ACCOUNT_BALANCE':
+        return '계좌 정보를 확인하고 다시 시도해주세요.';
+      case 'INVALID_PHONE_NUMBER':
+        return '휴대폰 번호를 다시 확인해주세요.';
+      case 'INVALID_EMAIL':
+        return '이메일 주소를 다시 확인해주세요.';
+      case 'INVALID_ORDER_ID':
+      case 'DUPLICATE_ORDER_ID':
+        return '주문 정보를 다시 확인해주세요.';
+      case 'INVALID_AMOUNT':
+        return '결제 금액을 다시 확인해주세요.';
+      case 'PAYMENT_EXPIRED':
+        return '결제 시간이 만료되었습니다. 다시 시도해주세요.';
+      case 'PAYMENT_TIMEOUT':
+        return '결제 시간이 초과되었습니다. 다시 시도해주세요.';
+      case 'PAYMENT_NETWORK_ERROR':
+        return '네트워크 연결을 확인하고 다시 시도해주세요.';
+      case 'PAYMENT_SYSTEM_ERROR':
+        return '시스템 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      default:
+        return '잠시 후 다시 시도해주세요. 문제가 지속되면 고객센터로 문의해주세요.';
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 relative overflow-hidden">
-      {/* 배경 장식 */}
-      <div className="absolute inset-0">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-24 h-24 bg-orange-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse animation-delay-1000"></div>
-        <div className="absolute bottom-20 left-20 w-28 h-28 bg-yellow-200 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-pulse animation-delay-2000"></div>
-      </div>
-
-      <div className="relative flex items-center justify-center min-h-screen p-6">
-        <div className="max-w-md w-full">
-          <Card className="border-0 shadow-2xl bg-white/90 backdrop-blur-sm overflow-hidden">
-            {/* 실패 헤더 */}
-            <div className="bg-gradient-to-r from-red-400 to-orange-500 p-8 text-center relative overflow-hidden">
-              <div className="absolute inset-0 bg-white/10"></div>
-              <div className="relative z-10">
-                <div className="flex justify-center mb-4">
-                  <div className="p-4 bg-white/20 rounded-full backdrop-blur-sm">
-                    <XCircle className="h-12 w-12 text-white" />
-                  </div>
-                </div>
-                <CardTitle className="text-3xl font-bold text-white mb-2">
-                  결제 실패
-                </CardTitle>
-                <p className="text-white/90 text-lg">
-                  결제 중 문제가 발생했습니다
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-8">
+      <div className="max-w-md w-full px-4">
+        <Card className="text-center">
+          <CardHeader>
+            <div className="flex justify-center mb-4">
+              <AlertTriangle className="h-16 w-16 text-red-500" />
+            </div>
+            <CardTitle className="text-2xl text-red-600">결제 실패</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4 mb-6">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <p className="text-red-700 font-medium mb-2">
+                  {getErrorMessage(code)}
+                </p>
+                <p className="text-sm text-red-600">
+                  {getErrorDescription(code)}
                 </p>
               </div>
-              
-              {/* 장식 요소들 */}
-              <div className="absolute top-4 left-4">
-                <AlertTriangle className="h-6 w-6 text-white/60 animate-pulse" />
-              </div>
-              <div className="absolute top-4 right-4">
-                <HelpCircle className="h-6 w-6 text-white/60 animate-pulse animation-delay-1000" />
-              </div>
-              <div className="absolute bottom-4 left-4">
-                <XCircle className="h-6 w-6 text-white/60 animate-pulse animation-delay-2000" />
-              </div>
-              <div className="absolute bottom-4 right-4">
-                <AlertTriangle className="h-6 w-6 text-white/60 animate-pulse animation-delay-3000" />
-              </div>
-            </div>
 
-            <CardContent className="p-8">
-              {/* 에러 정보 */}
-              {errorInfo && (
-                <div className="space-y-4 mb-8">
-                  <div className="bg-gradient-to-r from-red-50 to-orange-50 p-6 rounded-xl border border-red-200">
-                    <div className="space-y-3">
-                      {errorInfo.orderId && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-600">주문 ID</span>
-                          <span className="font-mono text-sm bg-gray-200 px-2 py-1 rounded">
-                            {errorInfo.orderId}
-                          </span>
-                        </div>
-                      )}
-                      {errorInfo.code && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-medium text-gray-600">에러 코드</span>
-                          <span className="text-sm font-medium text-red-600 bg-red-100 px-2 py-1 rounded">
-                            {errorInfo.code}
-                          </span>
-                        </div>
-                      )}
-                      {errorInfo.message && (
-                        <div className="pt-3 border-t border-red-200">
-                          <p className="text-sm text-red-700 font-medium">
-                            {getErrorMessage(errorInfo.code)}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              {orderId && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-500 mb-1">주문번호</p>
+                  <p className="font-mono text-sm">{orderId}</p>
                 </div>
               )}
 
-              {/* 안내 메시지 */}
-              <div className="text-center mb-8">
-                <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-4">
-                  <div className="flex items-center justify-center gap-2 text-orange-700">
-                    <HelpCircle className="h-5 w-5" />
-                    <span className="font-medium">다시 시도해보세요</span>
-                  </div>
+              {code && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-500 mb-1">오류 코드</p>
+                  <p className="font-mono text-sm">{code}</p>
                 </div>
-                <p className="text-gray-600 text-sm">
-                  문제가 지속되면 고객센터로 문의해주세요
-                </p>
-              </div>
+              )}
+            </div>
 
-              {/* 액션 버튼들 */}
-              <div className="space-y-3">
-                <Button 
-                  onClick={() => window.location.href = "/"}
-                  className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                >
-                  <Home className="w-5 h-5 mr-2" />
-                  홈으로
-                </Button>
-                <Button 
-                  onClick={() => window.history.back()}
-                  variant="outline"
-                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 rounded-xl"
-                >
-                  <RefreshCw className="w-5 h-5 mr-2" />
-                  다시 시도
-                </Button>
-              </div>
+            <div className="flex gap-4">
+              <Button onClick={handleRetry} className="flex-1">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                다시 시도
+              </Button>
+              <Button onClick={handleGoHome} variant="outline" className="flex-1">
+                <Home className="h-4 w-4 mr-2" />
+                홈으로
+              </Button>
+            </div>
 
-              {/* 도움말 */}
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-                <div className="flex items-start gap-3">
-                  <HelpCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div className="text-sm text-blue-800">
-                    <p className="font-medium mb-1">결제 문제 해결 방법</p>
-                    <ul className="text-blue-700 space-y-1">
-                      <li>• 카드 정보를 다시 확인해주세요</li>
-                      <li>• 인터넷 연결을 확인해주세요</li>
-                      <li>• 다른 결제 수단을 시도해보세요</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-
-              {/* 추가 안내 */}
-              <div className="mt-6 text-center">
-                <p className="text-xs text-gray-500">
-                  고객센터: 1588-0000 (평일 09:00-18:00)
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="mt-6 text-center">
+              <p className="text-xs text-gray-500">
+                문의사항이 있으시면 고객센터로 연락해주세요
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      <style jsx>{`
-        .animation-delay-1000 {
-          animation-delay: 1s;
-        }
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-        .animation-delay-3000 {
-          animation-delay: 3s;
-        }
-      `}</style>
     </div>
   );
 }
 
-export default function PaymentFail() {
+// Suspense로 감싸는 기본 컴포넌트
+export default function PaymentFailPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">로딩 중...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">로딩 중...</div>}>
       <PaymentFailContent />
     </Suspense>
   );
-} 
+}

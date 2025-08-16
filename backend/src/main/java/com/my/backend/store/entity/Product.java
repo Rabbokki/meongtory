@@ -2,20 +2,24 @@ package com.my.backend.store.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "product")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer productId;
+    @Column(name = "product_id")
+    private Long id;
 
     @Column(nullable = false)
     private String name;
@@ -24,10 +28,11 @@ public class Product {
     private String description;
 
     @Column(nullable = false)
-    private Integer price;
+    private Long price;
 
     @Column(nullable = false)
-    private Integer stock = 0;
+    @Builder.Default
+    private Long stock = 0L;
 
     @Column(nullable = true)
     private String imageUrl;
@@ -43,6 +48,12 @@ public class Product {
     private LocalDate registrationDate;
 
     private String registeredBy;
+
+    // 주문 목록 (역방향 연관관계) - 상품 삭제 시 주문은 유지
+    @OneToMany(mappedBy = "product")
+    @JsonIgnore
+    @Builder.Default
+    private List<Order> orders = new ArrayList<>();
 
     // 문자열을 Category enum으로 변환하는 setter
     public void setCategory(String categoryStr) {

@@ -225,71 +225,135 @@ export default function AdminPage({
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
 
   // 상품 목록을 백엔드에서 가져오기
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const data = await productApi.getProducts();
-        
-        // 백엔드 응답을 프론트엔드 형식으로 변환
-        const convertedProducts = data.map((product: any) => ({
-          id: product.productId,
-          name: product.name,
-          price: product.price,
-          image: product.imageUrl,
-          category: product.category,
-          description: product.description,
-          tags: [],
-          stock: product.stock,
-          registrationDate: product.registrationDate,
-          registeredBy: product.registeredBy
-        }));
-        
-        // 최신순으로 정렬 (registrationDate 기준 내림차순)
-        const sortedProducts = convertedProducts.sort((a: any, b: any) => {
-          const dateA = new Date(a.registrationDate).getTime();
-          const dateB = new Date(b.registrationDate).getTime();
-          return dateB - dateA; // 내림차순 (최신순)
-        });
-        
-        setProducts(sortedProducts);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      }
-    };
+ useEffect(() => {
+  const fetchProducts = async () => {
+    try {
+      console.log('Fetching products from:', getBackendUrl() + '/api/products');
+      const accessToken = localStorage.getItem("accessToken");
+      console.log('Access Token:', accessToken ? 'Found' : 'Not found');
 
-    fetchProducts();
-    fetchContractTemplates();
-    fetchGeneratedContracts();
-  }, []);
+      if (!accessToken) {
+        throw new Error('인증 토큰이 없습니다.');
+      }
+
+      // axios 직접 호출로 대체
+      const response = await axios.get(`${getBackendUrl()}/api/products`, {
+        headers: {
+          Authorization: accessToken, // Bearer 접두사 제거
+          'Access_Token': accessToken,
+          'Refresh_Token': localStorage.getItem("refreshToken") || '',
+        },
+      });
+      console.log('Raw product data from API:', JSON.stringify(response.data, null, 2));
+
+      // 응답 데이터가 배열인지 확인
+      if (!response.data || !Array.isArray(response.data)) {
+        throw new Error('API 응답이 배열 형식이 아닙니다.');
+      }
+
+      const convertedProducts = response.data.map((product: any, index: number) => {
+        console.log(`Converting product ${index + 1}:`, product);
+        return {
+          id: product.id || product.productId || 0,
+          name: product.name || product.productName || '이름 없음',
+          price: product.price || 0,
+          image: product.image_url || product.imageUrl || product.image || '/placeholder.svg',
+          category: product.category || '카테고리 없음',
+          description: product.description || '',
+          tags: product.tags
+            ? Array.isArray(product.tags)
+              ? product.tags
+              : product.tags.split(',').map((tag: string) => tag.trim())
+            : [],
+          stock: product.stock || 0,
+          registrationDate: product.registration_date || product.registrationDate || product.createdAt || getCurrentKSTDate(),
+          registeredBy: product.registered_by || product.registeredBy || 'admin',
+        };
+      });
+
+      console.log('Converted products:', convertedProducts);
+
+      const sortedProducts = convertedProducts.sort((a: Product, b: Product) => {
+        const dateA = new Date(a.registrationDate).getTime();
+        const dateB = new Date(b.registrationDate).getTime();
+        return dateB - dateA;
+      });
+
+      setProducts(sortedProducts);
+      console.log('Products state updated:', sortedProducts);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      let errorMessage = '상품 목록을 불러오는 데 실패했습니다.';
+      if (axios.isAxiosError(error)) {
+        console.error('Axios error details:', error.response?.data);
+        console.error('Status code:', error.response?.status);
+        errorMessage += ` (상태 코드: ${error.response?.status || '알 수 없음'})`;
+        if (error.response?.data?.error) {
+          errorMessage += `: ${error.response.data.error}`;
+        }
+      }
+      alert(errorMessage);
+    }
+  };
+
+  fetchProducts();
+}, []);
 
   // 주문 목록을 백엔드에서 가져오기
   useEffect(() => {
     const fetchOrders = async () => {
       try {
         console.log('주문 데이터 가져오기 시작...');
-        const response = await axios.get('/api/orders');
+        
+        // 인증 토큰 가져오기
+        const accessToken = localStorage.getItem("accessToken");
+        const refreshToken = localStorage.getItem("refreshToken");
+        
+        if (!accessToken) {
+          console.error('인증 토큰이 없습니다.');
+          return;
+        }
+        
+        const headers = {
+          "Authorization": `${accessToken}`,
+          "Access_Token": accessToken,
+          "Refresh_Token": refreshToken || ''
+        };
+        
+        console.log('요청 헤더:', headers);
+        const response = await axios.get('http://localhost:8080/api/orders/admin/all', { headers });
         console.log('주문 API 응답:', response);
         
         const data: any[] = response.data;
         console.log('받은 주문 데이터:', data);
         
-        // 데이터를 Order 형태로 변환
-        const orders: Order[] = data.map((order: any) => {
-          console.log('처리 중인 주문:', order);
-          console.log('주문의 orderItems:', order.orderItems);
-          
-          return {
-            orderId: order.orderId,
-            userId: order.userId,
-            totalPrice: order.totalPrice,
-            paymentStatus: order.paymentStatus,
-            orderedAt: order.orderedAt,
-            orderItems: order.orderItems || []
-          };
-        });
+        // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료된 주문만)
+        const ordersWithItems: Order[] = data
+          .filter((order: any) => order.status === 'PAID') // 결제 완료된 주문만 필터링
+          .map((order: any) => {
+            console.log('변환 중인 주문 데이터:', order);
+            
+            return {
+              orderId: order.id || order.orderId, // 백엔드에서는 id 필드 사용
+              userId: order.accountId || order.userId,
+              totalPrice: order.amount || order.totalPrice, // 백엔드에서는 amount 필드 사용
+              paymentStatus: 'COMPLETED', // 결제 완료된 주문만 표시하므로 항상 COMPLETED
+              orderedAt: order.createdAt || order.orderedAt,
+              orderItems: [{
+                id: order.id,
+                productId: order.productId,
+                productName: order.productName,
+                price: order.amount,
+                quantity: order.quantity,
+                orderDate: order.createdAt,
+                status: 'completed', // 결제 완료된 주문만 표시하므로 항상 completed
+                ImageUrl: order.imageUrl || "/placeholder.svg"
+              }]
+            };
+          });
         
         // 최신순으로 정렬 (orderedAt 기준 내림차순)
-        const sortedOrders = orders.sort((a, b) => {
+        const sortedOrders = ordersWithItems.sort((a, b) => {
           const dateA = new Date(a.orderedAt).getTime();
           const dateB = new Date(b.orderedAt).getTime();
           return dateB - dateA; // 내림차순 (최신순)
@@ -598,32 +662,39 @@ export default function AdminPage({
     onEditProduct(product);
   };
 
-  const handleDeleteProduct = async (productId: number) => {
-    if (window.confirm('정말로 이 상품을 삭제하시겠습니까?')) {
-      try {
-        console.log('상품 삭제 요청:', productId);
-        
-        await productApi.deleteProduct(productId);
-        console.log('삭제 완료');
-
-        // 상품 목록에서 제거
-        setProducts(prev => prev.filter(p => p.id !== productId));
-        alert('상품이 성공적으로 삭제되었습니다.');
-      } catch (error) {
-        console.error('상품 삭제 오류:', error);
-        const errorMessage = axios.isAxiosError(error) && error.response?.data?.error 
-          ? error.response.data.error 
-          : '상품 삭제 중 오류가 발생했습니다.';
-        alert('상품 삭제 중 오류가 발생했습니다: ' + errorMessage);
-      }
+ const handleDeleteProduct = async (productId: number) => {
+  if (!productId || isNaN(productId)) {
+    alert('유효하지 않은 상품 ID입니다.');
+    console.error('Invalid productId:', productId);
+    return;
+  }
+  if (window.confirm('정말로 이 상품을 삭제하시겠습니까?')) {
+    try {
+      console.log('상품 삭제 요청:', productId);
+      await productApi.deleteProduct(productId);
+      console.log('삭제 완료');
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      alert('상품이 성공적으로 삭제되었습니다.');
+    } catch (error) {
+      console.error('상품 삭제 오류:', error);
+      const errorMessage = axios.isAxiosError(error) && error.response?.data?.error 
+        ? error.response.data.error 
+        : '상품 삭제 중 오류가 발생했습니다.';
+      alert('상품 삭제 중 오류가 발생했습니다: ' + errorMessage);
     }
-  };
+  }
+};
 
   const handleUpdateOrderStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
     try {
       console.log(`주문 상태 변경 요청: 주문ID ${orderId}, 상태 ${status}`);
       
-      const response = await axios.put(`/api/orders/${orderId}/status?status=${status}`);
+      // 백엔드 상태값으로 변환
+      const backendStatus = status === 'COMPLETED' ? 'PAID' : 
+                           status === 'PENDING' ? 'CREATED' : 
+                           status === 'CANCELLED' ? 'CANCELED' : 'CREATED';
+      
+      const response = await axios.patch(`http://localhost:8080/api/orders/${orderId}/status?status=${backendStatus}`);
       console.log('업데이트된 주문:', response.data);
       
       // 현재 주문 목록에서 해당 주문만 업데이트
@@ -1910,7 +1981,7 @@ export default function AdminPage({
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-2 mb-3">
-                            <h3 className="font-semibold">주문 #{order.orderId}</h3>
+                            <h3 className="font-semibold">주문 #{order.orderId || order.id || 'N/A'}</h3>
                             <Badge 
                               className={
                                 order.paymentStatus === "COMPLETED"
@@ -1927,13 +1998,19 @@ export default function AdminPage({
                           
                           <div className="space-y-2 mb-4">
                             <p className="text-sm text-gray-600">사용자 ID: {order.userId}</p>
-                            <p className="text-sm text-gray-600">총 금액: {order.totalPrice.toLocaleString()}원</p>
+                            <p className="text-sm text-gray-600">총 금액: {(order.totalPrice || 0).toLocaleString()}원</p>
                             <p className="text-sm text-gray-600">
                               주문일: {order.orderedAt ? 
                                 (() => {
                                   try {
+                                    // ISO 문자열이나 다른 형식의 날짜를 안전하게 파싱
+                                    const date = new Date(order.orderedAt);
+                                    if (isNaN(date.getTime())) {
+                                      return "날짜 형식 오류";
+                                    }
                                     return formatToKST(order.orderedAt)
-                                  } catch {
+                                  } catch (error) {
+                                    console.error('날짜 파싱 오류:', error, '원본 데이터:', order.orderedAt);
                                     return "날짜 없음"
                                   }
                                 })() 
@@ -1988,31 +2065,15 @@ export default function AdminPage({
                         </div>
                         
                         <div className="flex flex-col space-y-2 ml-4">
+                          
                           <Button
                             size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateOrderStatus(order.orderId, "PENDING")}
-                            disabled={order.paymentStatus === "PENDING"}
-                          >
-                            대기중
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateOrderStatus(order.orderId, "COMPLETED")}
-                            disabled={order.paymentStatus === "COMPLETED"}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            승인
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
+                            variant="destructive"
                             onClick={() => handleUpdateOrderStatus(order.orderId, "CANCELLED")}
                             disabled={order.paymentStatus === "CANCELLED"}
                           >
                             <XCircle className="h-4 w-4 mr-1" />
-                            거절
+                            주문취소
                           </Button>
                         </div>
                       </div>

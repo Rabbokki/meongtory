@@ -6,25 +6,69 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus } from "lucide-react"
-import { useEffect } from "react" // useEffect 추가
-import { productApi } from "@/lib/api"
+import { useEffect } from "react"
+import axios from "axios" // axios 직접 import
+
+const API_BASE_URL = 'http://localhost:8080/api'
+
+// axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('accessToken');
+    if (token) {
+      config.headers.Authorization = `${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// 응답 인터셉터 - 401 에러 시 토큰 갱신 시도
+axios.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  async (error) => {
+    if (error.response?.status === 401) {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken) {
+        try {
+          const response = await axios.post(`${API_BASE_URL}/accounts/refresh`, {
+            refreshToken: refreshToken
+          });
+          const newAccessToken = response.data.accessToken;
+          localStorage.setItem('accessToken', newAccessToken);
+          
+          // 원래 요청 재시도
+          error.config.headers.Authorization = `${newAccessToken}`;
+          return axios.request(error.config);
+        } catch (refreshError) {
+          // 토큰 갱신 실패 시 로그인 페이지로 리다이렉트
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+        }
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 interface Product {
   id: number
   name: string
   price: number
-  imageUrl: string // image → imageUrl로 변경
+  imageUrl: string
   category: string
   description: string
   tags: string[]
   stock: number
-  petType?: "dog" | "cat" | "all"; // Add petType to Product interface
-  targetAnimal?: "ALL" | "DOG" | "CAT"; // 백엔드 필드 추가
+  petType?: "dog" | "cat" | "all"
+  targetAnimal?: "ALL" | "DOG" | "CAT"
   registrationDate: string
   registeredBy: string
 }
-
-
 
 interface StorePageProps {
   onClose: () => void
@@ -40,54 +84,132 @@ export default function StorePage({
   isAdmin,
   isLoggedIn,
   onNavigateToStoreRegistration,
-  products: initialProducts, // 기존 products prop을 initialProducts로 변경
+  products: initialProducts,
   onViewProduct,
 }: StorePageProps) {
   const [selectedPet, setSelectedPet] = useState<"dog" | "cat">("dog")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"popular" | "latest" | "lowPrice" | "highPrice">("popular")
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null); // 카테고리 선택 상태
-  const [products, setProducts] = useState<Product[]>([]); // 상품 데이터를 위한 새로운 상태 추가
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  // 상품 API 함수들 - 백엔드와 직접 연결
+  const productApi = {
+    // 모든 상품 조회
+    getProducts: async (): Promise<any[]> => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/products`);
+        return response.data;
+      } catch (error) {
+        console.error('상품 목록 조회 실패:', error);
+        throw error;
+      }
+    },
+
+    // 특정 상품 조회
+    getProduct: async (productId: number): Promise<any> => {
+      try {
+        const response = await axios.get(`${API_BASE_URL}/products/${productId}`);
+        return response.data;
+      } catch (error) {
+        console.error('상품 조회 실패:', error);
+        throw error;
+      }
+    },
+
+    // 상품 생성
+    createProduct: async (productData: any): Promise<any> => {
+      try {
+        const response = await axios.post(`${API_BASE_URL}/products`, productData, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        return response.data;
+      } catch (error) {
+        console.error('상품 생성 실패:', error);
+        throw error;
+      }
+    },
+
+    // 상품 수정
+    updateProduct: async (productId: number, productData: any): Promise<any> => {
+      try {
+        const response = await axios.put(`${API_BASE_URL}/products/${productId}`, productData, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+        return response.data;
+      } catch (error) {
+        console.error('상품 수정 실패:', error);
+        throw error;
+      }
+    },
+
+    // 상품 삭제
+    deleteProduct: async (productId: number): Promise<void> => {
+      try {
+        await axios.delete(`${API_BASE_URL}/products/${productId}`);
+      } catch (error) {
+        console.error('상품 삭제 실패:', error);
+        throw error;
+      }
+    },
+  };
 
   const fetchProducts = async () => {
     try {
+      setLoading(true)
+      setError(null)
       console.log('상품 목록 가져오기 시작...');
+      
       const response = await productApi.getProducts();
       console.log('가져온 상품 데이터:', response);
       
       // 백엔드 응답을 프론트엔드 형식으로 변환
       const data: Product[] = response.map((item: any) => ({
         ...item,
-        id: item.productId,
-        imageUrl: item.imageUrl,
-        petType: item.targetAnimal?.toLowerCase() || 'all'
+        id: item.id || item.productId || 0,  // id를 우선 사용
+        productId: item.id || item.productId || 0,  // 호환성을 위해 productId도 설정
+        imageUrl: item.imageUrl || item.image || '/placeholder.svg',
+        petType: item.targetAnimal?.toLowerCase() || 'all',
+        price: typeof item.price === 'number' ? item.price : 0,
+        stock: typeof item.stock === 'number' ? item.stock : 0,
+        category: item.category || '카테고리 없음',
+        description: item.description || '상품 설명이 없습니다.',
+        tags: item.tags || [],
+        registrationDate: item.registrationDate || new Date().toISOString(),
+        registeredBy: item.registeredBy || '등록자 없음'
       }));
       
       // 최신순으로 정렬 (registrationDate 기준 내림차순)
       const sortedData = data.sort((a, b) => {
         const dateA = new Date(a.registrationDate).getTime();
         const dateB = new Date(b.registrationDate).getTime();
-        return dateB - dateA; // 내림차순 (최신순)
+        return dateB - dateA;
       });
       
-      setProducts(sortedData); // 정렬된 데이터로 products 상태 업데이트
+      setProducts(sortedData);
     } catch (error) {
       console.error("Error fetching products:", error);
-      // 오류 처리 로직 (예: 사용자에게 메시지 표시)
+      setError('상품 목록을 불러오는데 실패했습니다.');
+    } finally {
+      setLoading(false)
     }
   };
 
   useEffect(() => {
     fetchProducts();
-  }, []); // 컴포넌트 마운트 시 한 번만 실행
+  }, []);
 
   // 상품 목록 새로고침 함수를 외부로 노출
   useEffect(() => {
-    // 전역 함수로 등록하여 다른 컴포넌트에서 호출할 수 있도록 함
     (window as any).refreshStoreProducts = fetchProducts;
     
     return () => {
-      // 컴포넌트 언마운트 시 전역 함수 제거
       delete (window as any).refreshStoreProducts;
     };
   }, []);
@@ -96,81 +218,7 @@ export default function StorePage({
     setSelectedCategory(category);
   };
 
-  // Sample products data -> 이 부분은 이제 필요 없으므로 제거합니다.
-  // const sampleProducts: Product[] = [
-  //   {
-  //     id: 1,
-  //     name: "[왕로하스닭] 강아지케이크 (고구마 치킨 버전)",
-  //     brand: "왕로하스닭",
-  //     price: 21000,
-  //     image: "/placeholder.svg?height=200&width=200&text=Dog+Cake",
-  //     category: "간식",
-  //     description: "강아지를 위한 특별한 케이크",
-  //     tags: ["케이크", "생일", "간식"],
-  //     stock: 15,
-  //     registrationDate: "2024-01-15",
-  //     registeredBy: "admin",
-  //     petType: "dog",
-  //   },
-  //   {
-  //     id: 2,
-  //     name: "강아지 케이크 - 댕댕놈부 강아지 수제 생일 케이크 맞춤 주문 제작",
-  //     brand: "댕댕놈부",
-  //     price: 16300,
-  //     image: "/placeholder.svg?height=200&width=200&text=Custom+Cake",
-  //     category: "간식",
-  //     description: "맞춤 제작 강아지 생일 케이크",
-  //     tags: ["맞춤제작", "생일", "케이크"],
-  //     stock: 8,
-  //     registrationDate: "2024-01-14",
-  //     registeredBy: "admin",
-  //     petType: "dog",
-  //   },
-  //   {
-  //     id: 3,
-  //     name: "애니몰 강아지 고양이 단가슴살 미트 케이크",
-  //     brand: "애니몰",
-  //     price: 9900,
-  //     image: "/placeholder.svg?height=200&width=200&text=Meat+Cake",
-  //     category: "간식",
-  //     description: "단백질이 풍부한 미트 케이크",
-  //     tags: ["단백질", "건강", "케이크"],
-  //     stock: 25,
-  //     registrationDate: "2024-01-13",
-  //     registeredBy: "admin",
-  //     petType: "all",
-  //   },
-  //   {
-  //     id: 4,
-  //     name: "댕댕 강아지 생일파티 레터링 케이크",
-  //     brand: "댕댕",
-  //     price: 20900,
-  //     image: "/placeholder.svg?height=200&width=200&text=Birthday+Cake",
-  //     category: "간식",
-  //     description: "레터링이 가능한 생일 케이크",
-  //     tags: ["생일파티", "레터링", "케이크"],
-  //     stock: 12,
-  //     registrationDate: "2024-01-12",
-  //     registeredBy: "admin",
-  //     petType: "dog",
-  //   },
-  //   {
-  //     id: 5,
-  //     name: "나우프레쉬와 퍼피 그레인프리 스몰브리드 강아지사료",
-  //     brand: "나우프레쉬",
-  //     price: 31080,
-  //     image: "/placeholder.svg?height=200&width=200&text=Dog+Food",
-  //     category: "사료",
-  //     description: "소형견을 위한 그레인프리 사료",
-  //     tags: ["그레인프리", "소형견", "사료"],
-  //     stock: 30,
-  //     registrationDate: "2024-01-11",
-  //     registeredBy: "admin",
-  //     petType: "dog",
-  //   },
-  // ]
-
-  const allProducts = [...products] // products prop 대신 새로 가져온 products 상태 사용
+  const allProducts = [...products]
 
   const categoryItems = [
     { icon: "🥣", name: "사료", key: "사료" },
@@ -180,10 +228,6 @@ export default function StorePage({
     { icon: "👕", name: "의류", key: "의류" },
     { icon: "💊", name: "건강관리", key: "건강관리" },
   ]
-
-
-
-
 
   const sortedProducts = [...allProducts].sort((a, b) => {
     switch (sortBy) {
@@ -198,7 +242,7 @@ export default function StorePage({
     }
   })
 
-    const filteredProducts = allProducts.filter((product) => {
+  const filteredProducts = allProducts.filter((product) => {
     // Pet type filter - targetAnimal 필드 사용
     const petType = product.petType || product.targetAnimal?.toLowerCase() || 'all';
     if (selectedPet === "dog" && petType !== "dog" && petType !== "all") {
@@ -246,6 +290,32 @@ export default function StorePage({
     }
   });
 
+  // 로딩 상태 표시
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-gray-600">상품 목록을 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 에러 상태 표시
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchProducts} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+            다시 시도
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-white">
       <div className="container mx-auto px-4 py-8">
@@ -263,7 +333,7 @@ export default function StorePage({
           <div className="relative w-full max-w-md">
             <Input
               type="text"
-              placeholder="소량 검색"
+              placeholder="상품 검색"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-4 pr-12 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
@@ -312,8 +382,6 @@ export default function StorePage({
             ))}
           </div>
         </div>
-
-
 
         {/* Sort Options */}
         <div className="flex justify-end mb-6">
