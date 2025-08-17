@@ -8,12 +8,8 @@ services:
         NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
     ports:
       - "3000:3000"
-<<<<<<< HEAD
-=======
     environment:
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
-      - NEXT_PUBLIC_API_URL=http://backend:8080
->>>>>>> develop
     depends_on:
       - backend
     networks:
@@ -41,11 +37,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "9000:9000"
-<<<<<<< HEAD
     volumes:
       - ./ai:/app
-=======
->>>>>>> develop
     environment:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
