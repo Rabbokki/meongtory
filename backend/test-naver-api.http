@@ -31,3 +31,4 @@ POST http://localhost:8080/api/naver-shopping/cart/1?quantity=2
 
 ### 8. 네이버 상품을 기존 상품과 연결 (실제 ID로 변경 필요)
 POST http://localhost:8080/api/naver-shopping/link/1/product/1
+

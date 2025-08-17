@@ -16,3 +16,4 @@ public class NaverShoppingResponseDto {
     private Integer display;
     private List<NaverShoppingItemDto> items;
 }
+

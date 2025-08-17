@@ -26,3 +26,4 @@ public class NaverShoppingItemDto {
     private String rating;
     private String searchCount;
 }
+
