@@ -15,6 +15,7 @@ interface CartItem {
   category: string
   quantity: number
   order: number // 순서 고정을 위한 필드
+  isNaverProduct?: boolean // 네이버 상품 여부
   product?: {
     id: number
     name: string
@@ -98,7 +99,8 @@ export default function CartPage({
           name: item.name,
           price: item.price,
           quantity: item.quantity,
-          image: item.image
+          image: item.image,
+          isNaverProduct: item.isNaverProduct || false
         }))}
         onBack={handleBackFromPayment}
         onSuccess={handlePaymentSuccess}

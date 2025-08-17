@@ -1,5 +1,6 @@
 package com.my.backend.store.controller;
 
+import com.my.backend.account.service.AccountService;
 import com.my.backend.global.dto.ResponseDto;
 import com.my.backend.store.dto.NaverProductDto;
 import com.my.backend.store.dto.NaverShoppingSearchRequestDto;
@@ -9,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -18,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
 public class NaverShoppingController {
     private final NaverShoppingService naverShoppingService;
     private final CartService cartService;
+    private final AccountService accountService;
 
     /**
      * 네이버 쇼핑 실시간 검색
@@ -118,15 +122,57 @@ public class NaverShoppingController {
     }
 
     /**
-     * 네이버 상품을 카트에 추가
+     * 현재 인증된 사용자의 ID를 가져오는 헬퍼 메서드
+     */
+    private Long getCurrentUserId(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            throw new IllegalArgumentException("로그인이 필요합니다");
+        }
+        
+        if (userDetails instanceof com.my.backend.account.oauth2.CustomUserDetails) {
+            return ((com.my.backend.account.oauth2.CustomUserDetails) userDetails).getAccount().getId();
+        } else if (userDetails instanceof com.my.backend.global.security.user.UserDetailsImpl) {
+            return ((com.my.backend.global.security.user.UserDetailsImpl) userDetails).getId();
+        } else {
+            throw new IllegalArgumentException("사용자 정보를 찾을 수 없습니다");
+        }
+    }
+
+    /**
+     * 네이버 상품을 카트에 추가 (상품 정보와 함께)
+     */
+    @PostMapping("/cart/add")
+    public ResponseEntity<ResponseDto> addToCartWithProduct(@RequestBody NaverProductDto naverProductDto,
+                                                           @RequestParam(defaultValue = "1") int quantity,
+                                                           @AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            Long accountId = getCurrentUserId(userDetails);
+            
+            // 네이버 상품을 데이터베이스에 저장하거나 업데이트
+            Long savedNaverProductId = naverShoppingService.saveOrUpdateNaverProduct(naverProductDto);
+            
+            // 카트에 추가
+            cartService.addNaverProductToCart(accountId, savedNaverProductId, quantity);
+            
+            return ResponseEntity.ok(ResponseDto.success("네이버 상품을 카트에 추가했습니다"));
+        } catch (Exception e) {
+            log.error("네이버 상품 카트 추가 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ResponseDto.fail("CART_ADD_FAILED", "네이버 상품을 카트에 추가하는데 실패했습니다: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * 네이버 상품을 카트에 추가 (기존 방식 - 호환성 유지)
      */
     @PostMapping("/cart/{naverProductId}")
     public ResponseEntity<ResponseDto> addToCart(
             @PathVariable Long naverProductId,
-            @RequestParam(defaultValue = "1") int quantity) {
+            @RequestParam(defaultValue = "1") int quantity,
+            @AuthenticationPrincipal UserDetails userDetails) {
         try {
-            // TODO: 실제 사용자 ID를 가져오는 로직 필요
-            Long accountId = 1L; // 임시로 1로 설정
+            Long accountId = getCurrentUserId(userDetails);
+            
+            // 카트에 추가 (네이버 상품이 없으면 예외 발생)
             cartService.addNaverProductToCart(accountId, naverProductId, quantity);
             
             return ResponseEntity.ok(ResponseDto.success("네이버 상품을 카트에 추가했습니다"));

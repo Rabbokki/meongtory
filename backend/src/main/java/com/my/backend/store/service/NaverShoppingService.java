@@ -189,6 +189,60 @@ public class NaverShoppingService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 네이버 상품을 저장하거나 업데이트
+     */
+    @Transactional
+    public Long saveOrUpdateNaverProduct(NaverProductDto naverProductDto) {
+        Optional<NaverProduct> existingProduct = naverProductRepository.findByProductId(naverProductDto.getProductId());
+        
+        if (existingProduct.isPresent()) {
+            // 기존 상품 업데이트
+            NaverProduct product = existingProduct.get();
+            product.setTitle(naverProductDto.getTitle());
+            product.setDescription(naverProductDto.getDescription());
+            product.setPrice(naverProductDto.getPrice());
+            product.setImageUrl(naverProductDto.getImageUrl());
+            product.setMallName(naverProductDto.getMallName());
+            product.setProductUrl(naverProductDto.getProductUrl());
+            product.setBrand(naverProductDto.getBrand());
+            product.setMaker(naverProductDto.getMaker());
+            product.setCategory1(naverProductDto.getCategory1());
+            product.setCategory2(naverProductDto.getCategory2());
+            product.setCategory3(naverProductDto.getCategory3());
+            product.setCategory4(naverProductDto.getCategory4());
+            product.setReviewCount(naverProductDto.getReviewCount());
+            product.setRating(naverProductDto.getRating());
+            product.setSearchCount(naverProductDto.getSearchCount());
+            
+            NaverProduct savedProduct = naverProductRepository.save(product);
+            return savedProduct.getId();
+        } else {
+            // 새 상품 생성
+            NaverProduct newProduct = NaverProduct.builder()
+                    .productId(naverProductDto.getProductId())
+                    .title(naverProductDto.getTitle())
+                    .description(naverProductDto.getDescription())
+                    .price(naverProductDto.getPrice())
+                    .imageUrl(naverProductDto.getImageUrl())
+                    .mallName(naverProductDto.getMallName())
+                    .productUrl(naverProductDto.getProductUrl())
+                    .brand(naverProductDto.getBrand())
+                    .maker(naverProductDto.getMaker())
+                    .category1(naverProductDto.getCategory1())
+                    .category2(naverProductDto.getCategory2())
+                    .category3(naverProductDto.getCategory3())
+                    .category4(naverProductDto.getCategory4())
+                    .reviewCount(naverProductDto.getReviewCount())
+                    .rating(naverProductDto.getRating())
+                    .searchCount(naverProductDto.getSearchCount())
+                    .build();
+            
+            NaverProduct savedProduct = naverProductRepository.save(newProduct);
+            return savedProduct.getId();
+        }
+    }
+
     private NaverProduct createNaverProductFromItem(NaverShoppingItemDto item) {
         return NaverProduct.builder()
                 .productId(item.getProductId())

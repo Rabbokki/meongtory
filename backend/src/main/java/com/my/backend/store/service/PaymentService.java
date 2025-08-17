@@ -48,13 +48,14 @@ public class PaymentService {
             throw new RuntimeException("토스페이먼츠 응답 파싱 실패", e);
         }
 
-        // 주문 정보 조회
+        // 주문 정보 조회 (일반 상품 + 네이버 상품)
         log.info("주문 정보 조회 시작: orderId={}", request.orderId());
         Order order;
         try {
             order = orderRepository.findByMerchantOrderId(request.orderId())
                     .orElseThrow(() -> new RuntimeException("주문을 찾을 수 없습니다. orderId: " + request.orderId()));
-            log.info("주문 정보 조회 완료: orderId={}, merchantOrderId={}", order.getId(), order.getMerchantOrderId());
+            log.info("주문 정보 조회 완료: orderId={}, merchantOrderId={}, isNaverProduct={}", 
+                    order.getId(), order.getMerchantOrderId(), order.getNaverProduct() != null);
         } catch (Exception e) {
             log.error("주문 정보 조회 실패: {}", e.getMessage(), e);
             throw new RuntimeException("주문 정보 처리 실패", e);

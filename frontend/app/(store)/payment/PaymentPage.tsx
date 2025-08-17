@@ -18,6 +18,7 @@ interface PaymentItem {
   price: number;
   quantity: number;
   image: string;
+  isNaverProduct?: boolean; // 네이버 상품 여부
 }
 
 interface PaymentPageProps {
@@ -66,24 +67,40 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
       console.log('결제 아이템 정보:', firstItem);
       console.log('사용자 정보:', userData);
       
-      const orderData = {
-        accountId: userData.id,
-        productId: firstItem.id,
-        quantity: firstItem.quantity
-      };
+      let response;
+      
+      // 네이버 상품인지 일반 상품인지 구분하여 주문 생성
+      if (firstItem.isNaverProduct) {
+        console.log('네이버 상품 주문 생성');
+        const orderData = {
+          accountId: userData.id,
+          naverProductId: firstItem.id,
+          quantity: firstItem.quantity
+        };
 
-      console.log('주문 생성 요청:', orderData);
-      console.log('요청 데이터 타입 확인:', {
-        accountId: typeof orderData.accountId,
-        productId: typeof orderData.productId,
-        quantity: typeof orderData.quantity
-      });
+        console.log('네이버 상품 주문 생성 요청:', orderData);
+        
+        response = await axios.post(`${API_BASE_URL}/orders/naver-product`, orderData, {
+          headers: {
+            'Access_Token': accessToken
+          }
+        });
+      } else {
+        console.log('일반 상품 주문 생성');
+        const orderData = {
+          accountId: userData.id,
+          productId: firstItem.id,
+          quantity: firstItem.quantity
+        };
 
-      const response = await axios.post(`${API_BASE_URL}/orders`, orderData, {
-        headers: {
-          'Access_Token': accessToken
-        }
-      });
+        console.log('일반 상품 주문 생성 요청:', orderData);
+        
+        response = await axios.post(`${API_BASE_URL}/orders`, orderData, {
+          headers: {
+            'Access_Token': accessToken
+          }
+        });
+      }
 
       console.log('주문 생성 응답:', response.data);
       

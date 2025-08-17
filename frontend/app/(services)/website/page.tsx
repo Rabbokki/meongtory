@@ -419,6 +419,15 @@ const refreshAccessToken = async () => {
 export default function PetServiceWebsite() {
   // State management
   const [currentPage, setCurrentPage] = useState("home")
+
+  // 카트 페이지로 이동할 때 카트 데이터를 다시 불러오는 함수
+  const setCurrentPageWithCartRefresh = (page: string) => {
+    setCurrentPage(page);
+    if (page === "cart" && isLoggedIn) {
+      console.log("카트 페이지로 이동, 카트 데이터 새로고침");
+      fetchCartItems();
+    }
+  };
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [showSignupModal, setShowSignupModal] = useState(false)
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false)
@@ -891,28 +900,60 @@ export default function PetServiceWebsite() {
       
       const cartItems: CartItem[] = cartData
         .sort((a: any, b: any) => a.id - b.id)
-        .map((item: any, index: number) => ({
-          id: item.id,
-          name: item.product.name,
-          brand: "브랜드 없음", // Product 엔티티에 brand 필드가 없음
-          price: item.product.price,
-          image: item.product.imageUrl || "/placeholder.svg",
-          category: item.product.category,
-          quantity: item.quantity,
-          order: index,
-          product: {
-            id: item.product.id,
-            name: item.product.name,
-            description: item.product.description,
-            price: item.product.price,
-            stock: item.product.stock,
-            imageUrl: item.product.imageUrl,
-            category: item.product.category,
-            targetAnimal: item.product.targetAnimal,
-            registrationDate: item.product.registrationDate,
-            registeredBy: item.product.registeredBy,
+        .map((item: any, index: number) => {
+          // 네이버 상품인지 일반 상품인지 확인
+          if (item.naverProduct) {
+            // 네이버 상품
+            return {
+              id: item.id,
+              name: item.naverProduct.title,
+              brand: item.naverProduct.brand || "네이버 쇼핑",
+              price: item.naverProduct.price,
+              image: item.naverProduct.imageUrl || "/placeholder.svg",
+              category: item.naverProduct.category1 || "기타",
+              quantity: item.quantity,
+              order: index,
+              isNaverProduct: true, // 네이버 상품 표시
+              product: {
+                id: item.naverProduct.id,
+                name: item.naverProduct.title,
+                description: item.naverProduct.description,
+                price: item.naverProduct.price,
+                stock: 999, // 네이버 상품은 재고 제한 없음
+                imageUrl: item.naverProduct.imageUrl,
+                category: item.naverProduct.category1 || "기타",
+                targetAnimal: "기타",
+                registrationDate: new Date().toISOString(),
+                registeredBy: "네이버 쇼핑"
+              }
+            }
+          } else {
+            // 일반 상품
+            return {
+              id: item.id,
+              name: item.product.name,
+              brand: "브랜드 없음", // Product 엔티티에 brand 필드가 없음
+              price: item.product.price,
+              image: item.product.imageUrl || "/placeholder.svg",
+              category: item.product.category,
+              quantity: item.quantity,
+              order: index,
+              isNaverProduct: false, // 일반 상품 표시
+              product: {
+                id: item.product.id,
+                name: item.product.name,
+                description: item.product.description,
+                price: item.product.price,
+                stock: item.product.stock,
+                imageUrl: item.product.imageUrl,
+                category: item.product.category,
+                targetAnimal: item.product.targetAnimal,
+                registrationDate: item.product.registrationDate,
+                registeredBy: item.product.registeredBy,
+              }
+            }
           }
-        }))
+        })
       setCart(cartItems)
       console.log('장바구니 설정 완료:', cartItems.length, '개')
     } catch (error: any) {
@@ -1664,6 +1705,7 @@ export default function PetServiceWebsite() {
             onNavigateToStoreRegistration={() => setCurrentPage("storeRegistration")}
             products={products}
             onViewProduct={handleViewProduct}
+            setCurrentPage={setCurrentPageWithCartRefresh}
           />
         )
 
