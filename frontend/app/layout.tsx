@@ -1,39 +1,39 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
-import Script from "next/script"
-import "./globals.css"
-import { Toaster } from "@/components/ui/toaster"
+import type React from "react";
+import type { Metadata } from "next";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
+import "./globals.css";
+import { Toaster } from "@/components/ui/toaster";
+import PetServiceWebsite from "@/app/(services)/website/page";
 
 export const metadata: Metadata = {
   title: "멍토리",
   description: "Created with v0",
   generator: "v0.dev",
-}
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
     <html lang="en">
       <head>
         <link rel="icon" href="/paw-favicon.png" type="image/png" />
         <style>{`
-html {
-  font-family: ${GeistSans.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
-}
+          html {
+            font-family: ${GeistSans.style.fontFamily};
+            --font-sans: ${GeistSans.variable};
+            --font-mono: ${GeistMono.variable};
+          }
         `}</style>
       </head>
       <body>
+        <PetServiceWebsite isLayoutMode={true} />
         {children}
-        <Script src="https://js.tosspayments.com/v1/payment" strategy="beforeInteractive" />
         <Toaster />
       </body>
     </html>
-  )
+  );
 }
