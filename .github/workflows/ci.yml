@@ -45,7 +45,7 @@ jobs:
             --base develop \
             --head ${{ github.ref_name }} \
             --title "Auto PR: ${{ github.ref_name }} → develop" \
-            --body "자동으로 생성된 Pull Request입니다."
+            --body "자동으로 생성된 Pull Request입니다.
 
           **브랜치**: \`${{ github.ref_name }}\` → \`develop\`
           **커밋**: ${{ github.sha }}
