@@ -31,6 +31,16 @@ services:
       - "7000:5432"
     networks:
       - meongtory-network
+    command: |
+      bash -c "
+        docker-entrypoint.sh postgres &
+        sleep 10
+        cp /docker-entrypoint-initdb.d/pg_hba.conf /var/lib/postgresql/data/pg_hba.conf
+        chmod 600 /var/lib/postgresql/data/pg_hba.conf
+        chown postgres:postgres /var/lib/postgresql/data/pg_hba.conf
+        pg_ctl reload -D /var/lib/postgresql/data
+        wait
+      "
 
   ai:
     build:

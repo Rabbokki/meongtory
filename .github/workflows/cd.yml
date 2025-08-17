@@ -1,0 +1,166 @@
+# AWS 인스턴스 배포 자동화 워크플로우
+# 실행 시 인스턴스 IP 주소를 직접 입력해야 합니다.
+
+name: Continuous Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      instance_ip:
+        description: 'AWS Instance Public IP Address (예: 13.124.123.45)'
+        required: true
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 소스 코드 체크아웃
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # AWS 인증 설정
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ secrets.AWS_REGION }}
+
+    # ECR 로그인
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    # 기존 ECR 이미지 삭제 (용량 절약)
+    - name: Delete existing ECR images (if any)
+      run: |
+        echo "Deleting existing images..."
+        aws ecr batch-delete-image --repository-name mt-frontend --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
+        aws ecr batch-delete-image --repository-name mt-backend --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
+        aws ecr batch-delete-image --repository-name mt-ai --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
+        aws ecr batch-delete-image --repository-name mt-db --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
+
+    # 프론트엔드 이미지 빌드 및 푸시 (인스턴스 IP 주입)
+    - name: Build and push Frontend image
+      run: |
+        echo "Building Frontend with instance IP: ${{ github.event.inputs.instance_ip }}"
+        docker build \
+          --build-arg NEXT_PUBLIC_BACKEND_URL=http://${{ github.event.inputs.instance_ip }}:8080 \
+          -t ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest \
+          ./frontend
+        docker push ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
+
+    # 백엔드 이미지 빌드 및 푸시
+    - name: Build and push Backend image
+      run: |
+        echo "Building Backend..."
+        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
+        docker push ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
+
+    # AI 서비스 이미지 빌드 및 푸시
+    - name: Build and push AI image
+      run: |
+        echo "Building AI service..."
+        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-ai:latest ./ai
+        docker push ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
+
+    # 데이터베이스 이미지 빌드 및 푸시
+    - name: Build and push DB image
+      run: |
+        echo "Building Database..."
+        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-db:latest ./db
+        docker push ${{ secrets.ECR_REGISTRY }}/mt-db:latest
+
+    # .env 파일 업데이트 (인스턴스 IP 주입)
+    - name: Update environment file
+      run: |
+        # Update NEXT_PUBLIC_BACKEND_URL with instance IP
+        sed -i "s|NEXT_PUBLIC_BACKEND_URL=.*|NEXT_PUBLIC_BACKEND_URL=http://${{ github.event.inputs.instance_ip }}:8080|" .env
+
+    # 인스턴스 정리 작업 (기존 컨테이너 중지 및 파일 삭제)
+    - name: Clean up instance
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ github.event.inputs.instance_ip }}
+        username: ubuntu
+        key: ${{ secrets.AWS_PEM_KEY }}
+        script: |
+          echo "Starting cleanup..."
+          
+          # Stop existing containers
+          if [ -f docker-compose.yml ]; then
+            echo "Stopping existing containers..."
+            docker-compose down || true
+          fi
+          
+          # Clean up old files
+          rm -rf .env docker-compose.yml init-db/
+          
+          # Clean up Docker resources
+          echo "Cleaning up Docker resources..."
+          docker system prune -f || true
+
+    # 배포 파일 인스턴스로 전송
+    - name: Copy files to instance
+      uses: appleboy/scp-action@v0.1.7
+      with:
+        host: ${{ github.event.inputs.instance_ip }}
+        username: ubuntu
+        key: ${{ secrets.AWS_PEM_KEY }}
+        source: ".env,docker-compose.production.yml,db/init-db"
+        target: "/home/ubuntu/"
+
+    # docker-compose.production.yml을 docker-compose.yml로 이름 변경
+    - name: Rename docker-compose file and start services
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ github.event.inputs.instance_ip }}
+        username: ubuntu
+        key: ${{ secrets.AWS_PEM_KEY }}
+        script: |
+          echo "Renaming docker-compose file..."
+          mv docker-compose.production.yml docker-compose.yml
+
+    # 인스턴스에서 서비스 시작
+    - name: Start services on instance
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ github.event.inputs.instance_ip }}
+        username: ubuntu
+        key: ${{ secrets.AWS_PEM_KEY }}
+        script: |
+          echo "Starting services..."
+          
+          # Configure AWS CLI for ECR access
+          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws configure set default.region ${{ secrets.AWS_REGION }}
+          
+          # Login to ECR
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+          
+          # Pull latest images
+          echo "Pulling latest images..."
+          docker pull ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
+          docker pull ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
+          docker pull ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
+          docker pull ${{ secrets.ECR_REGISTRY }}/mt-db:latest
+          
+          # Start services
+          echo "Starting services with docker-compose..."
+          docker-compose up -d
+          
+          # Show running containers
+          echo "Deployment completed. Running containers:"
+          docker ps
+
+    # 배포 완료 상태 출력
+    - name: Deployment Status
+      run: |
+        echo "Deployment completed successfully!"
+        echo "Frontend: http://${{ github.event.inputs.instance_ip }}:3000"
+        echo "Backend: http://${{ github.event.inputs.instance_ip }}:8080"
+        echo "AI Service: http://${{ github.event.inputs.instance_ip }}:9000"
+        echo "Database: ${{ github.event.inputs.instance_ip }}:5432"
