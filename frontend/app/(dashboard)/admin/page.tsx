@@ -765,7 +765,7 @@ export default function AdminPage({
   const fetchContractTemplates = async () => {
     try {
       setIsLoadingTemplates(true)
-      const response = await axios.get("http://localhost:8080/api/contract-templates")
+      const response = await axios.get(`${getBackendUrl()}/api/contract-templates`)
       if (response.data.success) {
         setContractTemplates(response.data.data || [])
       } else {
@@ -781,7 +781,7 @@ export default function AdminPage({
   const fetchGeneratedContracts = async () => {
     try {
       setIsLoadingContracts(true)
-      const response = await axios.get("http://localhost:8080/api/contract-generation/user")
+      const response = await axios.get(`${getBackendUrl()}/api/contract-generation/user`)
       if (response.data.success) {
         setGeneratedContracts(response.data.data || [])
       } else {
@@ -823,7 +823,7 @@ export default function AdminPage({
       }
 
       const backendUrl = getBackendUrl()
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/contract-templates/ai-suggestions/generate-contract`, {
+      const response = await axios.post(`${getBackendUrl()}/api/contract-templates/ai-suggestions/generate-contract`, {
         templateId: selectedTemplate,
         templateSections: selectedTemplateData.sections?.map((section: any) => ({ 
           title: section.title, 
@@ -884,7 +884,7 @@ export default function AdminPage({
       }
 
       // 백엔드에 계약서 저장
-      await axios.post("http://localhost:8080/api/contract-generation", contractData)
+      await axios.post(`${getBackendUrl()}/api/contract-generation`, contractData)
       
       setGeneratedContract(response.data.data?.content || response.data.content)
       setShowContractModal(true)
@@ -954,7 +954,7 @@ export default function AdminPage({
 
   const handleViewTemplate = async (templateId: number) => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/contract-templates/${templateId}`)
+      const response = await axios.get(`${getBackendUrl()}/api/contract-templates/${templateId}`)
       if (response.data.success) {
         const template = response.data.data
         setSelectedTemplateForView(template)
@@ -970,7 +970,7 @@ export default function AdminPage({
 
   const handleEditTemplate = async (templateId: number) => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/contract-templates/${templateId}`)
+      const response = await axios.get(`${getBackendUrl()}/api/contract-templates/${templateId}`)
       if (response.data.success) {
         const template = response.data.data
         
@@ -1047,7 +1047,7 @@ export default function AdminPage({
         sections: sections
       }
       
-      const response = await axios.put(`http://localhost:8080/api/contract-templates/${editingTemplate.id}`, templateData)
+      const response = await axios.put(`${getBackendUrl()}/api/contract-templates/${editingTemplate.id}`, templateData)
       if (response.data.success) {
         alert("템플릿이 수정되었습니다.")
         setShowEditTemplateModal(false)
@@ -1067,7 +1067,7 @@ export default function AdminPage({
   const handleDeleteTemplate = async (templateId: number) => {
     if (confirm('정말로 이 템플릿을 삭제하시겠습니까?')) {
       try {
-        await axios.delete(`http://localhost:8080/api/contract-templates/${templateId}`)
+        await axios.delete(`${getBackendUrl()}/api/contract-templates/${templateId}`)
         alert("템플릿이 삭제되었습니다.")
         fetchContractTemplates() // 목록 새로고침
       } catch (error) {
@@ -1079,7 +1079,7 @@ export default function AdminPage({
 
   const handleViewGeneratedContract = async (contractId: number) => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/contract-generation/${contractId}`)
+      const response = await axios.get(`${getBackendUrl()}/api/contract-generation/${contractId}`)
       if (response.data.success) {
         const contract = response.data.data
         setSelectedContractForView(contract)
@@ -1095,7 +1095,7 @@ export default function AdminPage({
 
   const handleDownloadContract = async (contractId: number) => {
     try {
-      const response = await axios.get(`http://localhost:8080/api/contract-generation/${contractId}/download`, {
+      const response = await axios.get(`${getBackendUrl()}/api/contract-generation/${contractId}/download`, {
         responseType: 'blob'
       })
       
@@ -1118,7 +1118,7 @@ export default function AdminPage({
   const handleDeleteContract = async (contractId: number) => {
     if (confirm('정말로 이 계약서를 삭제하시겠습니까?')) {
       try {
-        await axios.delete(`http://localhost:8080/api/contract-generation/${contractId}`)
+        await axios.delete(`${getBackendUrl()}/api/contract-generation/${contractId}`)
         alert("계약서가 삭제되었습니다.")
         fetchGeneratedContracts() // 목록 새로고침
       } catch (error) {
@@ -1138,7 +1138,7 @@ export default function AdminPage({
     if (!editingContract) return
 
     try {
-      const response = await axios.put(`http://localhost:8080/api/contract-generation/${editingContract.id}`, {
+      const response = await axios.put(`${getBackendUrl()}/api/contract-generation/${editingContract.id}`, {
         content: editedContractContent
       })
       
@@ -1173,7 +1173,7 @@ export default function AdminPage({
         sections: sections
       }
       
-      const response = await axios.post("http://localhost:8080/api/contract-templates", templateData)
+      const response = await axios.post(`${getBackendUrl()}/api/contract-templates`, templateData)
       if (response.data.success) {
         alert("템플릿이 생성되었습니다.")
         setShowCreateTemplateModal(false)
@@ -1285,7 +1285,7 @@ export default function AdminPage({
       
       if (isDefaultTitle) {
         // AI 서버에서 새로운 조항 제목 추천 받기
-        const response = await axios.post("http://localhost:8080/api/contract-templates/ai-suggestions/contract-suggestions", {
+        const response = await axios.post(`${getBackendUrl()}/api/contract-templates/ai-suggestions/contract-suggestions`, {
           templateId: 1,
           currentContent: "",
           petInfo: {},
@@ -1299,7 +1299,7 @@ export default function AdminPage({
         }
       } else {
         // 사용자가 입력한 제목을 AI가 개선해서 추천
-        const response = await axios.post("http://localhost:8080/api/contract-templates/ai-suggestions/clauses", {
+        const response = await axios.post(`${getBackendUrl()}/api/contract-templates/ai-suggestions/clauses`, {
           templateId: null,
           currentClauses: templateSections.map(s => s.title),
           petInfo: {},
@@ -1336,7 +1336,7 @@ export default function AdminPage({
     if (section) {
       try {
         // 다른 AI 추천 받기 (현재 추천과 다른 것을 받기 위해 랜덤 인덱스 사용)
-        const response = await axios.post("http://localhost:8080/api/contract-templates/ai-suggestions/clauses", {
+        const response = await axios.post(`${getBackendUrl()}/api/contract-templates/ai-suggestions/clauses`, {
           templateId: null,
           currentClauses: templateSections.map(s => s.title),
           petInfo: {},

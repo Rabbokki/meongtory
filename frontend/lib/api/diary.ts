@@ -1,7 +1,7 @@
 // lib/api/diary.ts
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
 
 // Access Token 가져오기 + 로그인 체크 함수
 function getAccessTokenOrRedirect(): string {
@@ -60,7 +60,7 @@ export async function fetchDiaries(): Promise<DiaryEntry[]> {
   const accessToken = getAccessTokenOrRedirect();
   console.log("Access token obtained:", accessToken ? "Yes" : "No");
 
-  const url = `${API_BASE_URL}/diary`;
+  const url = `${API_BASE_URL}/api/diary`;
 
   console.log("Making request to:", url);
   console.log("Request headers:", {
@@ -105,7 +105,7 @@ export async function fetchDiary(diaryId: number): Promise<DiaryEntry> {
   const accessToken = getAccessTokenOrRedirect();
   console.log("Access token obtained:", accessToken ? "Yes" : "No");
 
-  const url = `${API_BASE_URL}/diary/${diaryId}`;
+  const url = `${API_BASE_URL}/api/diary/${diaryId}`;
   console.log("Making GET request to:", url);
   console.log("Request headers:", {
     "Access_Token": accessToken,
@@ -147,13 +147,13 @@ export async function createDiary(diaryData: CreateDiaryRequest): Promise<DiaryE
   console.log("Access token obtained:", accessToken ? "Yes" : "No");
 
   try {
-    console.log("Making POST request to:", `${API_BASE_URL}/diary`);
+    console.log("Making POST request to:", `${API_BASE_URL}/api/diary`);
     console.log("Request headers:", {
       "Access_Token": accessToken,
       "Content-Type": "application/json",
     });
     
-    const response = await axios.post(`${API_BASE_URL}/diary`, diaryData, {
+    const response = await axios.post(`${API_BASE_URL}/api/diary`, diaryData, {
       headers: {
         "Access_Token": accessToken,
         "Content-Type": "application/json",
@@ -183,7 +183,7 @@ export async function updateDiary(diaryId: number, diaryData: UpdateDiaryRequest
   const accessToken = getAccessTokenOrRedirect();
 
   try {
-    const response = await axios.put(`${API_BASE_URL}/diary/${diaryId}`, diaryData, {
+    const response = await axios.put(`${API_BASE_URL}/api/diary/${diaryId}`, diaryData, {
       headers: {
         "Access_Token": accessToken,
         "Content-Type": "application/json",
@@ -206,7 +206,7 @@ export async function deleteDiary(diaryId: number): Promise<void> {
   const accessToken = getAccessTokenOrRedirect();
 
   try {
-    await axios.delete(`${API_BASE_URL}/diary/${diaryId}`, {
+    await axios.delete(`${API_BASE_URL}/api/diary/${diaryId}`, {
       headers: {
         "Access_Token": accessToken,
       },
@@ -228,7 +228,7 @@ export async function uploadImageToS3(file: File): Promise<string> {
   formData.append('file', file);
 
   try {
-    const response = await axios.post(`${API_BASE_URL}/s3/upload/diary`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/api/s3/upload/diary`, formData, {
       headers: {
         "Access_Token": accessToken,
         "Content-Type": "multipart/form-data",
@@ -253,7 +253,7 @@ export async function uploadAudioToS3(file: File): Promise<string> {
   formData.append('file', file);
 
   try {
-    const response = await axios.post(`${API_BASE_URL}/diary/audio`, formData, {
+    const response = await axios.post(`${API_BASE_URL}/api/diary/audio`, formData, {
       headers: {
         "Access_Token": accessToken,
         "Content-Type": "multipart/form-data",

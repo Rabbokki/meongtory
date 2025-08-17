@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { X, Send } from "lucide-react"
 import axios from "axios"
+import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
 
 interface ChatMessage {
   id: number
@@ -42,7 +43,7 @@ export default function Chatbot() {
         console.log("Sending request to:", apiUrl);
         console.log("Request payload:", { query: inputMessage });
         const response = await axios.post(
-          apiUrl,
+          `${getBackendUrl()}/api/chatbot/query`,
           { query: inputMessage },
           { headers: { "Content-Type": "application/json" } }
         )

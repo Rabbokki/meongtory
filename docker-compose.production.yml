@@ -56,7 +56,7 @@ services:
     restart: unless-stopped
 
   db:
-    image: postgres:15
+    image: 763927202000.dkr.ecr.ap-northeast-2.amazonaws.com/mt-db:latest
     environment:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}

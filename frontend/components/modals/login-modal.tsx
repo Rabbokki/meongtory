@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { getApiBaseUrl } from "@/lib/api";
+import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
 
 
 interface LoginModalProps {
@@ -75,7 +75,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
 
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login`,
+        `${getApiBaseUrl()}/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
@@ -193,7 +193,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
           <div className="space-y-3">
             <Button
               type="button"
-              onClick={() => (window.location.href = "http://localhost:8080/oauth2/authorization/google")}
+              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/google`)}
               className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -218,7 +218,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
             </Button>
             <Button
               type="button"
-              onClick={() => (window.location.href = "http://localhost:8080/oauth2/authorization/kakao")}
+              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/kakao`)}
               className="w-full bg-yellow-400 text-black hover:bg-yellow-500"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -231,7 +231,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
             </Button>
             <Button
               type="button"
-              onClick={() => (window.location.href = "http://localhost:8080/oauth2/authorization/naver")}
+              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/naver`)}
               className="w-full bg-green-500 text-white hover:bg-green-600"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">

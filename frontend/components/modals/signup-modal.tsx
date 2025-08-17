@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
+import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -69,7 +70,7 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
         petAge,
         petBreeds: petBreed,
       });
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/register`, {
+      const response = await axios.post(`${getBackendUrl()}/api/accounts/register`, {
         name,
         email,
         password,
