@@ -34,21 +34,21 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Create Pull Request
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          base: develop
-          head: ${{ github.ref_name }}
-          title: "Auto PR: ${{ github.ref_name }} → develop"
-          body: |
-            🤖 자동으로 생성된 Pull Request입니다.
-            
-            **브랜치**: `${{ github.ref_name }}` → `develop`
-            **커밋**: ${{ github.sha }}
-            
-            모든 Docker 이미지 빌드가 성공적으로 완료되었습니다:
-            - ✅ db Dockerfile
-            - ✅ backend Dockerfile  
-            - ✅ frontend Dockerfile
-            
-            리뷰 후 머지해주세요.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base develop \
+            --head ${{ github.ref_name }} \
+            --title "Auto PR: ${{ github.ref_name }} → develop" \
+            --body "자동으로 생성된 Pull Request입니다."
+
+          **브랜치**: \`${{ github.ref_name }}\` → \`develop\`
+          **커밋**: ${{ github.sha }}
+          
+          모든 Docker 이미지 빌드가 성공적으로 완료되었습니다:
+          - db Dockerfile
+          - backend Dockerfile  
+          - frontend Dockerfile
+          
+          리뷰 후 머지해주세요." || echo "PR already exists or failed to create"
