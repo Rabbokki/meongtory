@@ -17,7 +17,7 @@ from breeding.breeding import predict_breeding
 from breed.breed_api import router as breed_router
 from emotion.emotion_api import router as emotion_router
 from model import DogBreedClassifier
-from chatBot.rag_app import process_rag_query
+from chatBot.rag_app import process_rag_query, initialize_vectorstore
 
 # transcribe.py 모듈을 import하기 위해 경로 추가
 sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
@@ -75,7 +75,6 @@ async def predict_dog_breed(file: UploadFile = File(...)):
 async def generate_background_story(request: BackgroundStoryRequest):
     """배경 스토리 생성"""
     try:
-        # Use StoryAIService if available, otherwise fallback to direct OpenAI call
         if story_service:
             result = await story_service.generate_background_story(request)
             return result
@@ -164,17 +163,17 @@ async def transcribe_audio_endpoint(file: UploadFile = File(...)):
         logger.error(f"Audio transcription failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"음성 변환 중 오류 발생: {str(e)}")
 
-@app.post("/rag")
-async def rag_endpoint(request: QueryRequest):
-    """RAG 쿼리 처리"""
+@app.post("/chatbot")
+async def chatbot_endpoint(request: QueryRequest):
+    """챗봇 쿼리 처리"""
     try:
         logger.info(f"Received query: {request.query}")
         response = await process_rag_query(request.query)
         logger.info(f"Query response: {response['answer']}")
         return response
     except Exception as e:
-        logger.error(f"Error processing RAG query: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"RAG endpoint failed: {str(e)}")
+        logger.error(f"Error processing chatbot query: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Chatbot endpoint failed: {str(e)}")
 
 def build_story_prompt(request: BackgroundStoryRequest) -> str:
     prompt = f"""다음 정보를 바탕으로 입양 동물의 감동적인 배경 스토리를 작성해주세요:
@@ -205,3 +204,6 @@ def build_story_prompt(request: BackgroundStoryRequest) -> str:
 @app.get("/")
 async def root():
     return {"message": "Dog Breed Classifier API"}
+
+# 서버 시작 시 vectorstore 초기화
+initialize_vectorstore()

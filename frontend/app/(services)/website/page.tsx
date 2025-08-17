@@ -219,14 +219,24 @@ axios.interceptors.request.use(
     const accessToken = localStorage.getItem("accessToken")
     const refreshToken = localStorage.getItem("refreshToken")
     
+    console.log("=== Axios Request Interceptor ===")
+    console.log("URL:", config.url)
+    console.log("Method:", config.method)
+    console.log("Access Token:", accessToken ? "존재함" : "없음")
+    console.log("Refresh Token:", refreshToken ? "존재함" : "없음")
+    
     if (accessToken) {
-      config.headers["access_token"] = accessToken
+      config.headers["Access_Token"] = accessToken
+      console.log("Access_Token 헤더 설정됨")
     }
     if (refreshToken) {
-      config.headers["refresh_token"] = refreshToken
+      config.headers["Refresh_Token"] = refreshToken
+      console.log("Refresh_Token 헤더 설정됨")
     }
     
-    console.log("Request:", config.method, config.url, config.headers)
+    console.log("전체 헤더:", config.headers)
+    console.log("================================")
+    
     return config
   },
   (error) => {
@@ -449,6 +459,16 @@ export default function PetServiceWebsite() {
     console.log("currentPage 상태 변경됨:", currentPage)
   }, [currentPage])
 
+  // 사용자 변경 시 장바구니 초기화
+  useEffect(() => {
+    if (currentUser?.id && isLoggedIn) {
+      console.log("사용자 변경됨, 장바구니 초기화:", currentUser.id)
+      setCart([])
+      // 새 사용자의 장바구니 가져오기
+      fetchCartItems()
+    }
+  }, [currentUser?.id, isLoggedIn])
+
   // Check initial login state and fetch user info
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -457,6 +477,8 @@ export default function PetServiceWebsite() {
       let accessToken = localStorage.getItem("accessToken")
       if (!accessToken) {
         setIsLoading(false)
+        // 로그인되지 않은 경우 장바구니 초기화
+        setCart([])
         return
       }
 
@@ -470,6 +492,10 @@ export default function PetServiceWebsite() {
         setIsAdmin(role === "ADMIN")
         setIsLoggedIn(true)
         console.log("Initial login check successful:", { id, email, name, role })
+        
+        // 로그인 성공 시 장바구니 초기화 후 해당 사용자의 장바구니 가져오기
+        setCart([])
+        await fetchCartItems()
       } catch (err: any) {
         console.error("사용자 정보 조회 실패:", err)
         
@@ -696,6 +722,8 @@ export default function PetServiceWebsite() {
       setIsLoggedIn(false)
       setIsAdmin(false)
       setCurrentUser(null)
+      // 로그아웃 시 장바구니 초기화
+      setCart([])
       toast.success("로그아웃 되었습니다", { duration: 5000 })
       setCurrentPage("home")
     } catch (err: any) {
@@ -722,6 +750,11 @@ export default function PetServiceWebsite() {
   }
 
   const handleAddToCart = async (product: Product) => {
+    console.log("=== handleAddToCart 시작 ===")
+    console.log("로그인 상태:", isLoggedIn)
+    console.log("현재 사용자:", currentUser)
+    console.log("상품 정보:", product)
+    
     if (!isLoggedIn) {
       toast.error("로그인이 필요합니다", { duration: 5000 })
       setShowLoginModal(true)
@@ -730,10 +763,39 @@ export default function PetServiceWebsite() {
 
     try {
       console.log('장바구니 추가 시작...')
-      const currentUserId = currentUser?.id || 1
-      const url = `${getBackendUrl()}/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`
+      const accessToken = localStorage.getItem("accessToken");
+      const refreshToken = localStorage.getItem("refreshToken");
+      console.log("Access Token 존재 여부:", !!accessToken)
+      console.log("Refresh Token 존재 여부:", !!refreshToken)
+      console.log("Access Token 길이:", accessToken?.length)
+      console.log("Access Token 내용 (처음 20자):", accessToken?.substring(0, 20))
+      
+      if (!accessToken || accessToken.trim() === '') {
+        console.error("Access Token이 없거나 비어있습니다!")
+        toast.error("인증 토큰이 없습니다. 다시 로그인해주세요.", { duration: 5000 })
+        return
+      }
+
+      // 수량 추출 (상품 상세페이지에서 전달받은 수량 또는 기본값 1)
+      const quantity = (product as any).selectedQuantity || 1
+      console.log("추가할 수량:", quantity)
+
+      // 재고 확인
+      const stock = typeof product.stock === 'number' ? product.stock : 0
+      if (quantity > stock) {
+        toast.error(`재고가 부족합니다. (재고: ${stock}개, 요청: ${quantity}개)`, { duration: 5000 })
+        return
+      }
+
+      // 장바구니 추가 API (수량 포함)
+      const url = `${getBackendUrl()}/api/carts?productId=${product.productId}&quantity=${quantity}`
       const response = await axios.post(url, null, {
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        headers: { 
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Authorization": `${accessToken}`,
+          "Access_Token": accessToken,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        },
         timeout: 5000
       })
 
@@ -742,7 +804,7 @@ export default function PetServiceWebsite() {
       }
 
       await fetchCartItems()
-      toast.success(`${product.name}을(를) 장바구니에 추가했습니다`, { duration: 5000 })
+      toast.success(`${product.name}을(를) 장바구니에 ${quantity}개 추가했습니다`, { duration: 5000 })
       setCurrentPage("cart")
     } catch (error: any) {
       console.error("장바구니 추가 오류:", error)
@@ -751,7 +813,13 @@ export default function PetServiceWebsite() {
         status: error.response?.status,
         data: error.response?.data
       })
-      toast.error("백엔드 서버 연결에 실패했습니다. 장바구니 추가가 불가능합니다.", { duration: 5000 })
+      
+      // 백엔드에서 재고 부족 에러 처리
+      if (error.response?.data?.message?.includes('재고가 부족합니다')) {
+        toast.error(error.response.data.message, { duration: 5000 })
+      } else {
+        toast.error("백엔드 서버 연결에 실패했습니다. 장바구니 추가가 불가능합니다.", { duration: 5000 })
+      }
     }
   }
 
@@ -760,15 +828,30 @@ export default function PetServiceWebsite() {
   }
 
   const fetchCartItems = async () => {
-    if (!isLoggedIn) return
+    console.log("=== fetchCartItems 시작 ===")
+    console.log("로그인 상태:", isLoggedIn)
+    console.log("현재 사용자:", currentUser)
+    
+    if (!isLoggedIn) {
+      console.log('로그인되지 않음, 장바구니 조회 중단')
+      return
+    }
 
     try {
       console.log('장바구니 조회 시작...')
       
       // accessToken에서 사용자 ID 추출
       const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        console.log('Access token이 없습니다.');
+      console.log("Access Token 존재 여부:", !!accessToken)
+      
+      if (!accessToken || accessToken.trim() === '') {
+        console.log('Access token이 없거나 비어있습니다.');
+        return;
+      }
+
+      // 토큰 유효성 간단 체크
+      if (accessToken.split('.').length !== 3) {
+        console.log('토큰 형식이 유효하지 않습니다.');
         return;
       }
 
@@ -794,7 +877,9 @@ export default function PetServiceWebsite() {
 
       const response = await axios.get(`${getBackendUrl()}/api/carts`, {
         headers: {
+          "Authorization": `${accessToken}`,
           "Access_Token": accessToken,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
         },
         timeout: 5000
       })
@@ -806,9 +891,9 @@ export default function PetServiceWebsite() {
       console.log('백엔드에서 받은 장바구니 데이터:', cartData)
       
       const cartItems: CartItem[] = cartData
-        .sort((a: any, b: any) => a.cartId - b.cartId)
+        .sort((a: any, b: any) => a.id - b.id)
         .map((item: any, index: number) => ({
-          id: item.cartId,
+          id: item.id,
           name: item.product.name,
           brand: "브랜드 없음", // Product 엔티티에 brand 필드가 없음
           price: item.product.price,
@@ -817,7 +902,7 @@ export default function PetServiceWebsite() {
           quantity: item.quantity,
           order: index,
           product: {
-            productId: item.product.productId,
+            id: item.product.id,
             name: item.product.name,
             description: item.product.description,
             price: item.product.price,
@@ -847,13 +932,31 @@ export default function PetServiceWebsite() {
 
   const handleRemoveFromCart = async (cartId: number) => {
     try {
-      const response = await axios.delete(`${getBackendUrl()}/api/carts/${cartId}`)
+      console.log("handleRemoveFromCart 시작 - cartId:", cartId)
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        toast.error("인증 토큰이 없습니다. 다시 로그인해주세요.", { duration: 5000 })
+        return
+      }
+
+      console.log("백엔드 API 호출 시작 - DELETE /api/carts/" + cartId)
+      const response = await axios.delete(`${getBackendUrl()}/api/carts/${cartId}`, {
+        headers: {
+          "Authorization": `${accessToken}`,
+          "Access_Token": accessToken,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
+
+      console.log("백엔드 API 응답:", response.status, response.data)
 
       if (response.status !== 200) {
         throw new Error("장바구니에서 삭제에 실패했습니다.")
       }
 
+      console.log("fetchCartItems 호출 시작")
       await fetchCartItems()
+      console.log("fetchCartItems 완료")
       toast.success("장바구니에서 상품을 삭제했습니다", { duration: 5000 })
     } catch (error) {
       console.error("장바구니 삭제 오류:", error)
@@ -863,7 +966,19 @@ export default function PetServiceWebsite() {
 
   const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
     try {
-      const response = await axios.put(`${getBackendUrl()}/api/carts/${cartId}?quantity=${quantity}`)
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        toast.error("인증 토큰이 없습니다. 다시 로그인해주세요.", { duration: 5000 })
+        return
+      }
+
+      const response = await axios.put(`${getBackendUrl()}/api/carts/${cartId}?quantity=${quantity}`, null, {
+        headers: {
+          "Authorization": `${accessToken}`,
+          "Access_Token": accessToken,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
 
       if (response.status !== 200) {
         throw new Error("수량 업데이트에 실패했습니다.")
@@ -871,9 +986,15 @@ export default function PetServiceWebsite() {
 
       await fetchCartItems()
       toast.success("장바구니 수량을 업데이트했습니다", { duration: 5000 })
-    } catch (error) {
+    } catch (error: any) {
       console.error("수량 업데이트 오류:", error)
-      toast.error("수량 업데이트에 실패했습니다", { duration: 5000 })
+      
+      // 백엔드에서 재고 부족 에러 처리
+      if (error.response?.data?.message?.includes('재고가 부족합니다')) {
+        toast.error(error.response.data.message, { duration: 5000 })
+      } else {
+        toast.error("수량 업데이트에 실패했습니다", { duration: 5000 })
+      }
     }
   }
 
@@ -955,21 +1076,30 @@ export default function PetServiceWebsite() {
         headers['access_token'] = accessToken
       }
 
+      // 사용자 정보 확인
+      if (!currentUser || !currentUser.id) {
+        console.error("사용자 정보가 없습니다:", currentUser)
+        toast.error("로그인이 필요합니다. 다시 로그인해주세요.", { duration: 5000 })
+        return
+      }
+
+      // 상품 정보 확인
+      if (!cartItem.product?.id) {
+        console.error("상품 정보가 없습니다:", cartItem)
+        toast.error("상품 정보를 찾을 수 없습니다.", { duration: 5000 })
+        return
+      }
+
       const orderData = {
-        userId: currentUser.id,
-        totalPrice: cartItem.price * cartItem.quantity,
-        orderItems: [
-          {
-            productId: cartItem.product?.productId || cartItem.id, // 실제 상품 ID 사용
-            productName: cartItem.product?.name || cartItem.name || cartItem.brand + " " + cartItem.category,
-            imageUrl: cartItem.product?.imageUrl || cartItem.image || "/placeholder.svg",
-            quantity: cartItem.quantity,
-            price: cartItem.product?.price || cartItem.price,
-          },
-        ],
+        accountId: currentUser.id,
+        productId: cartItem.product.id, // 실제 상품 ID 사용
+        quantity: cartItem.quantity
       }
 
       console.log("개별 구매 요청 데이터:", orderData)
+      console.log("cartItem 상세 정보:", cartItem)
+      console.log("cartItem.product:", cartItem.product)
+      console.log("currentUser:", currentUser)
 
       const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers: headers,
@@ -982,8 +1112,10 @@ export default function PetServiceWebsite() {
         throw new Error("개별 구매에 실패했습니다.")
       }
 
-      // 장바구니에서 해당 상품 제거
-      await handleRemoveFromCart(cartItem.id)
+      // 백엔드에서 자동으로 장바구니에서 삭제하므로 프론트엔드에서만 새로고침
+      console.log("구매 성공, 장바구니 새로고침 시작")
+      await fetchCartItems()
+      console.log("장바구니 새로고침 완료")
       await fetchUserOrders()
       toast.success("개별 구매가 완료되었습니다", { duration: 5000 })
       setCurrentPage("myPage")
@@ -1099,14 +1231,15 @@ export default function PetServiceWebsite() {
       console.log('상품 목록 조회 시작...')
       console.log('요청 URL:', `${getBackendUrl()}/api/products`)
       
-      // 백엔드 서버 상태 확인
+      // 백엔드 서버 상태 확인 (선택적)
       try {
         const healthCheck = await axios.get(`${getBackendUrl()}/actuator/health`, {
           timeout: 3000
         })
         console.log('백엔드 서버 상태:', healthCheck.data)
       } catch (healthError) {
-        console.warn('백엔드 서버 상태 확인 실패:', healthError)
+        console.warn('백엔드 서버 상태 확인 실패 (무시됨):', healthError)
+        // 헬스체크 실패는 무시하고 계속 진행
       }
       
       // 인증 토큰 가져오기
@@ -1116,11 +1249,16 @@ export default function PetServiceWebsite() {
         'Accept': 'application/json'
       }
       
-      // 토큰이 있으면 헤더에 추가
-      if (accessToken) {
-        headers['access_token'] = accessToken
-        headers['refresh_token'] = localStorage.getItem('refreshToken') || ''
-        console.log('인증 토큰 추가됨')
+      // 토큰이 있고 유효한 경우에만 헤더에 추가
+      if (accessToken && accessToken.trim() !== '') {
+        // 토큰 유효성 간단 체크 (JWT 형식인지 확인)
+        if (accessToken.split('.').length === 3) {
+          headers['Access_Token'] = accessToken
+          headers['Refresh_Token'] = localStorage.getItem('refreshToken') || ''
+          console.log('인증 토큰 추가됨')
+        } else {
+          console.log('토큰 형식이 유효하지 않음 - 익명 접근')
+        }
       } else {
         console.log('인증 토큰 없음 - 익명 접근')
       }
@@ -1132,6 +1270,10 @@ export default function PetServiceWebsite() {
       
       console.log('응답 상태:', response.status)
       console.log('응답 헤더:', response.headers)
+      console.log('응답 데이터 타입:', typeof response.data)
+      console.log('응답 데이터:', response.data)
+      console.log('응답 데이터가 배열인가?', Array.isArray(response.data))
+      console.log('응답 데이터 길이:', response.data?.length)
       const backendProducts = response.data
       console.log('백엔드에서 받은 상품 데이터:', backendProducts)
       
@@ -1142,16 +1284,14 @@ export default function PetServiceWebsite() {
       
       // 백엔드 데이터를 프론트엔드 형식으로 변환
       const convertedProducts: Product[] = backendProducts.map((product: any) => ({
-        id: product.productId || product.id,
+        productId: product.productId || product.id,
         name: product.name || '상품명 없음',
-        brand: product.brand || '브랜드 없음',
-        price: product.price || 0,
-        image: product.imageUrl || product.image || '/placeholder.svg?height=300&width=300',
-        category: product.category || '기타',
         description: product.description || '',
-        tags: product.tags || [],
+        price: product.price || 0,
         stock: product.stock || 0,
-        petType: product.targetAnimal?.toLowerCase() || product.petType || 'all',
+        imageUrl: product.imageUrl || product.image || '/placeholder.svg?height=300&width=300',
+        category: product.category || '용품',
+        targetAnimal: product.targetAnimal || 'ALL',
         registrationDate: product.registrationDate || new Date().toISOString().split('T')[0],
         registeredBy: product.registeredBy || 'admin'
       }))
@@ -1172,62 +1312,17 @@ export default function PetServiceWebsite() {
         }
       })
       
-      // 404 에러나 기타 네트워크 오류 시 기본 상품 데이터 제공
-      console.log('기본 상품 데이터로 대체합니다.')
-      const defaultProducts: Product[] = [
-        {
-          id: 1,
-          name: "프리미엄 강아지 사료 (성견용)",
-          brand: "펫푸드",
-          price: 45000,
-          image: "/placeholder.svg?height=300&width=300",
-          category: "사료",
-          description: "성견을 위한 프리미엄 사료입니다.",
-          tags: ["사료", "성견용", "프리미엄"],
-          stock: 50,
-          petType: "dog",
-          registrationDate: new Date().toISOString().split('T')[0],
-          registeredBy: "admin"
-        },
-        {
-          id: 2,
-          name: "고양이 장난감 세트",
-          brand: "펫토이",
-          price: 25000,
-          image: "/placeholder.svg?height=300&width=300",
-          category: "장난감",
-          description: "다양한 고양이 장난감으로 구성된 세트입니다.",
-          tags: ["장난감", "고양이", "세트"],
-          stock: 100,
-          petType: "cat",
-          registrationDate: new Date().toISOString().split('T')[0],
-          registeredBy: "admin"
-        },
-        {
-          id: 3,
-          name: "강아지 목줄",
-          brand: "펫액세서리",
-          price: 15000,
-          image: "/placeholder.svg?height=300&width=300",
-          category: "용품",
-          description: "편안하고 안전한 강아지 목줄입니다.",
-          tags: ["목줄", "강아지", "안전"],
-          stock: 30,
-          petType: "dog",
-          registrationDate: new Date().toISOString().split('T')[0],
-          registeredBy: "admin"
-        }
-      ]
+      // 백엔드 서버 연결 실패 시 빈 배열로 설정
+      console.log('백엔드 서버 연결 실패로 상품 데이터를 가져올 수 없습니다.')
+      setProducts([])
       
-      setProducts(defaultProducts)
-      
-      let errorMessage = '백엔드 서버 연결에 실패했습니다. 기본 상품 데이터를 표시합니다.'
+      let errorMessage = '백엔드 서버 연결에 실패했습니다.'
       if (error.response?.status === 500) {
-        errorMessage = '서버 내부 오류가 발생했습니다. 기본 상품 데이터를 표시합니다.'
+        errorMessage = '서버 내부 오류가 발생했습니다.'
       } else if (error.response?.status === 404) {
-        errorMessage = '상품 API 엔드포인트를 찾을 수 없습니다. 기본 상품 데이터를 표시합니다.'
+        errorMessage = '상품 API 엔드포인트를 찾을 수 없습니다.'
       } else if (error.code === 'ECONNABORTED') {
-        errorMessage = '서버 응답 시간이 초과되었습니다. 기본 상품 데이터를 표시합니다.'
+        errorMessage = '서버 응답 시간이 초과되었습니다.'
       }
       
       toast.error(errorMessage, { duration: 5000 })
@@ -1248,7 +1343,7 @@ export default function PetServiceWebsite() {
   }
 
   const handleViewProduct = (product: Product) => {
-    setSelectedProductId(product.id)
+    setSelectedProductId(product.productId)
     setCurrentPage("product-detail")
   }
 
@@ -1258,7 +1353,7 @@ export default function PetServiceWebsite() {
   }
 
   const handleSaveProduct = (updatedProduct: Product) => {
-    setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)))
+    setProducts((prev) => prev.map((p) => (p.productId === updatedProduct.productId ? updatedProduct : p)))
     toast.success("상품이 수정되었습니다", { duration: 5000 })
   }
 
@@ -1312,24 +1407,17 @@ export default function PetServiceWebsite() {
       
       // 토큰이 있으면 헤더에 추가
       if (accessToken) {
-        headers['access_token'] = accessToken
+        headers['Access_Token'] = accessToken
+        headers['Refresh_Token'] = localStorage.getItem('refreshToken') || ''
         console.log('인증 토큰 추가됨')
       } else {
         console.log('인증 토큰 없음')
       }
 
       const orderData = {
-        userId: currentUser.id,
-        totalPrice: product.price,
-        orderItems: [
-          {
-            productId: product.id,
-            productName: product.name || product.brand + " " + product.category,
-            imageUrl: product.image || "/placeholder.svg",
-            quantity: 1,
-            price: product.price,
-          },
-        ],
+        accountId: currentUser.id,
+        productId: Number(product.productId || product.id),
+        quantity: 1
       }
 
       console.log('주문 데이터:', orderData)
@@ -1817,7 +1905,7 @@ export default function PetServiceWebsite() {
             }}
             onEditProduct={handleEditProduct}
             onDeleteProduct={(productId) => {
-              setProducts((prev) => prev.filter((product) => product.id !== productId))
+              setProducts((prev) => prev.filter((product) => product.productId !== productId))
               toast.success("상품이 삭제되었습니다", { duration: 5000 })
             }}
             onUpdateOrderStatus={updatePaymentStatus}
@@ -2060,6 +2148,17 @@ export default function PetServiceWebsite() {
             // 로그인 상태 강제 업데이트
             setIsLoggedIn(true)
             
+            // 장바구니 초기화
+            setCart([])
+            
+            // 토큰 저장 상태 확인
+            const accessToken = localStorage.getItem("accessToken")
+            const refreshToken = localStorage.getItem("refreshToken")
+            console.log("로그인 후 토큰 저장 상태 확인:")
+            console.log("Access Token 존재:", !!accessToken)
+            console.log("Refresh Token 존재:", !!refreshToken)
+            console.log("Access Token 길이:", accessToken?.length)
+            
             // 사용자 정보 즉시 가져와서 isAdmin 상태 설정
             try {
               const accessToken = localStorage.getItem("accessToken")
@@ -2071,6 +2170,13 @@ export default function PetServiceWebsite() {
                 setCurrentUser({ id, email, name })
                 setIsAdmin(role === "ADMIN")
                 console.log("로그인 후 사용자 정보 업데이트:", { id, email, name, role })
+                
+                // 로그인 성공 후 해당 사용자의 장바구니 가져오기 (약간의 지연 후)
+                setTimeout(async () => {
+                  await fetchCartItems()
+                }, 100)
+              } else {
+                console.error("Access Token이 저장되지 않았습니다!")
               }
             } catch (err) {
               console.error("로그인 후 사용자 정보 조회 실패:", err)
@@ -2082,6 +2188,8 @@ export default function PetServiceWebsite() {
             setIsLoggedIn(false)
             setIsAdmin(false)
             setCurrentUser(null)
+            // 로그아웃 시 장바구니 초기화
+            setCart([])
           }}
         />
       )}

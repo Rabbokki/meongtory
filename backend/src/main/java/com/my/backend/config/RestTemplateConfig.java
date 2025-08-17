@@ -11,10 +11,14 @@ import java.time.Duration;
 public class RestTemplateConfig {
 
     @Bean
-    public RestTemplate restTemplate() {
-        return new RestTemplateBuilder()
-                .setConnectTimeout(Duration.ofSeconds(30))
-                .setReadTimeout(Duration.ofSeconds(30))
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder
+                .requestFactory(() -> {
+                    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+                    factory.setConnectTimeout(30000); // 30초
+                    factory.setReadTimeout(30000);    // 30초
+                    return factory;
+                })
                 .build();
     }
 }

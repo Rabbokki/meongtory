@@ -30,6 +30,7 @@ public class VisitReservation {
     
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
+    @Builder.Default
     private Status status = Status.PENDING;
     
     public enum Status {

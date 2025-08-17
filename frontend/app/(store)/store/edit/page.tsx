@@ -8,7 +8,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Save, X, Upload } from 'lucide-react';
 import Image from 'next/image';
-import { productApi } from '@/lib/api';
 import axios from 'axios';
 
 interface Product {
@@ -55,99 +54,85 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
 
+  // 백엔드 URL (환경 변수 또는 실제 URL로 대체)
+  const BACKEND_URL = 'http://localhost:8080';
+
   // 상품 데이터 로드
   useEffect(() => {
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        console.log('요청할 productId:', productId, '타입:', typeof productId);
-        const productData = await productApi.getProduct(productId);
-        console.log('로드된 상품 데이터:', productData);
-        console.log('상품 이미지 필드:', productData.image);
-        console.log('상품 imageUrl 필드:', productData.imageUrl);
-        console.log('상품 모든 필드:', Object.keys(productData));
-        console.log('백엔드 productId:', productData.productId);
+        console.log('Fetching product with ID:', productId, 'Type:', typeof productId);
         
-        // 백엔드 응답을 프론트엔드 형식으로 변환
+        const accessToken = localStorage.getItem("accessToken");
+        if (!accessToken) {
+          throw new Error('인증 토큰이 없습니다.');
+        }
+
+        const response = await axios.get(`${BACKEND_URL}/api/products/${productId}`, {
+          headers: {
+            Authorization: accessToken, // Bearer 접두사 제거
+            'Access_Token': accessToken,
+            'Refresh_Token': localStorage.getItem("refreshToken") || '',
+          },
+        });
+        console.log('Raw product data from API:', JSON.stringify(response.data, null, 2));
+
+        const productData = response.data;
         const convertedProduct: Product = {
-          id: productData.productId, // productId를 id로 변환
-          name: productData.name,
-          price: productData.price,
-          image: productData.imageUrl, // imageUrl을 image로 변환
-          category: productData.category,
-          description: productData.description,
-          tags: [], // 백엔드에 tags 필드가 없으므로 빈 배열
-          stock: productData.stock,
-          petType: (productData.targetAnimal === 'ALL' ? 'all' : 
-                   productData.targetAnimal === 'DOG' ? 'dog' : 'cat') as "dog" | "cat" | "all",
-          registrationDate: productData.registrationDate,
-          registeredBy: productData.registeredBy
+          id: productData.id || productData.productId || productId,
+          name: productData.name || productData.productName || '이름 없음',
+          price: productData.price || 0,
+          image: productData.image_url || productData.imageUrl || productData.image || '/placeholder.svg',
+          category: productData.category || '카테고리 없음',
+          description: productData.description || '',
+          tags: productData.tags
+            ? Array.isArray(productData.tags)
+              ? productData.tags
+              : productData.tags.split(',').map((tag: string) => tag.trim())
+            : [],
+          stock: productData.stock || 0,
+          petType: productData.targetAnimal
+            ? productData.targetAnimal === 'ALL' ? 'all'
+              : productData.targetAnimal === 'DOG' ? 'dog'
+              : 'cat'
+            : 'all',
+          registrationDate: productData.registration_date || productData.registrationDate || productData.createdAt || new Date().toISOString(),
+          registeredBy: productData.registered_by || productData.registeredBy || 'admin',
         };
-        
+
         setProduct(convertedProduct);
-        
-        // 기존 이미지가 있으면 미리보기에 설정
+        console.log('Converted product:', convertedProduct);
+
+        // 이미지 미리보기 설정
         const imageUrl = convertedProduct.image;
-        if (imageUrl && imageUrl !== "/placeholder.svg") {
-          console.log('기존 이미지 발견:', imageUrl);
+        if (imageUrl && imageUrl !== '/placeholder.svg') {
+          console.log('Setting image preview:', imageUrl);
           setImagePreview(imageUrl);
           
-          // 기존 이미지가 있으면 파일명도 설정 (URL에서 파일명 추출)
-          console.log('이미지 URL:', imageUrl);
-          
-          // URL에서 파일명 추출 (여러 방법 시도)
-          let fileName = '';
-          
-          // 1. 마지막 슬래시 이후 부분 추출
-          if (imageUrl.includes('/')) {
-            fileName = imageUrl.split('/').pop() || '';
-            console.log('방법1 - 추출된 파일명:', fileName);
-          }
-          
-          // 2. 파일명이 비어있으면 UUID 형태의 파일명 생성
-          if (!fileName && imageUrl.includes('amazonaws.com')) {
-            // S3 URL에서 UUID 형태의 파일명 추출
-            const urlParts = imageUrl.split('/');
-            const lastPart = urlParts[urlParts.length - 1];
-            if (lastPart && lastPart.includes('.')) {
-              fileName = lastPart;
-              console.log('방법2 - S3에서 추출된 파일명:', fileName);
-            }
-          }
-          
-          // 3. 여전히 파일명이 없으면 기본값 설정
-          if (!fileName) {
-            fileName = 'product-image.jpg';
-            console.log('방법3 - 기본 파일명 설정:', fileName);
-          }
-          
-          if (fileName) {
-            setSelectedFileName(fileName);
-            console.log('최종 파일명 설정됨:', fileName);
-          }
+          // 파일명 추출
+          const fileName = imageUrl.split('/').pop() || `product-${productId}.jpg`;
+          setSelectedFileName(fileName);
+          console.log('Extracted file name:', fileName);
         } else {
-          console.log('기존 이미지 없음 또는 placeholder');
+          console.log('No valid image URL, using placeholder');
         }
       } catch (err) {
-        console.error('상품 조회 오류:', err);
-        
-        // axios 에러인 경우 더 자세한 정보 출력
+        console.error('Error fetching product:', err);
         if (axios.isAxiosError(err)) {
-          console.error('Axios 에러 상세:', {
+          console.error('Axios error details:', {
             status: err.response?.status,
             statusText: err.response?.statusText,
             data: err.response?.data,
             url: err.config?.url,
-            method: err.config?.method
+            method: err.config?.method,
           });
-          
-          if (err.response?.status === 400) {
-            setError(`잘못된 요청입니다. (상품 ID: ${productId})`);
-          } else if (err.response?.status === 404) {
-            setError('상품을 찾을 수 없습니다.');
-          } else {
-            setError(`서버 오류가 발생했습니다. (${err.response?.status})`);
-          }
+          const status = err.response?.status;
+          setError(
+            status === 400 ? `잘못된 요청입니다. (상품 ID: ${productId})` :
+            status === 404 ? '상품을 찾을 수 없습니다.' :
+            `서버 오류가 발생했습니다. (${status || '알 수 없음'})`
+          );
         } else {
           setError('상품을 불러오는데 실패했습니다.');
         }
@@ -166,32 +151,26 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
   };
 
   const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('파일 선택 이벤트:', e.target.files);
+    console.log('File input change:', e.target.files);
     
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      console.log('선택된 파일:', file);
-      console.log('파일명:', file.name);
-      console.log('파일 크기:', file.size);
-      console.log('파일 타입:', file.type);
+      console.log('Selected file:', file.name, 'Size:', file.size, 'Type:', file.type);
       
       setImageFile(file);
       setSelectedFileName(file.name);
       
       const reader = new FileReader();
       reader.onloadend = () => {
-        console.log('파일 읽기 완료');
+        console.log('File read completed');
         setImagePreview(reader.result as string);
       };
-      reader.onerror = () => {
-        console.error('파일 읽기 오류');
-      };
+      reader.onerror = () => console.error('File read error');
       reader.readAsDataURL(file);
     } else {
-      console.log('파일 선택 취소됨');
+      console.log('File selection cancelled');
       setImageFile(null);
-      // 파일 선택을 취소해도 기존 이미지가 있으면 파일명 유지
-      if (!product?.image || product.image === "/placeholder.svg") {
+      if (!product?.image || product.image === '/placeholder.svg') {
         setImagePreview(null);
         setSelectedFileName('');
       }
@@ -205,20 +184,17 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
       setSaving(true);
       
       let imageUrl = product.image;
-      
-      // 새 이미지가 업로드된 경우 Base64로 변환하여 백엔드로 전송
       if (imageFile) {
-        const base64Promise = new Promise<string>((resolve) => {
+        const base64Promise = new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
-          reader.onloadend = () => {
-            resolve(reader.result as string);
-          };
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
           reader.readAsDataURL(imageFile);
         });
         imageUrl = await base64Promise;
       }
 
-      console.log('상품 수정 데이터:', {
+      const updateData = {
         name: product.name,
         price: product.price,
         category: product.category,
@@ -226,24 +202,34 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
         stock: product.stock,
         targetAnimal: product.petType === 'all' ? 'ALL' : product.petType === 'dog' ? 'DOG' : 'CAT',
         imageUrl: imageUrl,
-      });
+      };
+      console.log('Sending update data:', updateData);
 
-      await productApi.updateProduct(productId, {
-        name: product.name,
-        price: product.price,
-        category: product.category,
-        description: product.description,
-        stock: product.stock,
-        targetAnimal: product.petType === 'all' ? 'ALL' : product.petType === 'dog' ? 'DOG' : 'CAT',
-        imageUrl: imageUrl,
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        throw new Error('인증 토큰이 없습니다.');
+      }
+
+      await axios.put(`${BACKEND_URL}/api/products/${productId}`, updateData, {
+        headers: {
+          Authorization: accessToken,
+          'Access_Token': accessToken,
+          'Refresh_Token': localStorage.getItem("refreshToken") || '',
+          'Content-Type': 'application/json',
+        },
       });
 
       onSave(product);
       alert('상품이 성공적으로 수정되었습니다.');
       onBack();
     } catch (err) {
-      console.error('상품 수정 오류:', err);
-      alert('상품 수정 중 오류가 발생했습니다.');
+      console.error('Error updating product:', err);
+      if (axios.isAxiosError(err)) {
+        console.error('Axios error details:', err.response?.data);
+        alert(`상품 수정 중 오류가 발생했습니다: ${err.response?.data?.error || '알 수 없는 오류'}`);
+      } else {
+        alert('상품 수정 중 오류가 발생했습니다.');
+      }
     } finally {
       setSaving(false);
     }
@@ -402,7 +388,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
                   <div className="text-sm text-green-600 font-medium bg-green-50 p-2 rounded-md border border-green-200">
                     ✅ {imageFile ? '새로 선택된 파일' : '기존 파일'}: {selectedFileName}
                   </div>
-                ) : product?.image && product.image !== "/placeholder.svg" ? (
+                ) : product.image && product.image !== "/placeholder.svg" ? (
                   <div className="text-sm text-blue-600 font-medium bg-blue-50 p-2 rounded-md border border-blue-200">
                     📷 기존 이미지가 설정되어 있습니다
                   </div>
@@ -412,13 +398,6 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
                   </div>
                 )}
               </div>
-              {product.image && product.image !== "/placeholder.svg" && !imagePreview && (
-                <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
-                  <p className="text-sm text-blue-700">
-                    현재 이미지가 설정되어 있습니다. 새 이미지를 선택하면 기존 이미지가 교체됩니다.
-                  </p>
-                </div>
-              )}
               {(imagePreview || (product.image && product.image !== "/placeholder.svg")) && (
                 <div className="mt-4 w-48 h-48 relative overflow-hidden rounded-md border border-gray-300">
                   <Image
@@ -428,9 +407,8 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
                     height={192}
                     className="w-full h-full object-cover"
                     onError={(e) => {
-                      console.log('이미지 로딩 실패:', imagePreview || product.image);
-                      const target = e.target as HTMLImageElement;
-                      target.src = "/placeholder.svg";
+                      console.log('Image load failed:', imagePreview || product.image);
+                      e.currentTarget.src = "/placeholder.svg";
                     }}
                   />
                 </div>
@@ -462,4 +440,4 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
       </div>
     </div>
   );
-} 
+}
