@@ -43,6 +43,6 @@ class DogEmotionClassifier:
         
         return {
             "emotion": emotion_en,
-            "emotion_korean": emotion_kr,
+            "emotionKorean": emotion_kr,
             "confidence": round(confidence, 1)
         }

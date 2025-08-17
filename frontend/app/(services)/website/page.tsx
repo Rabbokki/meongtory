@@ -34,7 +34,7 @@ import GrowthDiaryWritePage from "../../(pets)/diary/write/page"
 import axios from "axios"
 import { Toaster, toast } from "react-hot-toast"
 import { getCurrentKSTDate } from "@/lib/utils"
-import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
+import { getBackendUrl } from "@/lib/api";
 
 
 
@@ -631,7 +631,7 @@ export default function PetServiceWebsite() {
     try {
       console.log("로그인 시도:", { email })
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       )
@@ -1230,17 +1230,6 @@ export default function PetServiceWebsite() {
     try {
       console.log('상품 목록 조회 시작...')
       console.log('요청 URL:', `${getBackendUrl()}/api/products`)
-      
-      // 백엔드 서버 상태 확인 (선택적)
-      try {
-        const healthCheck = await axios.get(`${getBackendUrl()}/actuator/health`, {
-          timeout: 3000
-        })
-        console.log('백엔드 서버 상태:', healthCheck.data)
-      } catch (healthError) {
-        console.warn('백엔드 서버 상태 확인 실패 (무시됨):', healthError)
-        // 헬스체크 실패는 무시하고 계속 진행
-      }
       
       // 인증 토큰 가져오기
       const accessToken = localStorage.getItem('accessToken')

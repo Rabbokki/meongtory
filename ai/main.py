@@ -38,8 +38,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(breed_router)
-app.include_router(emotion_router)
+app.include_router(breed_router, prefix="/api/ai")
+app.include_router(emotion_router, prefix="/api/ai")
 
 # OpenAI 설정
 if not client.api_key:

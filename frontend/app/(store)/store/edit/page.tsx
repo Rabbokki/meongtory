@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Save, X, Upload } from 'lucide-react';
 import Image from 'next/image';
 import axios from 'axios';
+import { getBackendUrl } from "@/lib/api"
 
 interface Product {
   id: number;
@@ -54,9 +55,6 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [selectedFileName, setSelectedFileName] = useState<string>('');
 
-  // 백엔드 URL (환경 변수 또는 실제 URL로 대체)
-  const BACKEND_URL = 'http://localhost:8080';
-
   // 상품 데이터 로드
   useEffect(() => {
     const fetchProduct = async () => {
@@ -69,7 +67,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
           throw new Error('인증 토큰이 없습니다.');
         }
 
-        const response = await axios.get(`${BACKEND_URL}/api/products/${productId}`, {
+        const response = await axios.get(`${getBackendUrl}/api/products/${productId}`, {
           headers: {
             Authorization: accessToken, // Bearer 접두사 제거
             'Access_Token': accessToken,
@@ -210,7 +208,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
         throw new Error('인증 토큰이 없습니다.');
       }
 
-      await axios.put(`${BACKEND_URL}/api/products/${productId}`, updateData, {
+      await axios.put(`${getBackendUrl}/api/products/${productId}`, updateData, {
         headers: {
           Authorization: accessToken,
           'Access_Token': accessToken,
