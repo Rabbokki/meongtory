@@ -35,12 +35,6 @@ import axios from "axios";
 import { Toaster, toast } from "react-hot-toast";
 import { getCurrentKSTDate } from "@/lib/utils";
 
-<<<<<<< HEAD
-import axios from "axios"
-import { Toaster, toast } from "react-hot-toast"
-import { getCurrentKSTDate } from "@/lib/utils"
-import { getBackendUrl } from "@/lib/api";
-=======
 interface Pet {
   id: number;
   name: string;
@@ -61,7 +55,6 @@ interface Pet {
   adoptionStatus: string;
   ownerEmail?: string;
 }
->>>>>>> develop
 
 interface Product {
   id: number;
@@ -936,15 +929,7 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
 
   const fetchProducts = async () => {
     try {
-<<<<<<< HEAD
-      console.log('상품 목록 조회 시작...')
-      console.log('요청 URL:', `${getBackendUrl()}/api/products`)
-      
-      // 인증 토큰 가져오기
-      const accessToken = localStorage.getItem('accessToken')
-=======
       const accessToken = localStorage.getItem("accessToken");
->>>>>>> develop
       const headers: any = {
         "Content-Type": "application/json",
         Accept: "application/json",
