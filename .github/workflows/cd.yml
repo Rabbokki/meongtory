@@ -1,19 +1,32 @@
 # AWS 인스턴스 배포 자동화 워크플로우
-# 실행 시 인스턴스 IP 주소를 직접 입력해야 합니다.
+# 
+# 실행 방법:
+# 1. 수동 실행: GitHub Actions에서 "Run workflow"로 실행 시 IP 주소 입력
+# 2. 자동 실행: feature/cd 브랜치에 push 시 자동 실행 (테스트용, TEST_INSTANCE_IP secret 필요)
 
-name: Continuous Deployment
+name: CD Pipeline
 
 on:
+  # 수동 실행 (IP 주소 입력)
   workflow_dispatch:
     inputs:
       instance_ip:
         description: 'AWS Instance Public IP Address (예: 13.124.123.45)'
         required: true
         type: string
+  
+  # feature/cd 브랜치 push 시 자동 실행 (테스트용)
+  push:
+    branches:
+      - feature/cd
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    
+    env:
+      # push 이벤트일 때는 GitHub Secrets의 테스트 IP 사용, workflow_dispatch일 때는 입력받은 IP 사용
+      INSTANCE_IP: ${{ github.event.inputs.instance_ip || secrets.TEST_INSTANCE_IP }}
     
     steps:
     # 소스 코드 체크아웃
@@ -45,9 +58,9 @@ jobs:
     # 프론트엔드 이미지 빌드 및 푸시 (인스턴스 IP 주입)
     - name: Build and push Frontend image
       run: |
-        echo "Building Frontend with instance IP: ${{ github.event.inputs.instance_ip }}"
+        echo "Building Frontend with instance IP: ${{ env.INSTANCE_IP }}"
         docker build \
-          --build-arg NEXT_PUBLIC_BACKEND_URL=http://${{ github.event.inputs.instance_ip }}:8080 \
+          --build-arg NEXT_PUBLIC_BACKEND_URL=http://${{ env.INSTANCE_IP }}:8080 \
           -t ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest \
           ./frontend
         docker push ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
@@ -77,13 +90,13 @@ jobs:
     - name: Update environment file
       run: |
         # Update NEXT_PUBLIC_BACKEND_URL with instance IP
-        sed -i "s|NEXT_PUBLIC_BACKEND_URL=.*|NEXT_PUBLIC_BACKEND_URL=http://${{ github.event.inputs.instance_ip }}:8080|" .env
+        sed -i "s|NEXT_PUBLIC_BACKEND_URL=.*|NEXT_PUBLIC_BACKEND_URL=http://${{ env.INSTANCE_IP }}:8080|" .env
 
     # 인스턴스 정리 작업 (기존 컨테이너 중지 및 파일 삭제)
     - name: Clean up instance
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ github.event.inputs.instance_ip }}
+        host: ${{ env.INSTANCE_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         script: |
@@ -106,7 +119,7 @@ jobs:
     - name: Copy files to instance
       uses: appleboy/scp-action@v0.1.7
       with:
-        host: ${{ github.event.inputs.instance_ip }}
+        host: ${{ env.INSTANCE_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         source: ".env,docker-compose.production.yml,db/init-db"
@@ -116,7 +129,7 @@ jobs:
     - name: Rename docker-compose file and start services
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ github.event.inputs.instance_ip }}
+        host: ${{ env.INSTANCE_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         script: |
@@ -127,7 +140,7 @@ jobs:
     - name: Start services on instance
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ github.event.inputs.instance_ip }}
+        host: ${{ env.INSTANCE_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         script: |
@@ -160,7 +173,7 @@ jobs:
     - name: Deployment Status
       run: |
         echo "Deployment completed successfully!"
-        echo "Frontend: http://${{ github.event.inputs.instance_ip }}:3000"
-        echo "Backend: http://${{ github.event.inputs.instance_ip }}:8080"
-        echo "AI Service: http://${{ github.event.inputs.instance_ip }}:9000"
-        echo "Database: ${{ github.event.inputs.instance_ip }}:5432"
+        echo "Frontend: http://${{ env.INSTANCE_IP }}:3000"
+        echo "Backend: http://${{ env.INSTANCE_IP }}:8080"
+        echo "AI Service: http://${{ env.INSTANCE_IP }}:9000"
+        echo "Database: ${{ env.INSTANCE_IP }}:5432"
