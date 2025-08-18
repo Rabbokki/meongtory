@@ -188,12 +188,12 @@ public Cart addNaverProductToCart(Long accountId, Long naverProductId, int quant
 
     System.out.println("찾은 사용자: " + account.getEmail() + " (ID: " + account.getId() + ")");
 
-    // 네이버 상품 조회
-    NaverProduct naverProduct = naverProductRepository.findById(naverProductId)
-            .orElseThrow(() -> new IllegalArgumentException("해당 네이버 상품이 존재하지 않습니다. 먼저 네이버 상품을 저장해주세요."));
+    // 네이버 상품 조회 (productId로 조회)
+    NaverProduct naverProduct = naverProductRepository.findByProductId(String.valueOf(naverProductId))
+            .orElseThrow(() -> new IllegalArgumentException("해당 네이버 상품이 존재하지 않습니다. 상품 ID: " + naverProductId));
 
     // 기존 장바구니 항목 확인
-    Cart existingCart = cartRepository.findByAccount_IdAndNaverProduct_Id(accountId, naverProductId).orElse(null);
+    Cart existingCart = cartRepository.findByAccount_IdAndNaverProduct_Id(accountId, naverProduct.getId()).orElse(null);
     
     int requestedQuantity = (quantity > 0) ? quantity : 1;
     

@@ -463,6 +463,7 @@ export default function PetServiceWebsite() {
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const [selectedNaverProduct, setSelectedNaverProduct] = useState<NaverProduct | null>(null)
   const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null)
   const [selectedInsurance, setSelectedInsurance] = useState<Insurance | null>(null)
   const [selectedDiaryEntry, setSelectedDiaryEntry] = useState<DiaryEntry | null>(null)
@@ -792,8 +793,52 @@ export default function PetServiceWebsite() {
       return
     }
 
+    // 네이버 상품인지 확인
+    if ((product as any).isNaverProduct) {
+      console.log("네이버 상품 장바구니 추가 처리")
+      
+      try {
+        const accessToken = localStorage.getItem("accessToken");
+        if (!accessToken || accessToken.trim() === '') {
+          console.error("Access Token이 없거나 비어있습니다!")
+          toast.error("인증 토큰이 없습니다. 다시 로그인해주세요.", { duration: 5000 })
+          return
+        }
+
+        // 수량 추출
+        const quantity = (product as any).selectedQuantity || 1
+        console.log("네이버 상품 추가할 수량:", quantity)
+
+        // 네이버 상품을 백엔드 cart에 추가
+        const url = `http://localhost:8080/api/carts?productId=${product.id}&quantity=${quantity}`
+        const response = await axios.post(url, null, {
+          headers: { 
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": `${accessToken}`,
+            "Access_Token": accessToken,
+            "Refresh_Token": localStorage.getItem('refreshToken') || ''
+          },
+          timeout: 5000
+        })
+
+        if (response.status !== 200) {
+          throw new Error(`네이버 상품 장바구니 추가에 실패했습니다. (${response.status})`)
+        }
+
+        await fetchCartItems()
+        toast.success(`${product.name}을(를) 장바구니에 ${quantity}개 추가했습니다`, { duration: 5000 })
+        setCurrentPage("cart")
+        return
+      } catch (error: any) {
+        console.error("네이버 상품 장바구니 추가 오류:", error)
+        toast.error("네이버 상품 장바구니 추가에 실패했습니다.", { duration: 5000 })
+        return
+      }
+    }
+
+    // 일반 상품 처리
     try {
-      console.log('장바구니 추가 시작...')
+      console.log('일반 상품 장바구니 추가 시작...')
       const accessToken = localStorage.getItem("accessToken");
       const refreshToken = localStorage.getItem("refreshToken");
       console.log("Access Token 존재 여부:", !!accessToken)
@@ -1410,9 +1455,10 @@ export default function PetServiceWebsite() {
   }
 
   const handleViewProduct = (product: Product | NaverProduct) => {
-    // 네이버 상품인 경우 네이버 쇼핑 페이지로 이동
+    // 네이버 상품인 경우에도 멍토리 사이트 상품 상세 페이지로 이동
     if ('productUrl' in product && product.productUrl) {
-      window.open(product.productUrl, '_blank');
+      setSelectedNaverProduct(product);
+      setCurrentPage("product-detail");
       return;
     }
     
@@ -1746,6 +1792,26 @@ export default function PetServiceWebsite() {
         )
 
       case "product-detail":
+        // 네이버 상품인 경우
+        if (selectedNaverProduct) {
+          return (
+            <StoreProductDetailPage
+              productId={0} // 네이버 상품은 ID가 0으로 처리
+              naverProduct={selectedNaverProduct}
+              onBack={() => {
+                setSelectedNaverProduct(null)
+                setCurrentPage("store")
+              }}
+              onAddToWishlist={handleAddToWishlist}
+              onAddToCart={handleAddToCart}
+              onBuyNow={handleBuyNow}
+              isInWishlist={isInWishlist}
+              isInCart={isInCart}
+            />
+          )
+        }
+        
+        // 일반 상품인 경우
         return (
           <StoreProductDetailPage
             productId={selectedProductId!}

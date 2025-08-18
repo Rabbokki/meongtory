@@ -271,23 +271,17 @@ export default function StorePage({
 
   // 네이버 상품들을 일괄 저장하는 함수
   const saveNaverProductsToDb = async (products: NaverProduct[]) => {
-    const unsavedProducts = products.filter(product => !product.isSaved);
-    
-    if (unsavedProducts.length === 0) {
-      console.log('저장할 네이버 상품이 없습니다.');
-      return;
-    }
-
-    console.log(`${unsavedProducts.length}개의 네이버 상품을 DB에 저장합니다...`);
+    // isSaved 필드 확인 없이 모든 상품을 저장 시도
+    console.log(`${products.length}개의 네이버 상품을 DB에 저장합니다...`);
     
     // 병렬로 저장 (최대 5개씩)
     const batchSize = 5;
-    for (let i = 0; i < unsavedProducts.length; i += batchSize) {
-      const batch = unsavedProducts.slice(i, i + batchSize);
+    for (let i = 0; i < products.length; i += batchSize) {
+      const batch = products.slice(i, i + batchSize);
       await Promise.all(batch.map(product => saveNaverProductToDb(product)));
       
       // 배치 간 약간의 지연
-      if (i + batchSize < unsavedProducts.length) {
+      if (i + batchSize < products.length) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
     }
@@ -345,8 +339,14 @@ export default function StorePage({
     try {
       const response = await naverShoppingApi.getPopularProducts(0, 20);
       if (response.success && response.data?.content) {
-        setNaverProducts(response.data.content);
+        const popularProducts = response.data.content;
+        setNaverProducts(popularProducts);
         setShowNaverProducts(true);
+        
+        // 인기 네이버 상품들을 DB에 자동 저장
+        setTimeout(() => {
+          saveNaverProductsToDb(popularProducts);
+        }, 500);
       }
     } catch (error) {
       console.error('인기 네이버 상품 조회 실패:', error);
@@ -361,8 +361,14 @@ export default function StorePage({
     try {
       const response = await naverShoppingApi.getTopRatedProducts(0, 20);
       if (response.success && response.data?.content) {
-        setNaverProducts(response.data.content);
+        const topRatedProducts = response.data.content;
+        setNaverProducts(topRatedProducts);
         setShowNaverProducts(true);
+        
+        // 높은 평점 네이버 상품들을 DB에 자동 저장
+        setTimeout(() => {
+          saveNaverProductsToDb(topRatedProducts);
+        }, 500);
       }
     } catch (error) {
       console.error('높은 평점 네이버 상품 조회 실패:', error);

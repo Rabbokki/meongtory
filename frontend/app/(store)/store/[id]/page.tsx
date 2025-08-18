@@ -73,11 +73,32 @@ interface Product {
   brand?: string
 }
 
+interface NaverProduct {
+  id: number
+  productId: string
+  title: string
+  description: string
+  price: number
+  imageUrl: string
+  mallName: string
+  productUrl: string
+  brand: string
+  maker: string
+  category1: string
+  category2: string
+  category3: string
+  category4: string
+  reviewCount: number
+  rating: number
+  searchCount: number
+}
+
 interface PageProps {
   params?: {
     id: string
   }
   productId?: number
+  naverProduct?: NaverProduct
   onBack?: () => void
   onAddToCart?: (product: Product) => void
   onBuyNow?: (product: Product) => void
@@ -87,6 +108,7 @@ interface PageProps {
 export default function StoreProductDetailPage({ 
   params, 
   productId: propProductId,
+  naverProduct: propNaverProduct,
   onBack: propOnBack,
   onAddToCart: propOnAddToCart,
   onBuyNow: propOnBuyNow,
@@ -165,26 +187,29 @@ export default function StoreProductDetailPage({
     }
   }
 
-  // StoreAI 추천 API 호출
-  const fetchRecommendations = async () => {
-    if (!myPet) return
+     // StoreAI 추천 API 호출
+   const fetchRecommendations = async () => {
+     if (!myPet) return
 
-    setRecommendationsLoading(true)
-    setRecommendationsError(null)
-    
-    try {
-      // 현재 상품이 있으면 상품 기반 추천, 없으면 펫 기반 추천
-      let response
-      if (product) {
-        // 상품 상세페이지용 추천
-        response = await axios.post(`${getBackendUrl()}/api/storeai/recommend/products/${product.id}`, {
-          myPetId: myPet.myPetId,
-          recommendationType: 'BREED_SPECIFIC'
-        })
-      } else {
-        // 펫 기반 전체 추천
-        response = await axios.get(`${getBackendUrl()}/api/storeai/recommend/my-pets`)
-      }
+     setRecommendationsLoading(true)
+     setRecommendationsError(null)
+     
+     try {
+       // 현재 상품이 있으면 상품 기반 추천, 없으면 펫 기반 추천
+       let response
+       if (product) {
+         // 상품 상세페이지용 추천
+         response = await axios.post(`${getBackendUrl()}/api/storeai/recommend/products/${product.id}`, {
+           myPetId: myPet.myPetId,
+           recommendationType: 'BREED_SPECIFIC'
+         })
+       } else if (propNaverProduct) {
+         // 네이버 상품인 경우 펫 기반 추천 (네이버 상품은 ID가 0이므로 상품 기반 추천 불가)
+         response = await axios.get(`${getBackendUrl()}/api/storeai/recommend/my-pets`)
+       } else {
+         // 펫 기반 전체 추천
+         response = await axios.get(`${getBackendUrl()}/api/storeai/recommend/my-pets`)
+       }
 
       if (response.data.success) {
         let recommendations = []
@@ -260,14 +285,22 @@ export default function StoreProductDetailPage({
     fetchMyPet()
   }, [])
 
-  // 반려동물 정보가 있으면 추천 가져오기
-  useEffect(() => {
-    if (myPet && product) {
-      fetchRecommendations()
-    }
-  }, [myPet, product])
+     // 반려동물 정보가 있으면 추천 가져오기
+   useEffect(() => {
+     if (myPet && (product || propNaverProduct)) {
+       fetchRecommendations()
+     }
+   }, [myPet, product, propNaverProduct])
 
   useEffect(() => {
+    // 네이버 상품이 있는 경우
+    if (propNaverProduct) {
+      setProduct(null) // 일반 상품 정보 초기화
+      setLoading(false)
+      return
+    }
+
+    // 일반 상품인 경우
     const fetchProduct = async () => {
       try {
         setLoading(true)
@@ -416,30 +449,42 @@ export default function StoreProductDetailPage({
     return false
   }
 
-  // 추천 상품 장바구니 추가
-  const handleRecommendationAddToCart = async (productId: number) => {
-    try {
-      const token = localStorage.getItem('accessToken')
-      if (!token) {
-        alert('로그인이 필요합니다.')
-        return
-      }
+     // 추천 상품 장바구니 추가
+   const handleRecommendationAddToCart = async (productId: number) => {
+     try {
+       console.log('추천 상품 장바구니 추가 - productId:', productId, '타입:', typeof productId)
+       
+       if (!productId || isNaN(productId)) {
+         alert('유효하지 않은 상품 ID입니다.')
+         return
+       }
 
-      const response = await axios.post(`${API_BASE_URL}/carts?productId=${productId}&quantity=1`, null, {
-        headers: {
-          "Access_Token": token,
-          "Refresh_Token": localStorage.getItem('refreshToken') || ''
-        }
-      })
+       const token = localStorage.getItem('accessToken')
+       if (!token) {
+         alert('로그인이 필요합니다.')
+         return
+       }
 
-      if (response.status === 200) {
-        alert('장바구니에 추가되었습니다!')
-      }
-    } catch (error: any) {
-      console.error('추천 상품 장바구니 추가 오류:', error)
-      alert('장바구니 추가에 실패했습니다.')
-    }
-  }
+       const response = await axios.post(`${API_BASE_URL}/carts?productId=${productId}&quantity=1`, null, {
+         headers: {
+           "Access_Token": token,
+           "Refresh_Token": localStorage.getItem('refreshToken') || ''
+         }
+       })
+
+       if (response.status === 200) {
+         alert('장바구니에 추가되었습니다!')
+       }
+     } catch (error: any) {
+       console.error('추천 상품 장바구니 추가 오류:', error)
+       console.error('에러 상세 정보:', {
+         message: error.message,
+         status: error.response?.status,
+         data: error.response?.data
+       })
+       alert('장바구니 추가에 실패했습니다.')
+     }
+   }
 
   // 추천 상품 위시리스트 추가
   const handleRecommendationAddToWishlist = async (productId: number) => {
@@ -472,6 +517,326 @@ export default function StoreProductDetailPage({
       </div>
     )
   }
+
+  // 네이버 상품이 있는 경우
+  if (propNaverProduct) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8">
+          {/* Header */}
+          <div className="flex items-center gap-4 mb-6">
+            <Button variant="ghost" onClick={handleBack} className="hover:bg-gray-100">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              스토어로 돌아가기
+            </Button>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8">
+            {/* Product Image */}
+            <Card>
+              <CardContent className="p-6">
+                <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden">
+                  <Image
+                    src={propNaverProduct.imageUrl || "/placeholder.svg"}
+                    alt={propNaverProduct.title}
+                    width={500}
+                    height={500}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Product Info */}
+            <div className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div>
+                                             <CardTitle className="text-2xl font-bold">{propNaverProduct.title.replace(/<[^>]*>/g, '')}</CardTitle>
+                      <p className="text-gray-600 mt-2">{propNaverProduct.mallName}</p>
+                      <Badge variant="outline" className="mt-2 bg-blue-100 text-blue-800">
+                        네이버 쇼핑
+                      </Badge>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-3xl font-bold text-yellow-600">
+                      {propNaverProduct.price.toLocaleString()}원
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600">
+                      브랜드: <span className="font-semibold">{propNaverProduct.brand || '정보 없음'}</span>
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      제조사: <span className="font-semibold">{propNaverProduct.maker || '정보 없음'}</span>
+                    </p>
+                    {propNaverProduct.rating > 0 && (
+                      <p className="text-sm text-gray-600">
+                        평점: <span className="font-semibold">⭐ {propNaverProduct.rating}</span>
+                      </p>
+                    )}
+                    {propNaverProduct.reviewCount > 0 && (
+                      <p className="text-sm text-gray-600">
+                        리뷰: <span className="font-semibold">{propNaverProduct.reviewCount}개</span>
+                      </p>
+                    )}
+                  </div>
+
+                                     {/* 수량 선택 */}
+                   <div className="flex items-center space-x-4">
+                     <span className="text-sm text-gray-600">수량:</span>
+                     <div className="flex items-center space-x-2">
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                         className="w-8 h-8 p-0"
+                       >
+                         -
+                       </Button>
+                       <span className="w-12 text-center text-sm font-medium">{quantity}</span>
+                       <Button
+                         size="sm"
+                         variant="outline"
+                         onClick={() => setQuantity(quantity + 1)}
+                         className="w-8 h-8 p-0"
+                       >
+                         +
+                       </Button>
+                     </div>
+                   </div>
+
+                                       <div className="flex gap-3">
+                      <Button
+                        onClick={async () => {
+                          // 중복 클릭 방지
+                          const button = event?.target as HTMLButtonElement;
+                          if (button) {
+                            button.disabled = true;
+                            button.textContent = '추가 중...';
+                          }
+                          
+                          try {
+                            // 네이버 상품은 항상 로컬 스토리지에 저장
+                            const token = localStorage.getItem('accessToken')
+                            if (!token) {
+                              alert('로그인이 필요합니다.')
+                              return
+                            }
+
+                            // 네이버 상품 정보를 로컬 스토리지에 저장
+                            const naverProductForCart = {
+                              id: propNaverProduct.id, // 원본 네이버 상품 ID 사용
+                              name: propNaverProduct.title.replace(/<[^>]*>/g, ''),
+                              price: propNaverProduct.price,
+                              imageUrl: propNaverProduct.imageUrl,
+                              category: propNaverProduct.category1,
+                              quantity: quantity,
+                              isNaverProduct: true,
+                              productUrl: propNaverProduct.productUrl,
+                              mallName: propNaverProduct.mallName,
+                              brand: propNaverProduct.brand,
+                              maker: propNaverProduct.maker
+                            }
+
+                            // 기존 네이버 상품 장바구니 데이터 가져오기
+                            const existingNaverCart = JSON.parse(localStorage.getItem('naverCart') || '[]')
+                            
+                            // 같은 상품이 있는지 확인 (상품명과 쇼핑몰명으로 구분)
+                            const existingIndex = existingNaverCart.findIndex((item: any) => 
+                              item.name === naverProductForCart.name && 
+                              item.mallName === naverProductForCart.mallName
+                            )
+
+                            if (existingIndex >= 0) {
+                              // 기존 상품이 있으면 수량 추가
+                              existingNaverCart[existingIndex].quantity += quantity
+                            } else {
+                              // 새 상품 추가
+                              existingNaverCart.push(naverProductForCart)
+                            }
+
+                            // 네이버 상품을 백엔드 cart에 추가 (한 번만 API 호출)
+                            if (!token) {
+                              alert('로그인이 필요합니다.')
+                              return
+                            }
+
+                            // 네이버 상품을 백엔드 cart에 추가
+                            const response = await axios.post(`${API_BASE_URL}/carts?productId=${propNaverProduct.id}&quantity=${quantity}`, null, {
+                              headers: {
+                                "Access_Token": token,
+                                "Refresh_Token": localStorage.getItem('refreshToken') || ''
+                              }
+                            })
+
+                            if (response.status === 200) {
+                              // 로컬 스토리지에 저장 (백엔드 성공 후)
+                              localStorage.setItem('naverCart', JSON.stringify(existingNaverCart))
+                              
+                              // 알림 한 번만 표시
+                              alert(`장바구니에 ${quantity}개가 추가되었습니다!`)
+                              
+                              // propOnAddToCart가 있으면 호출 (website/page.tsx에서 사용될 때)
+                              if (propOnAddToCart) {
+                                const naverProductAsProduct = {
+                                  id: propNaverProduct.id,
+                                  name: propNaverProduct.title.replace(/<[^>]*>/g, ''),
+                                  price: propNaverProduct.price,
+                                  imageUrl: propNaverProduct.imageUrl,
+                                  category: propNaverProduct.category1,
+                                  description: propNaverProduct.description || '',
+                                  tags: [],
+                                  stock: 999,
+                                  registrationDate: '',
+                                  registeredBy: '',
+                                  petType: 'all' as const,
+                                  selectedQuantity: quantity,
+                                  isNaverProduct: true,
+                                  productUrl: propNaverProduct.productUrl,
+                                  mallName: propNaverProduct.mallName,
+                                  brand: propNaverProduct.brand,
+                                  maker: propNaverProduct.maker
+                                }
+                                propOnAddToCart(naverProductAsProduct)
+                              } else {
+                                // 직접 cart 페이지로 이동
+                                router.push('/cart')
+                              }
+                            }
+                          } catch (error) {
+                            console.error('네이버 상품 장바구니 추가 오류:', error)
+                            alert('장바구니 추가에 실패했습니다.')
+                          }
+                        }}
+                        className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black"
+                      >
+                        <ShoppingCart className="w-4 h-4 mr-2" />
+                        장바구니에 추가
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          // 네이버 상품 바로구매 로직
+                          if (!currentUser) {
+                            alert('로그인이 필요합니다.')
+                            return
+                          }
+
+                          // 네이버 상품을 Product 형태로 변환하여 Payment 페이지로 이동
+                          const naverProductAsProduct = {
+                            id: propNaverProduct.id, // 원본 네이버 상품 ID 사용
+                            name: propNaverProduct.title.replace(/<[^>]*>/g, ''),
+                            price: propNaverProduct.price,
+                            imageUrl: propNaverProduct.imageUrl,
+                            category: propNaverProduct.category1,
+                            description: propNaverProduct.description || '',
+                            tags: [],
+                            stock: 999, // 네이버 상품은 재고 제한 없음
+                            registrationDate: '',
+                            registeredBy: '',
+                            petType: 'all' as const,
+                            selectedQuantity: quantity,
+                            isNaverProduct: true, // 네이버 상품 플래그 추가
+                            productUrl: propNaverProduct.productUrl,
+                            mallName: propNaverProduct.mallName,
+                            brand: propNaverProduct.brand,
+                            maker: propNaverProduct.maker
+                          }
+
+                          // URL 파라미터를 통해 Payment 페이지로 이동 (네이버 상품 정보 포함)
+                          const paymentUrl = `/payment?productId=${naverProductAsProduct.id}&quantity=${quantity}&price=${naverProductAsProduct.price}&productName=${encodeURIComponent(naverProductAsProduct.name)}&imageUrl=${encodeURIComponent(naverProductAsProduct.imageUrl)}&isNaverProduct=true&productUrl=${encodeURIComponent(naverProductAsProduct.productUrl)}&mallName=${encodeURIComponent(naverProductAsProduct.mallName)}`
+                          router.push(paymentUrl)
+                        }}
+                        variant="outline"
+                        className="flex-1"
+                      >
+                        바로 구매
+                      </Button>
+                    </div>
+                </CardContent>
+              </Card>
+            </div>
+                     </div>
+         </div>
+
+         {/* AI 추천 섹션 */}
+         <div className="mt-12">
+           <Card>
+             <CardHeader>
+               <div className="flex items-center gap-2">
+                 <Sparkles className="w-5 h-5 text-orange-500" />
+                 <CardTitle className="text-xl">AI 맞춤 추천</CardTitle>
+               </div>
+               {myPet && (
+                 <p className="text-sm text-gray-600">
+                   {myPet.name} ({myPet.breed}, {myPet.age}살)을 위한 맞춤 상품을 추천해드려요
+                 </p>
+               )}
+             </CardHeader>
+             <CardContent>
+               {!myPet ? (
+                 <div className="text-center py-8">
+                   <PawPrint className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                   <h3 className="text-lg font-semibold mb-2">반려동물을 등록해주세요</h3>
+                   <p className="text-gray-600 mb-4">
+                     반려동물을 등록하면 맞춤 추천을 받을 수 있어요!
+                   </p>
+                   <Button 
+                     onClick={() => router.push('/my')}
+                     className="bg-orange-500 hover:bg-orange-600"
+                   >
+                     마이페이지에서 반려동물 등록하기
+                   </Button>
+                 </div>
+               ) : recommendationsLoading ? (
+                 <div className="text-center py-8">
+                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                   <p className="text-gray-600">맞춤 상품을 찾고 있어요...</p>
+                 </div>
+               ) : recommendationsError ? (
+                 <div className="text-center py-8">
+                   <p className="text-red-500 mb-4">{recommendationsError}</p>
+                   <Button 
+                     onClick={fetchRecommendations}
+                     variant="outline"
+                   >
+                     다시 시도
+                   </Button>
+                 </div>
+               ) : recommendations.length > 0 ? (
+                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   {recommendations.map((recommendation) => (
+                     <ProductRecommendationCard
+                       key={recommendation.productId}
+                       product={{
+                         id: recommendation.productId,
+                         name: recommendation.name.replace(/<[^>]*>/g, ''),
+                         price: recommendation.price,
+                         imageUrl: recommendation.imageUrl,
+                         category: recommendation.category,
+                         recommendationReason: recommendation.recommendationReason
+                       }}
+                       onAddToCart={handleRecommendationAddToCart}
+                       onAddToWishlist={handleRecommendationAddToWishlist}
+                     />
+                   ))}
+                 </div>
+               ) : (
+                 <div className="text-center py-8">
+                   <p className="text-gray-600">추천할 상품이 없습니다.</p>
+                 </div>
+               )}
+             </CardContent>
+           </Card>
+         </div>
+       </div>
+     )
+   }
 
   if (error || !product) {
     return (
@@ -696,21 +1061,24 @@ export default function StoreProductDetailPage({
                 </div>
               ) : recommendations.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {recommendations.map((recommendation) => (
-                    <ProductRecommendationCard
-                      key={recommendation.productId}
-                      product={{
-                        id: recommendation.productId,
-                        name: recommendation.name,
-                        price: recommendation.price,
-                        imageUrl: recommendation.imageUrl,
-                        category: recommendation.category,
-                        recommendationReason: recommendation.recommendationReason
-                      }}
-                      onAddToCart={handleRecommendationAddToCart}
-                      onAddToWishlist={handleRecommendationAddToWishlist}
-                    />
-                  ))}
+                  {recommendations.map((recommendation) => {
+                    console.log('추천 상품 데이터:', recommendation)
+                    return (
+                      <ProductRecommendationCard
+                        key={recommendation.productId || recommendation.id}
+                        product={{
+                          id: recommendation.productId || recommendation.id,
+                          name: recommendation.name.replace(/<[^>]*>/g, ''),
+                          price: recommendation.price,
+                          imageUrl: recommendation.imageUrl,
+                          category: recommendation.category,
+                          recommendationReason: recommendation.recommendationReason
+                        }}
+                        onAddToCart={handleRecommendationAddToCart}
+                        onAddToWishlist={handleRecommendationAddToWishlist}
+                      />
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8">

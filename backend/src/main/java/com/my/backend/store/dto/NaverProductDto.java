@@ -30,4 +30,27 @@ public class NaverProductDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private Long relatedProductId;
+    
+    public NaverProductDto(com.my.backend.store.entity.NaverProduct naverProduct) {
+        this.id = naverProduct.getId();
+        this.productId = naverProduct.getProductId();
+        this.title = naverProduct.getTitle();
+        this.description = naverProduct.getDescription();
+        this.price = naverProduct.getPrice();
+        this.imageUrl = naverProduct.getImageUrl();
+        this.mallName = naverProduct.getMallName();
+        this.productUrl = naverProduct.getProductUrl();
+        this.brand = naverProduct.getBrand();
+        this.maker = naverProduct.getMaker();
+        this.category1 = naverProduct.getCategory1();
+        this.category2 = naverProduct.getCategory2();
+        this.category3 = naverProduct.getCategory3();
+        this.category4 = naverProduct.getCategory4();
+        this.reviewCount = naverProduct.getReviewCount();
+        this.rating = naverProduct.getRating();
+        this.searchCount = naverProduct.getSearchCount();
+        this.createdAt = naverProduct.getCreatedAt();
+        this.updatedAt = naverProduct.getUpdatedAt();
+        this.relatedProductId = naverProduct.getRelatedProduct() != null ? naverProduct.getRelatedProduct().getId() : null;
+    }
 }

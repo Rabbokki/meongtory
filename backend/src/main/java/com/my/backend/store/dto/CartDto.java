@@ -21,6 +21,17 @@ public class CartDto {
     private int quantity;       // 담긴 수량
 
     public CartDto(Cart cart) {
-
+        this.id = cart.getId();
+        this.accountId = cart.getAccount().getId();
+        this.quantity = cart.getQuantity();
+        
+        // 일반 상품인지 네이버 상품인지 구분
+        if (cart.getProduct() != null) {
+            this.product = new ProductDto(cart.getProduct());
+            this.naverProduct = null;
+        } else if (cart.getNaverProduct() != null) {
+            this.product = null;
+            this.naverProduct = new NaverProductDto(cart.getNaverProduct());
+        }
     }
 }

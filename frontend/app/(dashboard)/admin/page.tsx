@@ -246,12 +246,17 @@ export default function AdminPage({
       });
       console.log('Raw product data from API:', JSON.stringify(response.data, null, 2));
 
-      // 응답 데이터가 배열인지 확인
-      if (!response.data || !Array.isArray(response.data)) {
-        throw new Error('API 응답이 배열 형식이 아닙니다.');
+      // ResponseDto 구조 확인
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.error?.message || 'API 응답이 올바르지 않습니다.');
       }
 
-      const convertedProducts = response.data.map((product: any, index: number) => {
+      const productsData = response.data.data;
+      if (!Array.isArray(productsData)) {
+        throw new Error('상품 데이터가 배열 형식이 아닙니다.');
+      }
+
+      const convertedProducts = productsData.map((product: any, index: number) => {
         console.log(`Converting product ${index + 1}:`, product);
         return {
           id: product.id || product.productId || 0,
