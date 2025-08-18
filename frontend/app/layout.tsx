@@ -1,10 +1,12 @@
+// app/layout.tsx
 import type React from "react";
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
+import Navigation from "@/components/navigation"; // 새로운 클라이언트 컴포넌트
+import Chatbot from "@/components/features/chatbot";
 import { Toaster } from "@/components/ui/toaster";
-import PetServiceWebsite from "@/app/(services)/website/page";
 
 export const metadata: Metadata = {
   title: "멍토리",
@@ -30,8 +32,9 @@ export default function RootLayout({
         `}</style>
       </head>
       <body>
-        <PetServiceWebsite isLayoutMode={true} />
+        <Navigation /> {/* 클라이언트 컴포넌트로 네비게이션 처리 */}
         {children}
+        <Chatbot />
         <Toaster />
       </body>
     </html>

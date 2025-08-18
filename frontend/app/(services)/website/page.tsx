@@ -5,11 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Heart, Search, Store, BookOpen, User, ShoppingCart, FileText, MessageSquare } from "lucide-react";
-import LoginModal from "@/components/modals/login-modal";
-import SignupModal from "@/components/modals/signup-modal";
-import PasswordRecoveryModal from "@/components/modals/password-recovery-modal";
-import MyPage from "../../(dashboard)/my/page";
+import { Heart, Search, Store, BookOpen, ShoppingCart } from "lucide-react";
 import AdoptionPage from "../../(pets)/adoption/page";
 import AdoptionDetailPage from "../../(pets)/adoption/[id]/page";
 import StorePage from "../../(store)/store/page";
@@ -19,22 +15,22 @@ import StoreProductEditPage from "../../(store)/store/edit/page";
 import PetInsurancePage from "../insurance/page";
 import InsuranceDetailPage from "../insurance/[id]/page";
 import GrowthDiaryPage from "../../(pets)/diary/page";
-import DiaryEntryDetail from "../../(pets)/diary/[id]/page";
+import GrowthDiaryWritePage from "../../(pets)/diary/write/page";
 import CommunityPage from "../../(community)/community/page";
 import CommunityDetailPage from "../../(community)/community/[id]/page";
 import CommunityWritePage from "../../(community)/community/write/page";
 import DogResearchLabPage from "../research/page";
 import AnimalRegistrationPage from "../../(pets)/adoption/register/page";
 import CartPage from "../../(store)/store/cart/page";
-import Chatbot from "@/components/features/chatbot";
 import AdminPage from "../../(dashboard)/admin/page";
 import PetNamingService from "../naming/page";
 import InsuranceFavoritesPage from "../insurance/favorites/page";
-import GrowthDiaryWritePage from "../../(pets)/diary/write/page";
+import MyPage from "../../(dashboard)/my/page";
 import axios from "axios";
-import { Toaster, toast } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { getCurrentKSTDate } from "@/lib/utils";
 
+// 인터페이스 정의 (기존과 동일)
 interface Pet {
   id: number;
   name: string;
@@ -169,190 +165,13 @@ interface OrderItem {
   ImageUrl: string;
 }
 
-interface NavigationHeaderProps {
-  currentPage: string;
-  onNavigate: (page: string) => void;
-  isLoggedIn: boolean;
-  isAdmin: boolean;
-  onLogin: () => void;
-  onLogout: () => void;
-}
-
-// Axios Interceptor
-axios.interceptors.request.use(
-  (config) => {
-    const accessToken = localStorage.getItem("accessToken");
-    const refreshToken = localStorage.getItem("refreshToken");
-    if (accessToken) config.headers["access_token"] = accessToken;
-    if (refreshToken) config.headers["refresh_token"] = refreshToken;
-    console.log("Request:", config.method, config.url, config.headers);
-    return config;
-  },
-  (error) => {
-    console.error("Request Error:", error);
-    return Promise.reject(error);
-  }
-);
-
-axios.interceptors.response.use(
-  (response) => {
-    console.log("Response:", response.status, response.data);
-    return response;
-  },
-  (error) => {
-    if (error.response) {
-      console.error("Response Error:", error.response.status, error.response.data);
-    } else if (error.request) {
-      console.error("Network Error:", "서버에 연결할 수 없습니다");
-    } else {
-      console.error("Request Error:", error.message);
-    }
-    return Promise.reject(error);
-  }
-);
-
-// Navigation Header Component
-function NavigationHeader({
-  currentPage,
-  onNavigate,
-  isLoggedIn,
-  isAdmin,
-  onLogin,
-  onLogout,
-}: NavigationHeaderProps) {
-  return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <button onClick={() => onNavigate("home")} className="flex items-center space-x-2">
-            <Image src="/KakaoTalk_20250729_160046076.png" alt="멍토리 로고" width={100} height={40} className="h-auto" />
-          </button>
-          <nav className="hidden md:flex items-center space-x-8">
-            <button
-              onClick={() => onNavigate("adoption")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "adoption" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              입양
-            </button>
-            <button
-              onClick={() => onNavigate("insurance")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "insurance" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              펫보험
-            </button>
-            <button
-              onClick={() => onNavigate("diary")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "diary" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              성장일기
-            </button>
-            <button
-              onClick={() => onNavigate("community")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "community" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              커뮤니티
-            </button>
-            <button
-              onClick={() => onNavigate("store")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "store" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              스토어
-            </button>
-            <button
-              onClick={() => onNavigate("research")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "research" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              강아지 연구소
-            </button>
-            {isLoggedIn && (
-              <button
-                onClick={() => onNavigate("myPage")}
-                className={`text-sm font-medium transition-colors ${
-                  currentPage === "myPage" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-                }`}
-              >
-                마이페이지
-              </button>
-            )}
-            {isAdmin && (
-              <button
-                onClick={() => onNavigate("admin")}
-                className={`text-sm font-medium transition-colors ${
-                  currentPage === "admin" ? "text-red-600" : "text-red-700 hover:text-red-600"
-                }`}
-              >
-                관리자
-              </button>
-            )}
-          </nav>
-          <div className="flex items-center space-x-3">
-            {isLoggedIn ? (
-              <Button onClick={onLogout} variant="outline" size="sm" className="text-sm bg-transparent">
-                로그아웃
-              </Button>
-            ) : (
-              <Button onClick={onLogin} variant="outline" size="sm" className="text-sm bg-transparent">
-                <User className="w-4 h-4 mr-1" />
-                로그인
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-// Refresh Token Function
-const refreshAccessToken = async () => {
-  try {
-    const refreshToken = localStorage.getItem("refreshToken");
-    if (!refreshToken) throw new Error("No refresh token available");
-
-    const response = await axios.post(
-      "http://localhost:8080/api/accounts/refresh",
-      { refreshToken },
-      { headers: { "Content-Type": "application/json" } }
-    );
-
-    const { accessToken } = response.data.data;
-    localStorage.setItem("accessToken", accessToken);
-    console.log("Token refreshed successfully");
-    return accessToken;
-  } catch (err) {
-    console.error("토큰 갱신 실패:", err);
-    return null;
-  }
-};
-
-interface PetServiceWebsiteProps {
-  isLayoutMode?: boolean;
-}
-
-export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWebsiteProps) {
+export default function PetServiceWebsite() {
   const router = useRouter();
   const pathname = usePathname();
   const [currentPage, setCurrentPage] = useState("home");
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showSignupModal, setShowSignupModal] = useState(false);
-  const [showPasswordRecovery, setShowPasswordRecovery] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null);
-  const [showContractTemplatePage, setShowContractTemplatePage] = useState(false);
-  const [showContractGenerationPage, setShowContractGenerationPage] = useState(false);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
@@ -372,12 +191,14 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
   const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [showContractTemplatePage, setShowContractTemplatePage] = useState(false);
+  const [showContractGenerationPage, setShowContractGenerationPage] = useState(false);
 
   // 현재 페이지 결정
   useEffect(() => {
     const getCurrentPage = () => {
       if (pathname === "/") return "home";
-      const path = pathname.split("/")[2] || pathname.split("/")[1]; // (services) 경로를 고려
+      const path = pathname.split("/")[2] || pathname.split("/")[1];
       return path || "home";
     };
     setCurrentPage(getCurrentPage());
@@ -389,22 +210,24 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
       if (isLoading) {
         console.log("로딩 타임아웃, 강제 해제");
         setIsLoading(false);
+        toast.error("서버 응답이 느립니다. 다시 시도해주세요.", { duration: 5000 });
       }
-    }, 10000);
+    }, 3000);
     return () => clearTimeout(timeout);
   }, [isLoading]);
 
-  // 로그인 상태 확인
+  // 로그인 상태 확인 (layout.tsx로 이동했으므로 주석 처리)
+  /*
   useEffect(() => {
+    let isRefreshing = false;
     const checkLoginStatus = async () => {
-      if (typeof window === "undefined") return;
-
+      if (typeof window === "undefined" || isRefreshing) return;
+      setIsLoading(true);
       let accessToken = localStorage.getItem("accessToken");
       if (!accessToken) {
         setIsLoading(false);
         return;
       }
-
       try {
         const response = await axios.get("http://localhost:8080/api/accounts/me", {
           headers: { "Access_Token": accessToken },
@@ -427,8 +250,8 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
           setIsLoading(false);
           return;
         }
-
         if (err.response?.status === 401) {
+          isRefreshing = true;
           accessToken = await refreshAccessToken();
           if (accessToken) {
             try {
@@ -463,27 +286,26 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
           setCurrentUser(null);
           setIsAdmin(false);
         }
+      } finally {
+        isRefreshing = false;
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
-
     checkLoginStatus();
   }, []);
+  */
 
   // OAuth 콜백 처리
   useEffect(() => {
     if (typeof window === "undefined") return;
-
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get("success");
     const error = urlParams.get("error");
     const accessToken = urlParams.get("accessToken");
     const refreshToken = urlParams.get("refreshToken");
-
     if (success && accessToken && refreshToken) {
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
-
       const fetchUserInfo = async () => {
         try {
           const response = await axios.get("http://localhost:8080/api/accounts/me");
@@ -513,7 +335,6 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
           setIsAdmin(false);
         }
       };
-
       fetchUserInfo();
     } else if (error) {
       toast.error(decodeURIComponent(error), { duration: 5000 });
@@ -521,92 +342,7 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
     }
   }, [router]);
 
-  // 이벤트 핸들러
-  const handleLogin = async (email: string, password: string) => {
-    try {
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/accounts/login`,
-        { email, password },
-        { headers: { "Content-Type": "application/json" } }
-      );
-
-      const { data } = response.data;
-      const { accessToken, refreshToken, user } = data;
-
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-      setCurrentUser({ id: user.id, email: user.email, name: user.name });
-      setIsLoggedIn(true);
-      setIsAdmin(user.role === "ADMIN");
-      setShowLoginModal(false);
-      toast.success("로그인 되었습니다", { duration: 5000 });
-      router.push(user.role === "ADMIN" ? "/admin" : "/");
-    } catch (err: any) {
-      console.error("로그인 실패:", err.response?.data?.message || err.message);
-      const errorMessage =
-        err.response?.data?.code === "LOGIN_FAILED"
-          ? "이메일 또는 비밀번호가 올바르지 않습니다."
-          : "로그인 중 오류가 발생했습니다.";
-      toast.error(errorMessage, { duration: 5000 });
-    }
-  };
-
-  const handleSignup = (userData: any) => {
-    const userId = userData.email.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0) % 1000 + 1;
-    setCurrentUser({ id: userId, email: userData.email, name: userData.name });
-    setIsLoggedIn(true);
-    toast.success("회원가입 및 로그인이 완료되었습니다", { duration: 5000 });
-
-    if (userData.petType && userData.petAge && userData.petBreed) {
-      const newPet: Pet = {
-        id: pets.length + 1,
-        name: `${userData.name}'s Pet`,
-        breed: userData.petBreed,
-        age: userData.petAge,
-        gender: "미상",
-        size: "대형",
-        personality: [],
-        healthStatus: "건강함",
-        description: "사용자가 등록한 펫",
-        images: ["/placeholder.svg?height=400&width=600"],
-        location: "사용자 거주지",
-        contact: "사용자 연락처",
-        adoptionFee: 0,
-        isNeutered: false,
-        isVaccinated: false,
-        dateRegistered: getCurrentKSTDate(),
-        adoptionStatus: "available",
-        ownerEmail: userData.email,
-      };
-      setPets((prev) => [...prev, newPet]);
-    }
-    setShowSignupModal(false);
-    router.push("/");
-  };
-
-  const handleLogout = async () => {
-    try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (accessToken) {
-        await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/logout`,
-          {},
-          { headers: { "Content-Type": "application/json" } }
-        );
-      }
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      setCurrentUser(null);
-      toast.success("로그아웃 되었습니다", { duration: 5000 });
-      router.push("/");
-    } catch (err: any) {
-      console.error("로그아웃 실패:", err.response?.data?.message || err.message);
-      toast.error("로그아웃 실패", { duration: 5000 });
-    }
-  };
-
+  // 이벤트 핸들러 (기존과 동일)
   const handleAddToWishlist = (item: WishlistItem) => {
     setWishlist((prev) => {
       const exists = prev.find((w) => w.id === item.id);
@@ -627,10 +363,8 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
   const handleAddToCart = async (product: Product) => {
     if (!isLoggedIn) {
       toast.error("로그인이 필요합니다", { duration: 5000 });
-      setShowLoginModal(true);
       return;
     }
-
     try {
       const currentUserId = currentUser?.id || 1;
       const url = `http://localhost:8080/api/carts?userId=${currentUserId}&productId=${product.id}&quantity=1`;
@@ -638,11 +372,9 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         timeout: 5000,
       });
-
       if (response.status !== 200) {
         throw new Error(`장바구니 추가에 실패했습니다. (${response.status})`);
       }
-
       await fetchCartItems();
       toast.success(`${product.name}을(를) 장바구니에 추가했습니다`, { duration: 5000 });
       router.push("/cart");
@@ -658,23 +390,19 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
 
   const fetchCartItems = async () => {
     if (!isLoggedIn) return;
-
     try {
       const accessToken = localStorage.getItem("accessToken");
       if (!accessToken) {
         console.log("Access token이 없습니다.");
         return;
       }
-
       const response = await axios.get(`http://localhost:8080/api/carts`, {
         headers: { "Access_Token": accessToken },
         timeout: 5000,
       });
-
       if (response.status !== 200) {
         throw new Error("장바구니 조회에 실패했습니다.");
       }
-
       const cartData = response.data;
       const cartItems: CartItem[] = cartData
         .sort((a: any, b: any) => a.cartId - b.cartId)
@@ -763,10 +491,8 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
   const purchaseAllFromCart = async () => {
     if (!isLoggedIn || !currentUser) {
       toast.error("로그인이 필요합니다", { duration: 5000 });
-      setShowLoginModal(true);
       return;
     }
-
     try {
       const response = await axios.post(`http://localhost:8080/api/orders/purchase-all/${currentUser.id}`);
       if (response.status !== 200) {
@@ -787,10 +513,8 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
   const purchaseSingleItem = async (cartItem: CartItem) => {
     if (!isLoggedIn || !currentUser) {
       toast.error("로그인이 필요합니다", { duration: 5000 });
-      setShowLoginModal(true);
       return;
     }
-
     try {
       const accessToken = localStorage.getItem("accessToken");
       const headers: any = {
@@ -798,7 +522,6 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
         Accept: "application/json",
       };
       if (accessToken) headers["access_token"] = accessToken;
-
       const orderData = {
         userId: currentUser.id,
         totalPrice: cartItem.price * cartItem.quantity,
@@ -812,16 +535,13 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
           },
         ],
       };
-
       const response = await axios.post("http://localhost:8080/api/orders", orderData, {
         headers,
         timeout: 10000,
       });
-
       if (response.status !== 200) {
         throw new Error("개별 구매에 실패했습니다.");
       }
-
       await handleRemoveFromCart(cartItem.id);
       await fetchUserOrders();
       toast.success("개별 구매가 완료되었습니다", { duration: 5000 });
@@ -834,13 +554,11 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
 
   const fetchUserOrders = useCallback(async () => {
     if (!isLoggedIn || !currentUser) return;
-
     try {
       const response = await axios.get(`http://localhost:8080/api/orders/user/${currentUser.id}`);
       if (response.status !== 200) {
         throw new Error("주문 조회에 실패했습니다.");
       }
-
       const userOrders = response.data;
       const orderItems: OrderItem[] = userOrders.flatMap((order: any) => {
         if (order.orderItems && order.orderItems.length > 0) {
@@ -935,17 +653,14 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
         Accept: "application/json",
       };
       if (accessToken) headers["access_token"] = accessToken;
-
       const response = await axios.get("http://localhost:8080/api/products", {
         timeout: 10000,
         headers,
       });
-
       const backendProducts = response.data;
       if (!Array.isArray(backendProducts)) {
         throw new Error("잘못된 데이터 형식");
       }
-
       const convertedProducts: Product[] = backendProducts.map((product: any) => ({
         id: product.productId || product.id,
         name: product.name || "상품명 없음",
@@ -1035,10 +750,8 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
   const handleBuyNow = async (product: Product) => {
     if (!isLoggedIn || !currentUser) {
       toast.error("로그인이 필요합니다", { duration: 5000 });
-      setShowLoginModal(true);
       return;
     }
-
     try {
       const accessToken = localStorage.getItem("accessToken");
       const headers: any = {
@@ -1046,7 +759,6 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
         Accept: "application/json",
       };
       if (accessToken) headers["access_token"] = accessToken;
-
       const orderData = {
         userId: currentUser.id,
         totalPrice: product.price,
@@ -1060,16 +772,13 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
           },
         ],
       };
-
       const response = await axios.post("http://localhost:8080/api/orders", orderData, {
         headers,
         timeout: 10000,
       });
-
       if (response.status !== 200) {
         throw new Error("주문 생성에 실패했습니다.");
       }
-
       await fetchUserOrders();
       toast.success("바로구매가 완료되었습니다", { duration: 5000 });
       router.push("/my");
@@ -1078,20 +787,6 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
       toast.error("바로구매에 실패했습니다", { duration: 5000 });
     }
   };
-
-  // 레이아웃 모드일 경우 NavigationHeader만 렌더링
-  if (isLayoutMode) {
-    return (
-      <NavigationHeader
-        currentPage={currentPage}
-        onNavigate={(page) => router.push(`/${page === "home" ? "" : page}`)}
-        isLoggedIn={isLoggedIn}
-        isAdmin={isAdmin}
-        onLogin={() => setShowLoginModal(true)}
-        onLogout={handleLogout}
-      />
-    );
-  }
 
   const renderCurrentPage = () => {
     if (isLoading) {
@@ -1122,7 +817,6 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
                 toast.success("입양 문의가 등록되었습니다", { duration: 5000 });
               }}
               isLoggedIn={isLoggedIn}
-              onShowLogin={() => setShowLoginModal(true)}
             />
           );
         }
@@ -1262,7 +956,6 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
               post={selectedPost}
               onBack={() => setSelectedPost(null)}
               isLoggedIn={isLoggedIn}
-              onShowLogin={() => setShowLoginModal(true)}
               onUpdatePost={(updatedPost) => {
                 setCommunityPosts((prev) => prev.map((post) => (post.id === updatedPost.id ? updatedPost : post)));
                 setSelectedPost(updatedPost);
@@ -1277,7 +970,6 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
           <CommunityPage
             posts={communityPosts}
             isLoggedIn={isLoggedIn}
-            onShowLogin={() => setShowLoginModal(true)}
             onUpdatePosts={setCommunityPosts}
           />
         );
@@ -1324,12 +1016,9 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
                   <p className="text-gray-600 mb-6">장바구니를 이용하려면 로그인해주세요.</p>
                   <div className="space-y-3">
                     <Button
-                      onClick={() => setShowLoginModal(true)}
+                      onClick={() => router.push("/")} // 로그인 모달은 layout.tsx에서 관리
                       className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
                     >
-                      로그인하기
-                    </Button>
-                    <Button variant="outline" onClick={() => router.push("/")} className="w-full">
                       홈으로 돌아가기
                     </Button>
                   </div>
@@ -1388,7 +1077,6 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
             }}
             onUpdateOrderStatus={updatePaymentStatus}
             isAdmin={isAdmin}
-            onAdminLogout={handleLogout}
           />
         );
 
@@ -1548,7 +1236,7 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
                           onClick={() => {
                             if (!isLoggedIn) {
                               toast.error("장바구니를 이용하려면 로그인이 필요합니다", { duration: 5000 });
-                              setShowLoginModal(true);
+                              router.push("/"); // 로그인 모달은 layout.tsx에서 관리
                             } else {
                               router.push("/cart");
                             }
@@ -1578,64 +1266,7 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
 
   return (
     <div className="min-h-screen bg-white">
-      <Toaster position="bottom-right" />
       {renderCurrentPage()}
-      <Chatbot />
-      {showLoginModal && (
-        <LoginModal
-          isOpen={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          onSwitchToSignup={() => {
-            setShowLoginModal(false);
-            setShowSignupModal(true);
-          }}
-          onLoginSuccess={async () => {
-            setShowLoginModal(false);
-            setIsLoggedIn(true);
-            try {
-              const accessToken = localStorage.getItem("accessToken");
-              if (accessToken) {
-                const response = await axios.get("http://localhost:8080/api/accounts/me", {
-                  headers: { "Access_Token": accessToken },
-                });
-                const { id, email, name, role } = response.data.data;
-                setCurrentUser({ id, email, name });
-                setIsAdmin(role === "ADMIN");
-                router.push(role === "ADMIN" ? "/admin" : "/");
-              }
-            } catch (err) {
-              console.error("로그인 후 사용자 정보 조회 실패:", err);
-            }
-          }}
-          onLogoutSuccess={() => {
-            setIsLoggedIn(false);
-            setIsAdmin(false);
-            setCurrentUser(null);
-            router.push("/");
-          }}
-        />
-      )}
-      {showSignupModal && (
-        <SignupModal
-          isOpen={showSignupModal}
-          onClose={() => setShowSignupModal(false)}
-          onSignup={handleSignup}
-          onSwitchToLogin={() => {
-            setShowSignupModal(false);
-            setShowLoginModal(true);
-          }}
-        />
-      )}
-      {showPasswordRecovery && (
-        <PasswordRecoveryModal
-          onClose={() => setShowPasswordRecovery(false)}
-          onRecover={(email) => {
-            console.log("비밀번호 복구:", email);
-            toast.success("비밀번호 복구 이메일이 전송되었습니다", { duration: 5000 });
-            setShowPasswordRecovery(false);
-          }}
-        />
-      )}
     </div>
   );
 }
