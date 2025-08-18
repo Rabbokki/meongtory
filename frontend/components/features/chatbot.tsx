@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { X, Send } from "lucide-react"
@@ -26,9 +26,16 @@ export default function Chatbot() {
     },
   ])
   const [inputMessage, setInputMessage] = useState("")
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // 메시지 추가 시 스크롤을 맨 아래로 이동
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
 
   const sendMessage = async () => {
     if (inputMessage.trim()) {
+      // 사용자 메시지 즉시 추가
       const userMessage: ChatMessage = {
         id: Date.now(),
         message: inputMessage,
@@ -36,19 +43,17 @@ export default function Chatbot() {
         timestamp: new Date(),
       }
       setMessages((prev) => [...prev, userMessage])
+      setInputMessage("") // 입력창 즉시 비우기
 
+      // 비동기적으로 챗봇 응답 처리
       try {
-        console.log("NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
+
         const apiUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chatbot/query`;
-        console.log("Sending request to:", apiUrl);
-        console.log("Request payload:", { query: inputMessage });
         const response = await axios.post(
           `${getBackendUrl()}/api/chatbot/query`,
           { query: inputMessage },
           { headers: { "Content-Type": "application/json" } }
         )
-        console.log("Response status:", response.status)
-        console.log("Response data:", JSON.stringify(response.data))
         const botResponse: ChatMessage = {
           id: Date.now() + 1,
           message: response.data.answer || "응답이 비어 있습니다. 서버를 확인해주세요.",
@@ -66,8 +71,6 @@ export default function Chatbot() {
         }
         setMessages((prev) => [...prev, errorMessage])
       }
-
-      setInputMessage("")
     }
   }
 
@@ -115,6 +118,7 @@ export default function Chatbot() {
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} /> {/* 스크롤 참조용 빈 div */}
           </div>
 
           <div className="p-4 border-t border-gray-200">

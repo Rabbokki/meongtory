@@ -2,12 +2,9 @@ import axios from 'axios';
 
 // API 설정을 위한 공통 유틸리티
 export const getBackendUrl = () => {
-  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8080';
-  // URL 끝의 슬래시 제거
-  const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url;
-  console.log('Backend URL:', normalizedUrl);
-  console.log('NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
-  return normalizedUrl;
+
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+  return url;
 };
 
 export const getApiBaseUrl = () => {
