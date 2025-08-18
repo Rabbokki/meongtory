@@ -2,7 +2,8 @@
 # 
 # 실행 방법:
 # 1. 수동 실행: GitHub Actions에서 "Run workflow"로 실행 시 IP 주소 입력
-# 2. 자동 실행: feature/cd 브랜치에 push 시 자동 실행 (테스트용, TEST_INSTANCE_IP secret 필요)
+# 2. 자동 실행: main 브랜치에 push/merge 시 자동 배포 (TEST_INSTANCE_IP secret 필요)
+# 3. 테스트 실행: feature/cd 브랜치에 push 시 테스트용 자동 실행
 
 name: CD Pipeline
 
@@ -15,10 +16,17 @@ on:
         required: true
         type: string
   
-  # feature/cd 브랜치 push 시 자동 실행 (테스트용)
+  # main 브랜치에 push 시 자동 배포
   push:
     branches:
-      - feature/cd
+      - main
+  
+  # main 브랜치로 PR이 merge될 때 자동 배포
+  pull_request:
+    branches:
+      - main
+    types:
+      - closed
 
 permissions:
   contents: read
@@ -27,6 +35,8 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # PR이 merged된 경우나 직접 push된 경우에만 실행
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     
     env:
       # push 이벤트일 때는 GitHub Secrets의 테스트 IP 사용, workflow_dispatch일 때는 입력받은 IP 사용
