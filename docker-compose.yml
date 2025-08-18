@@ -7,7 +7,7 @@ services:
         BUILD_ENV: dev
         NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
     ports:
-      - "3000:3000"
+      - "3400:3000"
     environment:
       - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
     depends_on:
@@ -28,7 +28,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./db/init-db:/docker-entrypoint-initdb.d
     ports:
-      - "7000:5432"
+      - "5433:5432"
     networks:
       - meongtory-network
 
