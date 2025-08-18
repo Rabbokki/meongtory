@@ -197,4 +197,18 @@ public class NaverShoppingController {
             return ResponseEntity.badRequest().body(ResponseDto.fail("LINK_FAILED", "네이버 상품 연결에 실패했습니다: " + e.getMessage()));
         }
     }
+
+    /**
+     * 네이버 상품을 DB에 저장
+     */
+    @PostMapping("/save")
+    public ResponseEntity<ResponseDto> saveNaverProduct(@RequestBody NaverProductDto naverProductDto) {
+        try {
+            Long savedProductId = naverShoppingService.saveOrUpdateNaverProduct(naverProductDto);
+            return ResponseEntity.ok(ResponseDto.success(savedProductId));
+        } catch (Exception e) {
+            log.error("네이버 상품 저장 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ResponseDto.fail("SAVE_FAILED", "네이버 상품 저장에 실패했습니다: " + e.getMessage()));
+        }
+    }
 }

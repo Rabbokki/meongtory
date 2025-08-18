@@ -4,11 +4,12 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, ShoppingCart } from "lucide-react"
+import { ArrowLeft, ShoppingCart, Sparkles, PawPrint } from "lucide-react"
 import Image from "next/image"
 import axios from "axios"
 import { useRouter } from "next/navigation"
 import { getBackendUrl } from '@/lib/api'
+import { ProductRecommendationCard } from "@/components/ui/product-recommendation-card"
 
 const API_BASE_URL = `${getBackendUrl()}/api`
 
@@ -109,6 +110,12 @@ export default function StoreProductDetailPage({
   const [orders, setOrders] = useState<any[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
 
+  // StoreAI 추천 관련 상태
+  const [myPet, setMyPet] = useState<any>(null)
+  const [recommendations, setRecommendations] = useState<any[]>([])
+  const [recommendationsLoading, setRecommendationsLoading] = useState(false)
+  const [recommendationsError, setRecommendationsError] = useState<string | null>(null)
+
   // 상품 API 함수들 - 백엔드와 직접 연결
   const productApi = {
     // 특정 상품 조회
@@ -135,6 +142,77 @@ export default function StoreProductDetailPage({
       }
     },
   };
+
+  // 반려동물 정보 가져오기
+  const fetchMyPet = async () => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) return
+
+      const response = await axios.get(`${API_BASE_URL}/mypet`, {
+        headers: {
+          "Access_Token": token,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
+      
+      // 백엔드 응답 구조: ResponseDto<MyPetListResponseDto>
+      if (response.data && response.data.data && response.data.data.myPets && response.data.data.myPets.length > 0) {
+        setMyPet(response.data.data.myPets[0])
+      }
+    } catch (error) {
+      console.error('반려동물 정보 가져오기 실패:', error)
+    }
+  }
+
+  // StoreAI 추천 API 호출
+  const fetchRecommendations = async () => {
+    if (!myPet) return
+
+    setRecommendationsLoading(true)
+    setRecommendationsError(null)
+    
+    try {
+      // 현재 상품이 있으면 상품 기반 추천, 없으면 펫 기반 추천
+      let response
+      if (product) {
+        // 상품 상세페이지용 추천
+        response = await axios.post(`${getBackendUrl()}/api/storeai/recommend/products/${product.id}`, {
+          myPetId: myPet.myPetId,
+          recommendationType: 'BREED_SPECIFIC'
+        })
+      } else {
+        // 펫 기반 전체 추천
+        response = await axios.get(`${getBackendUrl()}/api/storeai/recommend/my-pets`)
+      }
+
+      if (response.data.success) {
+        let recommendations = []
+        
+        if (product) {
+          // 상품 기반 추천: List<ProductRecommendationResponseDto>
+          recommendations = response.data.data || []
+        } else {
+          // 펫 기반 추천: Map<String, List<ProductRecommendationResponseDto>>
+          const petRecommendations = response.data.data || {}
+          // 첫 번째 펫의 추천을 사용
+          const firstPetName = Object.keys(petRecommendations)[0]
+          recommendations = firstPetName ? petRecommendations[firstPetName] : []
+        }
+        
+        setRecommendations(recommendations)
+      } else {
+        setRecommendationsError('추천을 생성할 수 없습니다.')
+      }
+    } catch (error) {
+      console.error('추천 API 호출 실패:', error)
+      setRecommendationsError('추천을 불러오는데 실패했습니다.')
+    } finally {
+      setRecommendationsLoading(false)
+    }
+  }
+
+
 
   // 주문 내역 가져오기
   const fetchOrders = async () => {
@@ -176,6 +254,18 @@ export default function StoreProductDetailPage({
     }
     fetchCurrentUser()
   }, [])
+
+  // 반려동물 정보 가져오기
+  useEffect(() => {
+    fetchMyPet()
+  }, [])
+
+  // 반려동물 정보가 있으면 추천 가져오기
+  useEffect(() => {
+    if (myPet && product) {
+      fetchRecommendations()
+    }
+  }, [myPet, product])
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -324,6 +414,48 @@ export default function StoreProductDetailPage({
     }
     // 장바구니 확인 로직 구현
     return false
+  }
+
+  // 추천 상품 장바구니 추가
+  const handleRecommendationAddToCart = async (productId: number) => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        alert('로그인이 필요합니다.')
+        return
+      }
+
+      const response = await axios.post(`${API_BASE_URL}/carts?productId=${productId}&quantity=1`, null, {
+        headers: {
+          "Access_Token": token,
+          "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        }
+      })
+
+      if (response.status === 200) {
+        alert('장바구니에 추가되었습니다!')
+      }
+    } catch (error: any) {
+      console.error('추천 상품 장바구니 추가 오류:', error)
+      alert('장바구니 추가에 실패했습니다.')
+    }
+  }
+
+  // 추천 상품 위시리스트 추가
+  const handleRecommendationAddToWishlist = async (productId: number) => {
+    try {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        alert('로그인이 필요합니다.')
+        return
+      }
+
+      // 위시리스트 추가 API 호출 (실제 구현 필요)
+      alert('위시리스트에 추가되었습니다!')
+    } catch (error) {
+      console.error('위시리스트 추가 오류:', error)
+      alert('위시리스트 추가에 실패했습니다.')
+    }
   }
 
 
@@ -485,7 +617,7 @@ export default function StoreProductDetailPage({
             {/* Product Details */}
             <Card>
               <CardHeader>
-                <CardTitle>상품 정보</CardTitle>
+                <CardTitle></CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
@@ -516,6 +648,77 @@ export default function StoreProductDetailPage({
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        {/* AI 추천 섹션 */}
+        <div className="mt-12">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-orange-500" />
+                <CardTitle className="text-xl">AI 맞춤 추천</CardTitle>
+              </div>
+              {myPet && (
+                <p className="text-sm text-gray-600">
+                  {myPet.name} ({myPet.breed}, {myPet.age}살)을 위한 맞춤 상품을 추천해드려요
+                </p>
+              )}
+            </CardHeader>
+            <CardContent>
+              {!myPet ? (
+                <div className="text-center py-8">
+                  <PawPrint className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">반려동물을 등록해주세요</h3>
+                  <p className="text-gray-600 mb-4">
+                    반려동물을 등록하면 맞춤 추천을 받을 수 있어요!
+                  </p>
+                  <Button 
+                    onClick={() => router.push('/my')}
+                    className="bg-orange-500 hover:bg-orange-600"
+                  >
+                    마이페이지에서 반려동물 등록하기
+                  </Button>
+                </div>
+              ) : recommendationsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600">맞춤 상품을 찾고 있어요...</p>
+                </div>
+              ) : recommendationsError ? (
+                <div className="text-center py-8">
+                  <p className="text-red-500 mb-4">{recommendationsError}</p>
+                  <Button 
+                    onClick={fetchRecommendations}
+                    variant="outline"
+                  >
+                    다시 시도
+                  </Button>
+                </div>
+              ) : recommendations.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {recommendations.map((recommendation) => (
+                    <ProductRecommendationCard
+                      key={recommendation.productId}
+                      product={{
+                        id: recommendation.productId,
+                        name: recommendation.name,
+                        price: recommendation.price,
+                        imageUrl: recommendation.imageUrl,
+                        category: recommendation.category,
+                        recommendationReason: recommendation.recommendationReason
+                      }}
+                      onAddToCart={handleRecommendationAddToCart}
+                      onAddToWishlist={handleRecommendationAddToWishlist}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">추천할 상품이 없습니다.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

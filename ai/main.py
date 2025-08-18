@@ -19,6 +19,9 @@ from emotion.emotion_api import router as emotion_router
 from model import DogBreedClassifier
 from chatBot.rag_app import process_rag_query, initialize_vectorstore
 
+# StoreAI 서비스 import
+from store.api import app as storeai_app
+
 # transcribe.py 모듈을 import하기 위해 경로 추가
 sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
 from transcribe import transcribe_audio
@@ -40,6 +43,9 @@ app.add_middleware(
 
 app.include_router(breed_router)
 app.include_router(emotion_router)
+
+# StoreAI 서비스 라우터 포함
+app.mount("/storeai", storeai_app)
 
 # OpenAI 설정
 if not client.api_key:

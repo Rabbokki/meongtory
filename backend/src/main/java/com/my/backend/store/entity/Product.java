@@ -50,6 +50,21 @@ public class Product {
 
     private String registeredBy;
 
+    // StoreAI 관련 필드들
+    @Enumerated(EnumType.STRING)
+    @Column(name = "product_source")
+    @Builder.Default
+    private ProductSource source = ProductSource.MONGTORY;
+    
+    @Column(name = "external_product_id")
+    private String externalProductId;
+    
+    @Column(name = "external_product_url")
+    private String externalProductUrl;
+    
+    @Column(name = "external_mall_name")
+    private String externalMallName;
+
     @OneToMany(mappedBy = "product")
     @JsonIgnore
     @Builder.Default

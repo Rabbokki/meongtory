@@ -42,6 +42,30 @@ import type { Pet } from "@/types/pets"
 import type { Product, WishlistItem, CartItem } from "@/types/store"
 import type { Insurance } from "@/types/insurance"
 
+interface NaverProduct {
+  id: number
+  productId: string
+  title: string
+  description: string
+  price: number
+  imageUrl: string
+  mallName: string
+  productUrl: string
+  brand: string
+  maker: string
+  category1: string
+  category2: string
+  category3: string
+  category4: string
+  reviewCount: number
+  rating: number
+  searchCount: number
+  createdAt: string
+  updatedAt: string
+  relatedProductId?: number
+  link?: string // 네이버 쇼핑 링크 (productUrl과 동일)
+}
+
 interface DiaryEntry {
   id: number
   petName: string
@@ -1314,7 +1338,9 @@ export default function PetServiceWebsite() {
       console.log('응답 데이터:', response.data)
       console.log('응답 데이터가 배열인가?', Array.isArray(response.data))
       console.log('응답 데이터 길이:', response.data?.length)
-      const backendProducts = response.data
+      
+      // ResponseDto 구조에 맞춰 데이터 추출
+      const backendProducts = response.data?.data || response.data
       console.log('백엔드에서 받은 상품 데이터:', backendProducts)
       
       if (!Array.isArray(backendProducts)) {
@@ -1324,7 +1350,8 @@ export default function PetServiceWebsite() {
       
       // 백엔드 데이터를 프론트엔드 형식으로 변환
       const convertedProducts: Product[] = backendProducts.map((product: any) => ({
-        productId: product.productId || product.id,
+        id: product.id || product.productId || 0,
+        productId: product.id || product.productId || 0,
         name: product.name || '상품명 없음',
         description: product.description || '',
         price: product.price || 0,
@@ -1382,9 +1409,18 @@ export default function PetServiceWebsite() {
     setCurrentPage("store")
   }
 
-  const handleViewProduct = (product: Product) => {
-    setSelectedProductId(product.productId)
-    setCurrentPage("product-detail")
+  const handleViewProduct = (product: Product | NaverProduct) => {
+    // 네이버 상품인 경우 네이버 쇼핑 페이지로 이동
+    if ('productUrl' in product && product.productUrl) {
+      window.open(product.productUrl, '_blank');
+      return;
+    }
+    
+    // 일반 상품인 경우 상세 페이지로 이동
+    if ('id' in product && product.id) {
+      setSelectedProductId(Number(product.id))
+      setCurrentPage("product-detail")
+    }
   }
 
   const handleEditProduct = (product: Product) => {
