@@ -154,7 +154,7 @@ export default function ProductsTab({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <img
-                    src={product.image || product.imageUrl || "/placeholder.svg"}
+                    src={product.imageUrl || "/placeholder.svg"}
                     alt={product.name}
                     className="w-16 h-16 object-cover rounded-lg"
                   />
@@ -169,7 +169,11 @@ export default function ProductsTab({
                   <Button 
                     size="sm" 
                     variant="outline"
-                    onClick={() => onEditProduct(product)}
+                    onClick={() => {
+                      console.log('Edit button clicked for product:', product);
+                      console.log('Product ID:', product.id);
+                      onEditProduct(product);
+                    }}
                   >
                     <Edit className="h-4 w-4" />
                   </Button>
