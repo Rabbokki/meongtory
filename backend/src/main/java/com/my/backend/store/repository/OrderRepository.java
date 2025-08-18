@@ -2,20 +2,28 @@ package com.my.backend.store.repository;
 
 import com.my.backend.store.entity.Order;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
-// 주문 데이터베이스와 연동하는 인터페이스
-public interface OrderRepository extends JpaRepository<Order, Integer> {
-    List<Order> findByUser_IdOrderByOrderedAtDesc(Long userId);
-    List<Order> findAllByOrderByOrderedAtDesc();
+public interface OrderRepository extends JpaRepository<Order, Long> {
+    boolean existsByMerchantOrderId(String merchantOrderId);
     
-    // N+1 문제 해결을 위한 JOIN FETCH 쿼리
-    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.orderItems oi LEFT JOIN FETCH oi.product p WHERE o.user.id = :userId ORDER BY o.orderedAt DESC")
-    List<Order> findByUser_IdWithOrderItemsAndProductOrderByOrderedAtDesc(@Param("userId") Long userId);
+    java.util.Optional<Order> findByMerchantOrderId(String merchantOrderId);
+
+    long countByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
     
-    @Query("SELECT DISTINCT o FROM Order o LEFT JOIN FETCH o.orderItems oi LEFT JOIN FETCH oi.product p ORDER BY o.orderedAt DESC")
-    List<Order> findAllWithOrderItemsAndProductOrderByOrderedAtDesc();
+    List<Order> findByAccountId(Long accountId);
+    
+    // 중복 주문 방지를 위한 메서드
+    List<Order> findByAccountIdAndProductIdAndCreatedAtAfter(Long accountId, Long productId, LocalDateTime createdAt);
+    
+    // 네이버 상품 중복 주문 방지를 위한 메서드
+    List<Order> findByAccountIdAndNaverProductIdAndCreatedAtAfter(Long accountId, Long naverProductId, LocalDateTime createdAt);
+    
+    // 상품 ID로 주문 조회 (상품 삭제 시 사용)
+    List<Order> findByProduct_Id(Long productId);
+    
+    // 네이버 상품 ID로 주문 조회 (네이버 상품 삭제 시 사용)
+    List<Order> findByNaverProduct_Id(Long naverProductId);
 }

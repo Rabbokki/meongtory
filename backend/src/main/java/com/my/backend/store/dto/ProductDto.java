@@ -12,11 +12,11 @@ import java.time.LocalDate;
 @AllArgsConstructor
 @Builder
 public class ProductDto {
-    private Integer productId;
+    private Long id;
     private String name;
     private String description;
-    private Integer price;
-    private Integer stock;
+    private Long price;
+    private Long stock;
     private String imageUrl;
     private Category category;
     private TargetAnimal targetAnimal;

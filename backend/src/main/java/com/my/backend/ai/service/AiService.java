@@ -1,8 +1,7 @@
 package com.my.backend.ai.service;
 
 import com.my.backend.ai.dto.BreedPredictionResponseDto;
-import com.my.backend.ai.dto.BackgroundStoryRequestDto;
-import com.my.backend.ai.dto.BackgroundStoryResponseDto;
+import com.my.backend.ai.dto.EmotionAnalysisResponseDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpEntity;
@@ -50,17 +49,24 @@ public class AiService {
         return response.getBody();
     }
     
-    public BackgroundStoryResponseDto generateBackgroundStory(BackgroundStoryRequestDto request) throws Exception {
+    public EmotionAnalysisResponseDto analyzeEmotion(MultipartFile image) throws Exception {
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
         
-        // AI 서비스에 요청
-        HttpEntity<BackgroundStoryRequestDto> requestEntity = new HttpEntity<>(request, headers);
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        body.add("file", new ByteArrayResource(image.getBytes()) {
+            @Override
+            public String getFilename() {
+                return image.getOriginalFilename();
+            }
+        });
         
-        ResponseEntity<BackgroundStoryResponseDto> response = restTemplate.postForEntity(
-            aiServiceUrl + "/generate-story",
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+        
+        ResponseEntity<EmotionAnalysisResponseDto> response = restTemplate.postForEntity(
+            aiServiceUrl + "/analyze-emotion",
             requestEntity,
-            BackgroundStoryResponseDto.class
+            EmotionAnalysisResponseDto.class
         );
         
         return response.getBody();

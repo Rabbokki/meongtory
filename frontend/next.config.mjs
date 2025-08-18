@@ -9,11 +9,12 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  output: 'standalone',
   async rewrites() {
     return [
       {
         source: '/api/:path*',
-        destination: 'http://localhost:8080/api/:path*',
+        destination: 'http://localhost:9090/api/:path*',
       },
     ];
 

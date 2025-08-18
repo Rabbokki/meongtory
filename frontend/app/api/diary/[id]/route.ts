@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+const NEXT_PUBLIC_BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/diary/${params.id}`, {
+    const response = await fetch(`${NEXT_PUBLIC_BACKEND_URL}/api/diary/${params.id}`, {
       method: 'GET',
       headers: {
         'Access_Token': request.headers.get('Access_Token') || '',
@@ -37,12 +37,12 @@ export async function PUT(
     const body = await request.json();
     
     console.log('=== PUT Request Debug ===');
-    console.log('Backend URL:', BACKEND_URL);
+    console.log('Backend URL:', NEXT_PUBLIC_BACKEND_URL);
     console.log('Diary ID:', params.id);
     console.log('Request body:', body);
     console.log('Access_Token header:', request.headers.get('Access_Token'));
     
-    const backendUrl = `${BACKEND_URL}/api/diary/${params.id}`;
+    const backendUrl = `${NEXT_PUBLIC_BACKEND_URL}/api/diary/${params.id}`;
     console.log('Full backend URL:', backendUrl);
 
     const response = await fetch(backendUrl, {
@@ -88,7 +88,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const response = await fetch(`${BACKEND_URL}/api/diary/${params.id}`, {
+    const response = await fetch(`${NEXT_PUBLIC_BACKEND_URL}/api/diary/${params.id}`, {
       method: 'DELETE',
       headers: {
         'Access_Token': request.headers.get('Access_Token') || '',

@@ -2,8 +2,7 @@ package com.my.backend.ai.controller;
 
 import lombok.RequiredArgsConstructor;
 import com.my.backend.ai.dto.BreedPredictionResponseDto;
-import com.my.backend.ai.dto.BackgroundStoryRequestDto;
-import com.my.backend.ai.dto.BackgroundStoryResponseDto;
+import com.my.backend.ai.dto.EmotionAnalysisResponseDto;
 import com.my.backend.ai.service.AiService;
 import com.my.backend.global.dto.ResponseDto;
 import org.springframework.http.ResponseEntity;
@@ -30,15 +29,15 @@ public class AiController {
         }
     }
     
-    @PostMapping("/generate-background-story")
-    public ResponseEntity<ResponseDto<BackgroundStoryResponseDto>> generateBackgroundStory(
-            @RequestBody BackgroundStoryRequestDto request) {
+    @PostMapping("/analyze-emotion")
+    public ResponseEntity<ResponseDto<EmotionAnalysisResponseDto>> analyzeEmotion(
+            @RequestParam("image") MultipartFile image) {
         try {
-            BackgroundStoryResponseDto result = aiService.generateBackgroundStory(request);
+            EmotionAnalysisResponseDto result = aiService.analyzeEmotion(image);
             return ResponseEntity.ok(ResponseDto.success(result));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
-                .body(ResponseDto.fail("AI_ERROR", "배경 스토리 생성 실패: " + e.getMessage()));
+                .body(ResponseDto.fail("AI_ERROR", "감정 분석 실패: " + e.getMessage()));
         }
     }
 }

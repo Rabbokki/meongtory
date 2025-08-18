@@ -3,37 +3,34 @@ package com.my.backend.store.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Entity
-@Table(name = "order_items")
 @Getter
 @Setter
+@Entity
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Table(name = "order_items")
 public class OrderItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
-    // 주문 연관관계 (다대일)
+    // 주문과 다대일 관계 (Order 1개에 여러 OrderItem 가능)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    // 상품 연관관계 (다대일)
+    // 상품과 다대일 관계 (Product 1개에 여러 OrderItem 가능)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    // 주문한 상품 수량
     @Column(nullable = false)
-    private String productName;
+    private int quantity;
 
-    private String imageUrl;
-
+    // 가격 (주문 시점 가격 보존용)
     @Column(nullable = false)
-    private Integer quantity;
-
-    @Column(nullable = false)
-    private Integer price;
+    private Long price;
 }

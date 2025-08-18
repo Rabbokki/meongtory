@@ -2,20 +2,25 @@ package com.my.backend.store.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "product")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class Product {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer productId;
+    @Column(name = "product_id")
+    private Long id;
+
 
     @Column(nullable = false)
     private String name;
@@ -24,10 +29,11 @@ public class Product {
     private String description;
 
     @Column(nullable = false)
-    private Integer price;
+    private Long price;
 
     @Column(nullable = false)
-    private Integer stock = 0;
+    @Builder.Default
+    private Long stock = 0L;
 
     @Column(nullable = true)
     private String imageUrl;
@@ -44,19 +50,21 @@ public class Product {
 
     private String registeredBy;
 
-    // 문자열을 Category enum으로 변환하는 setter
+    @OneToMany(mappedBy = "product")
+    @JsonIgnore
+    @Builder.Default
+    private List<Order> orders = new ArrayList<>();
+
     public void setCategory(String categoryStr) {
         if (categoryStr != null) {
             try {
                 this.category = Category.valueOf(categoryStr);
             } catch (IllegalArgumentException e) {
-                // 기본값 설정
                 this.category = Category.용품;
             }
         }
     }
 
-    // 문자열을 TargetAnimal enum으로 변환하는 setter
     public void setTargetAnimal(String targetAnimalStr) {
         if (targetAnimalStr != null) {
             try {

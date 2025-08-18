@@ -20,6 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        <link rel="icon" href="/paw-favicon.png" type="image/png" />
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};
@@ -30,7 +31,6 @@ html {
       </head>
       <body>
         {children}
-        <Script src="https://js.tosspayments.com/v1/payment" strategy="beforeInteractive" />
         <Toaster />
       </body>
     </html>

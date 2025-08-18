@@ -1,6 +1,6 @@
 spring:
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/meong}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://db:5432/meong}
     username: ${SPRING_DATASOURCE_USERNAME:jjj}
     password: ${SPRING_DATASOURCE_PASSWORD:1q2w3e4r!}
     driver-class-name: org.postgresql.Driver
@@ -95,8 +95,15 @@ logging:
 # 토스페이먼츠 설정
 toss:
   payments:
-    secret-key: ${TOSS_SECRET_KEY:}
-    client-key: ${TOSS_CLIENT_KEY:}
+    secret-key: ${TOSS_SECRET_KEY}
+    client-key: ${NEXT_PUBLIC_TOSS_CLIENT_KEY}
+
+# 네이버 API 설정
+naver:
+  api:
+    client-id: ${NAVER_API_CLIENT_ID}
+    client-secret: ${NAVER_API_CLIENT_SECRET}
+    shopping-url: https://openapi.naver.com/v1/search/shop.json
 
 # 네이버 API 설정
 naver:

@@ -1,45 +1,47 @@
+# frontend/Dockerfile
+FROM node:20-alpine AS base
 
-# # Install dependencies only when needed
-# FROM --platform=linux/amd64 public.ecr.aws/docker/library/node:18-alpine AS deps
-# WORKDIR /app
-# COPY package.json pnpm-lock.yaml* ./ # Copy pnpm-lock.yaml or package-lock.json
-# RUN \
-#   if [ -f "pnpm-lock.yaml" ]; then \
-#     corepack enable pnpm && pnpm fetch --prod; \
-#   else \
-#     npm install; \
-#   fi
+FROM base AS deps
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
 
-# # Rebuild the source code only when needed
-# FROM --platform=linux/amd64 public.ecr.aws/docker/library/node:18-alpine AS builder
-# WORKDIR /app
-# COPY --from=deps /app/node_modules ./node_modules
-# COPY . .
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-# RUN \
-#   if [ -f "pnpm-lock.yaml" ]; then \
-#     corepack enable pnpm && pnpm build; \
-#   else \
-#     npm run build; \
-#   fi
+# --------------------------------
 
-# # Production image, copy all the files and run next
-# FROM --platform=linux/amd64 public.ecr.aws/docker/library/node:18-alpine AS runner
-# WORKDIR /app
+FROM base AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
-# ENV NODE_ENV production
+# 환경 변수 설정
+ARG NEXT_PUBLIC_BACKEND_URL
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
-# COPY --from=builder /app/.next ./.next
-# COPY --from=builder /app/node_modules ./node_modules
-# COPY --from=builder /app/package.json ./package.json
+RUN npm run build
 
-# # Automatically leverage output traces to optimize image size
-# # https://nextjs.org/docs/advanced-features/output-file-tracing
-# COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./ 
-# COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# --------------------------------
 
-# EXPOSE 3000
+FROM base AS runner
+WORKDIR /app
 
-# ENV PORT 3000
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# CMD ["npm", "start"]
+COPY --from=builder /app/public ./public
+
+RUN mkdir .next
+RUN chown nextjs:nodejs .next
+
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+CMD ["node", "server.js"]
