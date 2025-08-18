@@ -92,11 +92,49 @@ jobs:
         docker build -t ${{ secrets.ECR_REGISTRY }}/mt-db:latest ./db
         docker push ${{ secrets.ECR_REGISTRY }}/mt-db:latest
 
-    # .env 파일 업데이트 (인스턴스 IP 주입)
-    - name: Update environment file
+    # docker-compose.production.yml에 환경변수 주입
+    - name: Configure docker-compose with secrets
       run: |
-        # Update NEXT_PUBLIC_BACKEND_URL with instance IP
-        sed -i "s|NEXT_PUBLIC_BACKEND_URL=.*|NEXT_PUBLIC_BACKEND_URL=http://${{ env.INSTANCE_IP }}:8080|" .env
+        # GitHub Secrets을 사용하여 환경변수 치환
+        # Frontend 환경변수
+        sed -i "s|\${NEXT_PUBLIC_BACKEND_URL}|http://${{ env.INSTANCE_IP }}:8080|g" docker-compose.production.yml
+        
+        # Backend 환경변수  
+        sed -i "s|\${BACKEND_PORT}|${{ secrets.BACKEND_PORT }}|g" docker-compose.production.yml
+        sed -i "s|\${DB_NAME}|${{ secrets.DB_NAME }}|g" docker-compose.production.yml
+        sed -i "s|\${DB_USER}|${{ secrets.DB_USER }}|g" docker-compose.production.yml
+        sed -i "s|\${DB_PASSWORD}|${{ secrets.DB_PASSWORD }}|g" docker-compose.production.yml
+        sed -i "s|\${JWT_SECRET_KEY}|${{ secrets.JWT_SECRET_KEY }}|g" docker-compose.production.yml
+        sed -i "s|\${GOOGLE_CLIENT_ID}|${{ secrets.GOOGLE_CLIENT_ID }}|g" docker-compose.production.yml
+        sed -i "s|\${GOOGLE_CLIENT_SECRET}|${{ secrets.GOOGLE_CLIENT_SECRET }}|g" docker-compose.production.yml
+        sed -i "s|\${KAKAO_CLIENT_ID}|${{ secrets.KAKAO_CLIENT_ID }}|g" docker-compose.production.yml
+        sed -i "s|\${KAKAO_CLIENT_SECRET}|${{ secrets.KAKAO_CLIENT_SECRET }}|g" docker-compose.production.yml
+        sed -i "s|\${NAVER_CLIENT_ID}|${{ secrets.NAVER_CLIENT_ID }}|g" docker-compose.production.yml
+        sed -i "s|\${NAVER_CLIENT_SECRET}|${{ secrets.NAVER_CLIENT_SECRET }}|g" docker-compose.production.yml
+        sed -i "s|\${AWS_ACCESS_KEY_ID}|${{ secrets.AWS_ACCESS_KEY_ID }}|g" docker-compose.production.yml
+        sed -i "s|\${AWS_SECRET_ACCESS_KEY}|${{ secrets.AWS_SECRET_ACCESS_KEY }}|g" docker-compose.production.yml
+        sed -i "s|\${AWS_S3_REGION}|${{ secrets.AWS_S3_REGION }}|g" docker-compose.production.yml
+        sed -i "s|\${AWS_S3_BUCKET_NAME}|${{ secrets.AWS_S3_BUCKET_NAME }}|g" docker-compose.production.yml
+        sed -i "s|\${AI_SERVICE_URL}|${{ secrets.AI_SERVICE_URL }}|g" docker-compose.production.yml
+        sed -i "s|\${TOSS_SECRET_KEY}|${{ secrets.TOSS_SECRET_KEY }}|g" docker-compose.production.yml
+        sed -i "s|\${TOSS_CLIENT_KEY}|${{ secrets.TOSS_CLIENT_KEY }}|g" docker-compose.production.yml
+        
+        # AI 서비스 환경변수
+        sed -i "s|\${DB_PORT}|${{ secrets.DB_PORT }}|g" docker-compose.production.yml
+        sed -i "s|\${OPENAI_API_KEY}|${{ secrets.OPENAI_API_KEY }}|g" docker-compose.production.yml
+        sed -i "s|\${OPENAI_MODEL}|${{ secrets.OPENAI_MODEL }}|g" docker-compose.production.yml
+        sed -i "s|\${OPENAI_IMAGE_MODEL}|${{ secrets.OPENAI_IMAGE_MODEL }}|g" docker-compose.production.yml
+        sed -i "s|\${OPENAI_BREEDING_MODEL}|${{ secrets.OPENAI_BREEDING_MODEL }}|g" docker-compose.production.yml
+        sed -i "s|\${EMBEDDING_MODEL_NAME}|${{ secrets.EMBEDDING_MODEL_NAME }}|g" docker-compose.production.yml
+        sed -i "s|\${VECTORSTORE_COLLECTION_NAME}|${{ secrets.VECTORSTORE_COLLECTION_NAME }}|g" docker-compose.production.yml
+        sed -i "s|\${VECTORSTORE_DISTANCE_STRATEGY}|${{ secrets.VECTORSTORE_DISTANCE_STRATEGY }}|g" docker-compose.production.yml
+        sed -i "s|\${VECTORSTORE_SEARCH_LIMIT}|${{ secrets.VECTORSTORE_SEARCH_LIMIT }}|g" docker-compose.production.yml
+        sed -i "s|\${SAMPLE_DATA_PATH}|${{ secrets.SAMPLE_DATA_PATH }}|g" docker-compose.production.yml
+        sed -i "s|\${PROMPT_TEMPLATE_PATH}|${{ secrets.PROMPT_TEMPLATE_PATH }}|g" docker-compose.production.yml
+        
+        echo "Configured docker-compose.production.yml with environment variables"
+        echo "Final docker-compose configuration:"
+        cat docker-compose.production.yml
 
     # 인스턴스 정리 작업 (기존 컨테이너 중지 및 파일 삭제)
     - name: Clean up instance
@@ -115,7 +153,7 @@ jobs:
           fi
           
           # Clean up old files
-          rm -rf .env docker-compose.yml init-db/
+          rm -rf docker-compose.yml init-db/
           
           # Clean up Docker resources
           echo "Cleaning up Docker resources..."
@@ -128,7 +166,7 @@ jobs:
         host: ${{ env.INSTANCE_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
-        source: ".env,docker-compose.production.yml,db/init-db"
+        source: "docker-compose.production.yml,db/init-db"
         target: "/home/ubuntu/"
 
     # docker-compose.production.yml을 docker-compose.yml로 이름 변경
