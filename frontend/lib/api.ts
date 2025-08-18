@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // API 설정을 위한 공통 유틸리티
 export const getBackendUrl = () => {
-  const url = process.env.NEXT_PUBLIC_API_URL || 'http://backend:8080';
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8080';
   // URL 끝의 슬래시 제거
   const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url;
   console.log('Backend URL:', normalizedUrl);
@@ -114,7 +114,9 @@ export const petApi = {
     }
     console.log('Fetching pets with URL:', `${API_BASE_URL}/pets?${params.toString()}`);
     const response = await axios.get(`${API_BASE_URL}/pets?${params.toString()}`);
-    return response.data.data;
+    console.log('Raw pets response:', response.data);
+    // 응답이 배열이면 그대로 반환, 아니면 response.data.data 반환
+    return Array.isArray(response.data) ? response.data : response.data.data;
   },
 
   createPet: async (petData: Omit<Pet, 'petId'>): Promise<Pet> => {
@@ -214,7 +216,9 @@ export const adoptionRequestApi = {
 
   getAdoptionRequests: async (): Promise<any[]> => {
     const response = await axios.get(`${API_BASE_URL}/adoption-requests`);
-    return response.data.data;
+    console.log('Raw adoption requests response:', response.data);
+    // 응답이 배열이면 그대로 반환, 아니면 response.data.data 반환
+    return Array.isArray(response.data) ? response.data : response.data.data;
   },
 
   getUserAdoptionRequests: async (): Promise<any[]> => {
@@ -257,7 +261,9 @@ export const adoptionRequestApi = {
 export const productApi = {
   getProducts: async (): Promise<any[]> => {
     const response = await axios.get(`${API_BASE_URL}/products`);
-    return response.data.data;
+    console.log('Raw products response:', response.data);
+    // 응답이 배열이면 그대로 반환, 아니면 response.data.data 반환
+    return Array.isArray(response.data) ? response.data : response.data.data;
   },
 
   getProduct: async (productId: number): Promise<any> => {

@@ -631,7 +631,7 @@ export default function PetServiceWebsite() {
     try {
       console.log("로그인 시도:", { email })
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       )
