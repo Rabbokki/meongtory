@@ -525,7 +525,7 @@ export default function PetServiceWebsite({ isLayoutMode = false }: PetServiceWe
   const handleLogin = async (email: string, password: string) => {
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );

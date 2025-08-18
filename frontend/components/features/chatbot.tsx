@@ -47,17 +47,12 @@ export default function Chatbot() {
 
       // 비동기적으로 챗봇 응답 처리
       try {
-        console.log("NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL)
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/chatbot/query`
-        console.log("Sending request to:", apiUrl)
-        console.log("Request payload:", { query: inputMessage })
+        const apiUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chatbot/query`;
         const response = await axios.post(
           `${getBackendUrl()}/api/chatbot/query`,
           { query: inputMessage },
           { headers: { "Content-Type": "application/json" } }
         )
-        console.log("Response status:", response.status)
-        console.log("Response data:", JSON.stringify(response.data))
         const botResponse: ChatMessage = {
           id: Date.now() + 1,
           message: response.data.answer || "응답이 비어 있습니다. 서버를 확인해주세요.",

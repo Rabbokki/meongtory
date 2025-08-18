@@ -33,7 +33,7 @@ services:
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
       - AI_SERVICE_URL=${AI_SERVICE_URL}
       - TOSS_SECRET_KEY=${TOSS_SECRET_KEY}
-      - TOSS_CLIENT_KEY=${TOSS_CLIENT_KEY}
+      - NEXT_PUBLIC_TOSS_CLIENT_KEY=${TOSS_CLIENT_KEY}
     depends_on:
       - db
       - ai
@@ -46,11 +46,24 @@ services:
     ports:
       - "9000:9000"
     environment:
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_HOST=db
+      - DB_PORT=${DB_PORT}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL}
-      - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL} 
+      - OPENAI_IMAGE_MODEL=${OPENAI_IMAGE_MODEL}
       - OPENAI_BREEDING_MODEL=${OPENAI_BREEDING_MODEL}
       - AI_SERVICE_URL=${AI_SERVICE_URL}
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME}
+      - VECTORSTORE_COLLECTION_NAME=${VECTORSTORE_COLLECTION_NAME}
+      - VECTORSTORE_DISTANCE_STRATEGY=${VECTORSTORE_DISTANCE_STRATEGY}
+      - VECTORSTORE_SEARCH_LIMIT=${VECTORSTORE_SEARCH_LIMIT}
+      - SAMPLE_DATA_PATH=${SAMPLE_DATA_PATH}
+      - PROMPT_TEMPLATE_PATH=${PROMPT_TEMPLATE_PATH}
+    depends_on:
+      - db
     networks:
       - meongtory-network
     restart: unless-stopped
@@ -61,6 +74,7 @@ services:
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME}
+      - NEXT_PUBLIC_TOSS_CLIENT_KEY=${TOSS_CLIENT_KEY}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d
