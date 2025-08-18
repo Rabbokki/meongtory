@@ -8,9 +8,9 @@ import { ArrowLeft, ShoppingCart } from "lucide-react"
 import Image from "next/image"
 import axios from "axios"
 import { useRouter } from "next/navigation"
+import { getBackendUrl } from '@/lib/api'
 
-
-const API_BASE_URL = 'http://localhost:8080/api'
+const API_BASE_URL = `${getBackendUrl()}/api`
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(

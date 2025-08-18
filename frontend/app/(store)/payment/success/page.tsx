@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle, Home, Receipt } from "lucide-react";
 import axios from 'axios';
+import { getBackendUrl } from '@/lib/api';
 
-const API_BASE_URL = 'http://localhost:8080/api';
+const API_BASE_URL = `${getBackendUrl()}/api`;
 
 interface PaymentInfo {
   paymentKey: string;

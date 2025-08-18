@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, CreditCard, ShoppingBag } from "lucide-react";
 import axios from 'axios';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
+import { getBackendUrl } from '@/lib/api';
 
-const API_BASE_URL = 'http://localhost:8080/api';
-const CLIENT_KEY = ``;
+const API_BASE_URL = `${getBackendUrl()}/api`;
+const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ;
 console.log("CLIENT_KEY:", CLIENT_KEY);
 
 

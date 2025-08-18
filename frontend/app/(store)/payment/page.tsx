@@ -151,10 +151,7 @@ function PaymentContent() {
             결제하기
           </button>
 
-          <div className="mt-8 text-sm text-gray-600">
-            <p>※ 이 페이지는 토스페이먼츠 결제 시스템 테스트용입니다.</p>
-            <p>※ 실제 결제가 발생하지 않습니다.</p>
-          </div>
+        
         </div>
       </div>
     </div>

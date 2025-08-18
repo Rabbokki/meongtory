@@ -9,8 +9,9 @@ import { Search, Plus } from "lucide-react"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios" // axios 직접 import
+import { getBackendUrl } from '@/lib/api'
 
-const API_BASE_URL = 'http://localhost:8080/api'
+const API_BASE_URL = `${getBackendUrl()}/api`
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(

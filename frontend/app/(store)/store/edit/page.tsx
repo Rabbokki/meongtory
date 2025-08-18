@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, Save, X, Upload } from 'lucide-react';
 import Image from 'next/image';
 import axios from 'axios';
+import { getBackendUrl } from '@/lib/api';
 
 interface Product {
   id: number;
@@ -55,7 +56,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
   const [selectedFileName, setSelectedFileName] = useState<string>('');
 
   // 백엔드 URL (환경 변수 또는 실제 URL로 대체)
-  const BACKEND_URL = 'http://localhost:8080';
+  const BACKEND_URL = getBackendUrl();
 
   // 상품 데이터 로드
   useEffect(() => {
