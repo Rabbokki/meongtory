@@ -66,25 +66,7 @@ public class Product {
     }
 
     public void setTargetAnimal(String targetAnimalStr) {
-        if (targetAnimalStr != null) {
-            try {
-                switch (targetAnimalStr.toLowerCase()) {
-                    case "dog":
-                        this.targetAnimal = TargetAnimal.DOG;
-                        break;
-                    case "cat":
-                        this.targetAnimal = TargetAnimal.CAT;
-                        break;
-                    case "all":
-                        this.targetAnimal = TargetAnimal.ALL;
-                        break;
-                    default:
-                        this.targetAnimal = TargetAnimal.ALL;
-                        break;
-                }
-            } catch (Exception e) {
-                this.targetAnimal = TargetAnimal.ALL;
-            }
-        }
+        // 항상 ALL로 설정
+        this.targetAnimal = TargetAnimal.ALL;
     }
 }

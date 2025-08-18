@@ -23,7 +23,7 @@ interface Product {
   stock: number
   registrationDate: string
   registeredBy: string
-  petType: "dog" | "cat" | "all"
+  petType: "all"
 }
 
 interface StoreProductRegistrationPageProps {
@@ -239,16 +239,9 @@ export default function StoreProductRegistrationPage({
               {/* Pet Type */}
               <div className="space-y-2">
                 <Label htmlFor="petType">대상 동물 *</Label>
-                <Select value={formData.petType} onValueChange={(value) => handleInputChange("petType", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="대상 동물을 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">강아지/고양이 (모두)</SelectItem>
-                    <SelectItem value="dog">강아지</SelectItem>
-                    <SelectItem value="cat">고양이</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="p-3 bg-gray-50 rounded-md border">
+                  <span className="text-sm text-gray-700">강아지/고양이 (모두)</span>
+                </div>
               </div>
 
               {/* Price and Stock */}

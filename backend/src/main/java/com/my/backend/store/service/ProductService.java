@@ -51,7 +51,7 @@ public class ProductService {
                     .stock(50L)
                     .imageUrl("/placeholder.svg?height=300&width=300")
                     .category(Category.사료)
-                    .targetAnimal(TargetAnimal.DOG)
+                    .targetAnimal(TargetAnimal.ALL)
                     .registrationDate(LocalDate.now())
                     .registeredBy("admin")
                     .build();
@@ -64,7 +64,7 @@ public class ProductService {
                     .stock(100L)
                     .imageUrl("/placeholder.svg?height=300&width=300")
                     .category(Category.장난감)
-                    .targetAnimal(TargetAnimal.CAT)
+                    .targetAnimal(TargetAnimal.ALL)
                     .registrationDate(LocalDate.now())
                     .registeredBy("admin")
                     .build();

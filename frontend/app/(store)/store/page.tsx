@@ -114,7 +114,6 @@ export default function StorePage({
   onViewProduct,
   setCurrentPage,
 }: StorePageProps) {
-  const [selectedPet, setSelectedPet] = useState<"dog" | "cat">("dog")
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"popular" | "latest" | "lowPrice" | "highPrice">("popular")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -204,7 +203,7 @@ export default function StorePage({
         });
         return response.data;
       } catch (error) {
-        console.error('네이버 상품 카트 추가 실패:', error);
+        console.error('네이버 상품 장바구니 추가 실패:', error);
         throw error;
       }
     }
@@ -290,7 +289,7 @@ export default function StorePage({
       await naverShoppingApi.addToCart(naverProduct, 1);
       alert('네이버 상품이 카트에 추가되었습니다!');
       
-      console.log('네이버 상품 카트 추가 성공, setCurrentPage 함수 확인:', !!setCurrentPage);
+      console.log('네이버 상품 장바구니 추가 성공, setCurrentPage 함수 확인:', !!setCurrentPage);
       
       // 카트 페이지로 이동
       if (setCurrentPage) {
@@ -302,8 +301,33 @@ export default function StorePage({
         window.location.href = '/';
       }
     } catch (error) {
-      console.error('카트 추가 실패:', error);
-      alert('카트 추가에 실패했습니다.');
+      console.error('장바구니 추가 실패:', error);
+      alert('장바구니 추가에 실패했습니다.');
+    }
+  };
+
+  // 우리 스토어 상품을 장바구니에 추가하는 함수
+  const handleAddLocalProductToCart = async (product: Product) => {
+    try {
+      // 백엔드 API 호출하여 장바구니에 추가
+      const response = await axios.post(`${API_BASE_URL}/cart/add`, {
+        productId: product.id,
+        quantity: 1
+      });
+      
+      if (response.status === 200) {
+        alert('상품이 장바구니에 추가되었습니다!');
+        
+        // 카트 페이지로 이동
+        if (setCurrentPage) {
+          setCurrentPage("cart");
+        } else {
+          window.location.href = '/';
+        }
+      }
+    } catch (error) {
+      console.error('장바구니 추가 실패:', error);
+      alert('장바구니 추가에 실패했습니다.');
     }
   };
 
@@ -612,7 +636,9 @@ export default function StorePage({
     }
   };
 
+  // 우리 스토어 상품과 네이버 상품을 통합하여 처리
   const allProducts = [...products]
+  const allNaverProducts = [...naverProducts]
 
   const categoryItems = [
     { icon: "🥣", name: "사료", key: "사료" },
@@ -623,29 +649,8 @@ export default function StorePage({
     { icon: "💊", name: "건강관리", key: "건강관리" },
   ]
 
-  const sortedProducts = [...allProducts].sort((a, b) => {
-    switch (sortBy) {
-      case "latest":
-        return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime()
-      case "lowPrice":
-        return a.price - b.price
-      case "highPrice":
-        return b.price - a.price
-      default:
-        return 0
-    }
-  })
-
-  const filteredProducts = allProducts.filter((product) => {
-    // Pet type filter - targetAnimal 필드 사용
-    const petType = product.petType || product.targetAnimal?.toLowerCase() || 'all';
-    if (selectedPet === "dog" && petType !== "dog" && petType !== "all") {
-      return false;
-    }
-    if (selectedPet === "cat" && petType !== "cat" && petType !== "all") {
-      return false;
-    }
-
+  // 우리 스토어 상품 필터링
+  const filteredLocalProducts = allProducts.filter((product) => {
     // Category filter
     if (selectedCategory) {
       const matchesCategory = product.category === selectedCategory;
@@ -667,22 +672,53 @@ export default function StorePage({
     return true;
   });
 
-  // 정렬 로직을 별도로 분리
-  const sortedAndFilteredProducts = [...filteredProducts].sort((a, b) => {
-    switch (sortBy) {
-      case "latest":
-        return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime();
-      case "lowPrice":
-        return a.price - b.price;
-      case "highPrice":
-        return b.price - a.price;
-      case "popular":
-        // 인기순은 기본적으로 최신순으로 처리 (실제로는 조회수나 판매량 기준이 필요)
-        return new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime();
-      default:
-        return 0;
+  // 네이버 상품 필터링
+  const filteredNaverProducts = allNaverProducts.filter((product) => {
+    // Search query filter
+    if (searchQuery.trim() !== "") {
+      const lowerCaseQuery = searchQuery.toLowerCase();
+      if (
+        !product.title.toLowerCase().includes(lowerCaseQuery) &&
+        !product.description.toLowerCase().includes(lowerCaseQuery)
+      ) {
+        return false;
+      }
     }
+    return true;
   });
+
+  // 통합 정렬 함수
+  const sortProducts = (productList: any[]) => {
+    return [...productList].sort((a, b) => {
+      switch (sortBy) {
+        case "latest":
+          // 네이버 상품은 createdAt, 우리 상품은 registrationDate 사용
+          const dateA = a.registrationDate ? new Date(a.registrationDate).getTime() : new Date(a.createdAt).getTime();
+          const dateB = b.registrationDate ? new Date(b.registrationDate).getTime() : new Date(b.createdAt).getTime();
+          return dateB - dateA;
+        case "lowPrice":
+          return a.price - b.price;
+        case "highPrice":
+          return b.price - a.price;
+        case "popular":
+          // 인기순은 기본적으로 최신순으로 처리
+          const popDateA = a.registrationDate ? new Date(a.registrationDate).getTime() : new Date(a.createdAt).getTime();
+          const popDateB = b.registrationDate ? new Date(b.registrationDate).getTime() : new Date(b.createdAt).getTime();
+          return popDateB - popDateA;
+        default:
+          return 0;
+      }
+    });
+  };
+
+  // 정렬된 상품들
+  const sortedLocalProducts = sortProducts(filteredLocalProducts);
+  const sortedNaverProducts = sortProducts(filteredNaverProducts);
+
+  // HTML 태그 제거 함수
+  const removeHtmlTags = (text: string) => {
+    return text.replace(/<[^>]*>/g, '');
+  };
 
   // 로딩 상태 표시
   if (loading) {
@@ -722,12 +758,7 @@ export default function StorePage({
         
         </div>
 
-        {/* 통합 검색 안내 */}
-        <div className="text-center mb-4">
-          <p className="text-sm text-gray-600">
-            🔍 우리 스토어 + 네이버 쇼핑 통합 검색
-          </p>
-        </div>
+
 
         {/* 통합 검색 바 */}
         <div className="flex justify-center mb-8">
@@ -774,27 +805,7 @@ export default function StorePage({
           </div>
         )}
 
-        {/* Pet Selection */}
-        <div className="flex justify-center mb-6">
-          <div className="flex bg-gray-100 rounded-full p-1">
-            <button
-              onClick={() => setSelectedPet("dog")}
-              className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedPet === "dog" ? "bg-yellow-400 text-black" : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              🐕 강아지
-            </button>
-            <button
-              onClick={() => setSelectedPet("cat")}
-              className={`flex items-center px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                selectedPet === "cat" ? "bg-yellow-400 text-black" : "text-gray-600 hover:text-gray-900"
-              }`}
-            >
-              🐱 고양이
-            </button>
-          </div>
-        </div>
+
 
         {/* Category Icons */}
         <div className="mb-8">
@@ -875,7 +886,7 @@ export default function StorePage({
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
             {/* 우리 스토어 상품들 */}
-            {products.map((product, index) => (
+            {sortedLocalProducts.map((product, index) => (
               <Card key={`local-${product.id}-${index}`} className="group cursor-pointer hover:shadow-lg transition-shadow relative">
                 {index === 0 && (
                   <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
@@ -883,7 +894,7 @@ export default function StorePage({
                   </div>
                 )}
                 <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
-                  우리 스토어
+                  멍토리
                 </div>
                 <div className="relative" onClick={() => onViewProduct(product)}>
                   <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
@@ -894,20 +905,52 @@ export default function StorePage({
                     />
                   </div>
                 </div>
-                <CardContent className="p-4" onClick={() => onViewProduct(product)}>
-                  <h3 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">{product.name}</h3>
-                  <p className="text-lg font-bold text-gray-900">{product.price.toLocaleString()}원</p>
-                  {product.stock === 0 && (
-                    <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
-                      <span className="text-white font-bold">품절</span>
+                <CardContent className="p-4">
+                  <div className="mb-2" onClick={() => onViewProduct(product)}>
+                    <h3 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">{product.name}</h3>
+                    <p className="text-xs text-gray-500 mb-2">멍토리</p>
+                    <div className="mb-2">
+                      <span className="text-lg font-bold text-yellow-600">
+                        {product.price.toLocaleString()}원
+                      </span>
                     </div>
-                  )}
+                    {product.stock === 0 && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                        <span className="text-white font-bold">품절</span>
+                      </div>
+                    )}
+                  </div>
                 </CardContent>
+                <div className="px-4 pb-4">
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewProduct(product);
+                      }}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs"
+                    >
+                      상품 보기
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleAddLocalProductToCart(product);
+                      }}
+                      disabled={product.stock === 0}
+                      className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black text-xs"
+                    >
+                      {product.stock === 0 ? "품절" : "장바구니 추가"}
+                    </Button>
+                  </div>
+                </div>
               </Card>
             ))}
 
             {/* 네이버 상품들 */}
-            {naverProducts.map((naverProduct, index) => (
+            {sortedNaverProducts.map((naverProduct, index) => (
               <Card key={`naver-${naverProduct.id}-${index}`} className="group cursor-pointer hover:shadow-lg transition-shadow relative">
                 <div className="relative">
                   <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
@@ -928,18 +971,13 @@ export default function StorePage({
                 <CardContent className="p-4">
                   <div className="mb-2">
                     <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
-                      {naverProduct.title}
+                      {removeHtmlTags(naverProduct.title)}
                     </h3>
                     <p className="text-xs text-gray-500 mb-2">{naverProduct.mallName}</p>
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="mb-2">
                       <span className="text-lg font-bold text-yellow-600">
                         {naverProduct.price ? naverProduct.price.toLocaleString() : '가격 정보 없음'}원
                       </span>
-                      <div className="flex items-center space-x-1">
-                        <span className="text-yellow-500">⭐</span>
-                        <span className="text-xs text-gray-600">{naverProduct.rating || 0}</span>
-                        <span className="text-xs text-gray-400">({naverProduct.reviewCount || 0})</span>
-                      </div>
                     </div>
                   </div>
                   <div className="flex space-x-2">
@@ -961,7 +999,7 @@ export default function StorePage({
                       }}
                       className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black text-xs"
                     >
-                      카트 추가
+                      장바구니 추가
                     </Button>
                   </div>
                 </CardContent>
@@ -971,7 +1009,7 @@ export default function StorePage({
         )}
 
         {/* 빈 상태 메시지 */}
-        {products.length === 0 && naverProducts.length === 0 && !naverSearchLoading && (
+        {sortedLocalProducts.length === 0 && sortedNaverProducts.length === 0 && !naverSearchLoading && (
           <div className="text-center py-12">
             <p className="text-gray-500 text-lg">검색 결과가 없습니다.</p>
             <p className="text-gray-400 text-sm mt-2">다른 검색어를 입력해보세요.</p>

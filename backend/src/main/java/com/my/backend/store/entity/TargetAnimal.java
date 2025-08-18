@@ -2,9 +2,7 @@ package com.my.backend.store.entity;
 
 
 public enum TargetAnimal {
-    ALL("모두"),
-    DOG("강아지"),
-    CAT("고양이");
+    ALL("강아지/고양이 (모두)");
 
     private final String koreanName;
 
