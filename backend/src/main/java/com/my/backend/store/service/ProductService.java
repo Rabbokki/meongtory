@@ -29,23 +29,17 @@ public class ProductService {
     private final S3Service s3Service;
 
     public List<Product> getAllProducts() {
-        try {
-            List<Product> products = productRepository.findAll();
-            System.out.println("조회된 상품 수: " + products.size());
-            products.forEach(product -> {
-                System.out.println("상품 ID: " + product.getId() + ", 이름: " + product.getName());
-            });
-            if (products.isEmpty()) {
-                System.out.println("상품 데이터가 없어서 테스트 데이터를 생성합니다.");
-                createTestProducts();
-                products = productRepository.findAll();
-            }
-            return products;
-        } catch (Exception e) {
-            System.out.println("상품 목록 조회 중 오류 발생: " + e.getMessage());
-            e.printStackTrace();
-            throw new RuntimeException("상품 목록을 가져오는데 실패했습니다: " + e.getMessage());
+        List<Product> products = productRepository.findAll();
+        System.out.println("조회된 상품 수: " + products.size());
+        products.forEach(product -> {
+            System.out.println("상품 ID: " + product.getId() + ", 이름: " + product.getName());
+        });
+        if (products.isEmpty()) {
+            System.out.println("상품 데이터가 없어서 테스트 데이터를 생성합니다.");
+            createTestProducts();
+            products = productRepository.findAll();
         }
+        return products;
     }
 
     private void createTestProducts() {

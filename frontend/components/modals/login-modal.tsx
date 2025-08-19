@@ -75,7 +75,7 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
 
     try {
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login`,
+        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );

@@ -42,31 +42,31 @@ public class NaverProduct {
     @Column(nullable = false)
     private String productUrl;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String brand;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String maker;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String category1;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String category2;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String category3;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String category4;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Integer reviewCount;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Double rating;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private Integer searchCount;
 
     @Column(nullable = false)

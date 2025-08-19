@@ -5,3 +5,4 @@ public enum ProductSource {
     NAVER,         // 네이버 쇼핑 상품
     AI_RECOMMENDED // AI 추천 상품
 }
+

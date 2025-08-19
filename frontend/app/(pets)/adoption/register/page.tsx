@@ -200,7 +200,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
       try {
         // REG005 -> 5로 변환
         const petId = parseInt(animalId.replace('REG', ''))
-        await axios.delete(`${process.env.NEXT_PUBLIC_API_URL}/api/pets/${petId}`)
+        await axios.delete(`${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/pets/${petId}`)
         setAnimalRecords(prev => prev.filter(record => record.id !== animalId))
         toast({
           title: "성공",
@@ -228,7 +228,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
     try {
       const backendUrl = getBackendUrl()
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/story/generate-background-story`, 
+        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/story/generate-background-story`, 
         {
         petName: newAnimal.name,
         breed: newAnimal.breed,

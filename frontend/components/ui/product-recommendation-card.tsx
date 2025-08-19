@@ -2,11 +2,13 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './card';
 import { Button } from './button';
 import { Badge } from './badge';
-import { ShoppingCart, Heart } from 'lucide-react';
+import { ShoppingCart } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface ProductRecommendationCardProps {
   product: {
-    id: number;
+    id?: number;
+    productId?: number;
     name: string;
     price: number;
     imageUrl: string;
@@ -14,16 +16,27 @@ interface ProductRecommendationCardProps {
     recommendationReason: string;
   };
   onAddToCart?: (productId: number) => void;
-  onAddToWishlist?: (productId: number) => void;
 }
 
 export function ProductRecommendationCard({
   product,
-  onAddToCart,
-  onAddToWishlist
+  onAddToCart
 }: ProductRecommendationCardProps) {
+  const router = useRouter();
+  
+  const handleCardClick = () => {
+    const productId = product.id || product.productId;
+    if (productId) {
+      // 모든 상품을 동일한 라우트로 이동 (네이버 상품도 일반 상품과 동일하게 처리)
+      router.push(`/store/${productId}`);
+    }
+  };
+
   return (
-    <Card className="w-full max-w-sm hover:shadow-lg transition-shadow duration-200">
+    <Card 
+      className="w-full max-w-sm hover:shadow-lg transition-shadow duration-200 cursor-pointer"
+      onClick={handleCardClick}
+    >
       <CardHeader className="p-4 pb-2">
         <div className="relative">
           <img
@@ -47,32 +60,28 @@ export function ProductRecommendationCard({
           </p>
         </div>
 
-        <div className="mb-4">
-          <p className="text-sm text-muted-foreground mb-2">
-            <span className="font-medium">추천 이유:</span>
-          </p>
-          <p className="text-sm text-gray-700 line-clamp-3">
-            {product.recommendationReason}
-          </p>
-        </div>
+        {product.recommendationReason && (
+          <div className="mb-4">
+            <p className="text-sm text-muted-foreground mb-2">
+              <span className="font-medium">추천 이유:</span>
+            </p>
+            <p className="text-sm text-gray-700 line-clamp-3">
+              {product.recommendationReason}
+            </p>
+          </div>
+        )}
 
-        <div className="flex gap-2">
-          <Button
-            onClick={() => onAddToCart?.(product.id)}
-            className="flex-1"
-            size="sm"
-          >
-            <ShoppingCart className="w-4 h-4 mr-1" />
-            장바구니
-          </Button>
-          <Button
-            onClick={() => onAddToWishlist?.(product.id)}
-            variant="outline"
-            size="sm"
-          >
-            <Heart className="w-4 h-4" />
-          </Button>
-        </div>
+        <Button
+          onClick={(e) => {
+            e.stopPropagation(); // 카드 클릭 이벤트 전파 방지
+            onAddToCart?.(product.id || product.productId || 0);
+          }}
+          className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
+          size="sm"
+        >
+          <ShoppingCart className="w-4 h-4 mr-1" />
+          장바구니
+        </Button>
       </CardContent>
     </Card>
   );

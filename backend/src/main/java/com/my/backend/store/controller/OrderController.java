@@ -66,6 +66,17 @@ public class OrderController {
         System.out.println("Quantity: " + request.getQuantity());
         
         try {
+            // 요청 데이터 검증
+            if (request.getAccountId() == null) {
+                throw new IllegalArgumentException("AccountId는 필수입니다.");
+            }
+            if (request.getNaverProductId() == null) {
+                throw new IllegalArgumentException("NaverProductId는 필수입니다.");
+            }
+            if (request.getQuantity() <= 0) {
+                throw new IllegalArgumentException("Quantity는 0보다 커야 합니다.");
+            }
+            
             OrderResponseDto responseDto = orderService.createNaverProductOrder(
                 request.getAccountId(), 
                 request.getNaverProductId(), 

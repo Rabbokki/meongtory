@@ -39,3 +39,4 @@ public class ProductRecommendationResponseDto {
     private String petBreed;
     private Integer petAge;
 }
+

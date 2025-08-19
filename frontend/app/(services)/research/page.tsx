@@ -11,6 +11,8 @@ import { Camera, Upload, Sparkles, Heart, Video, Smile } from "lucide-react"
 import axios from "axios"
 import { getBackendUrl } from "@/lib/api"
 
+const API_BASE_URL = `${getBackendUrl()}/api`
+
 interface BreedIdentificationResult {
   breed: string
   confidence: number
@@ -118,7 +120,7 @@ export default function DogResearchLabPage() {
       formData.append('image', uploadedFile)
       const backendUrl = getBackendUrl()
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/predict-breed`, 
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/predict-breed`, 
         formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -209,7 +211,7 @@ export default function DogResearchLabPage() {
 
       const backendUrl = getBackendUrl()
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/predict-breeding`, 
+        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/ai/predict-breeding`, 
         formData);
       const result = response.data;
       
@@ -296,7 +298,7 @@ export default function DogResearchLabPage() {
 
       const backendUrl = getBackendUrl()
       const apiResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/ai/analyze-emotion`, 
+        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/ai/analyze-emotion`, 
         formData, {
         headers: {
           'Content-Type': 'multipart/form-data',

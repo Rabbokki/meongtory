@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -194,54 +195,88 @@ public class NaverShoppingService {
      */
     @Transactional
     public Long saveOrUpdateNaverProduct(NaverProductDto naverProductDto) {
-        Optional<NaverProduct> existingProduct = naverProductRepository.findByProductId(naverProductDto.getProductId());
-        
-        if (existingProduct.isPresent()) {
-            // 기존 상품 업데이트
-            NaverProduct product = existingProduct.get();
-            product.setTitle(naverProductDto.getTitle());
-            product.setDescription(naverProductDto.getDescription());
-            product.setPrice(naverProductDto.getPrice());
-            product.setImageUrl(naverProductDto.getImageUrl());
-            product.setMallName(naverProductDto.getMallName());
-            product.setProductUrl(naverProductDto.getProductUrl());
-            product.setBrand(naverProductDto.getBrand());
-            product.setMaker(naverProductDto.getMaker());
-            product.setCategory1(naverProductDto.getCategory1());
-            product.setCategory2(naverProductDto.getCategory2());
-            product.setCategory3(naverProductDto.getCategory3());
-            product.setCategory4(naverProductDto.getCategory4());
-            product.setReviewCount(naverProductDto.getReviewCount());
-            product.setRating(naverProductDto.getRating());
-            product.setSearchCount(naverProductDto.getSearchCount());
+        try {
+            log.info("네이버 상품 저장/업데이트 시작: {}", naverProductDto.getProductId());
+            log.info("받은 데이터: {}", naverProductDto);
             
-            NaverProduct savedProduct = naverProductRepository.save(product);
-            return savedProduct.getId();
-        } else {
-            // 새 상품 생성
-            NaverProduct newProduct = NaverProduct.builder()
-                    .productId(naverProductDto.getProductId())
-                    .title(naverProductDto.getTitle())
-                    .description(naverProductDto.getDescription())
-                    .price(naverProductDto.getPrice())
-                    .imageUrl(naverProductDto.getImageUrl())
-                    .mallName(naverProductDto.getMallName())
-                    .productUrl(naverProductDto.getProductUrl())
-                    .brand(naverProductDto.getBrand())
-                    .maker(naverProductDto.getMaker())
-                    .category1(naverProductDto.getCategory1())
-                    .category2(naverProductDto.getCategory2())
-                    .category3(naverProductDto.getCategory3())
-                    .category4(naverProductDto.getCategory4())
-                    .reviewCount(naverProductDto.getReviewCount())
-                    .rating(naverProductDto.getRating())
-                    .searchCount(naverProductDto.getSearchCount())
-                    .build();
+            // 필수 필드 검증
+            if (naverProductDto.getProductId() == null || naverProductDto.getProductId().trim().isEmpty()) {
+                throw new IllegalArgumentException("productId는 필수입니다.");
+            }
+            if (naverProductDto.getTitle() == null || naverProductDto.getTitle().trim().isEmpty()) {
+                throw new IllegalArgumentException("title은 필수입니다.");
+            }
+            if (naverProductDto.getPrice() == null || naverProductDto.getPrice() <= 0) {
+                throw new IllegalArgumentException("price는 0보다 커야 합니다.");
+            }
             
-            NaverProduct savedProduct = naverProductRepository.save(newProduct);
-            return savedProduct.getId();
+            Optional<NaverProduct> existingProduct = naverProductRepository.findByProductId(naverProductDto.getProductId());
+            
+            if (existingProduct.isPresent()) {
+                // 기존 상품 업데이트
+                log.info("기존 네이버 상품 업데이트: {}", naverProductDto.getProductId());
+                NaverProduct product = existingProduct.get();
+                product.setTitle(naverProductDto.getTitle());
+                product.setDescription(naverProductDto.getDescription());
+                product.setPrice(naverProductDto.getPrice());
+                product.setImageUrl(naverProductDto.getImageUrl());
+                product.setMallName(naverProductDto.getMallName());
+                product.setProductUrl(naverProductDto.getProductUrl());
+                product.setBrand(naverProductDto.getBrand() != null ? naverProductDto.getBrand() : "");
+                product.setMaker(naverProductDto.getMaker() != null ? naverProductDto.getMaker() : "");
+                product.setCategory1(naverProductDto.getCategory1() != null ? naverProductDto.getCategory1() : "");
+                product.setCategory2(naverProductDto.getCategory2() != null ? naverProductDto.getCategory2() : "");
+                product.setCategory3(naverProductDto.getCategory3() != null ? naverProductDto.getCategory3() : "");
+                product.setCategory4(naverProductDto.getCategory4() != null ? naverProductDto.getCategory4() : "");
+                product.setReviewCount(naverProductDto.getReviewCount() != null ? naverProductDto.getReviewCount() : 0);
+                product.setRating(naverProductDto.getRating() != null ? naverProductDto.getRating() : 0.0);
+                product.setSearchCount(naverProductDto.getSearchCount() != null ? naverProductDto.getSearchCount() : 0);
+                
+                NaverProduct savedProduct = naverProductRepository.save(product);
+                log.info("네이버 상품 업데이트 완료: {}", savedProduct.getId());
+                return savedProduct.getId();
+            } else {
+                // 새 상품 생성
+                log.info("새 네이버 상품 생성: {}", naverProductDto.getProductId());
+                NaverProduct newProduct = NaverProduct.builder()
+                        .productId(naverProductDto.getProductId())
+                        .title(naverProductDto.getTitle())
+                        .description(naverProductDto.getDescription())
+                        .price(naverProductDto.getPrice())
+                        .imageUrl(naverProductDto.getImageUrl())
+                        .mallName(naverProductDto.getMallName())
+                        .productUrl(naverProductDto.getProductUrl())
+                        .brand(naverProductDto.getBrand() != null ? naverProductDto.getBrand() : "")
+                        .maker(naverProductDto.getMaker() != null ? naverProductDto.getMaker() : "")
+                        .category1(naverProductDto.getCategory1() != null ? naverProductDto.getCategory1() : "")
+                        .category2(naverProductDto.getCategory2() != null ? naverProductDto.getCategory2() : "")
+                        .category3(naverProductDto.getCategory3() != null ? naverProductDto.getCategory3() : "")
+                        .category4(naverProductDto.getCategory4() != null ? naverProductDto.getCategory4() : "")
+                        .reviewCount(naverProductDto.getReviewCount() != null ? naverProductDto.getReviewCount() : 0)
+                        .rating(naverProductDto.getRating() != null ? naverProductDto.getRating() : 0.0)
+                        .searchCount(naverProductDto.getSearchCount() != null ? naverProductDto.getSearchCount() : 0)
+                        .build();
+                
+                NaverProduct savedProduct = naverProductRepository.save(newProduct);
+                log.info("네이버 상품 생성 완료: {}", savedProduct.getId());
+                return savedProduct.getId();
+            }
+        } catch (Exception e) {
+            log.error("네이버 상품 저장/업데이트 실패: {}", e.getMessage(), e);
+            throw new RuntimeException("네이버 상품 저장에 실패했습니다: " + e.getMessage(), e);
         }
     }
+
+    /**
+     * productId로 네이버 상품 조회
+     */
+    @Transactional(readOnly = true)
+    public NaverProductDto getNaverProductByProductId(String productId) {
+        Optional<NaverProduct> naverProduct = naverProductRepository.findByProductId(productId);
+        return naverProduct.map(NaverProductDto::new).orElse(null);
+    }
+
+
 
     private NaverProduct createNaverProductFromItem(NaverShoppingItemDto item) {
         return NaverProduct.builder()

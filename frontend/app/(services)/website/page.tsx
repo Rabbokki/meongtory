@@ -663,7 +663,7 @@ export default function PetServiceWebsite() {
     try {
       console.log("로그인 시도:", { email })
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/login`,
+        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       )
@@ -740,7 +740,7 @@ export default function PetServiceWebsite() {
       const accessToken = localStorage.getItem("accessToken")
       if (accessToken) {
         await axios.post(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/accounts/logout`,
+          `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/logout`,
           {},
           {
             headers: {

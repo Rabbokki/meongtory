@@ -9,7 +9,7 @@ import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
 import { getBackendUrl } from '@/lib/api';
 
 const API_BASE_URL = `${getBackendUrl()}/api`;
-const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'test_ck_4yKeq5bgrp2mdOw6yOYJ3GX0lzW6';
+const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ;
 console.log("CLIENT_KEY:", CLIENT_KEY);
 
 

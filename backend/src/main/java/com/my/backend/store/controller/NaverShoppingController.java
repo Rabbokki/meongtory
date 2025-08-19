@@ -90,6 +90,23 @@ public class NaverShoppingController {
     }
 
     /**
+     * 네이버 상품 상세 조회
+     */
+    @GetMapping("/products/{productId}")
+    public ResponseEntity<ResponseDto> getNaverProduct(@PathVariable String productId) {
+        try {
+            NaverProductDto product = naverShoppingService.getNaverProductByProductId(productId);
+            if (product == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(ResponseDto.success(product));
+        } catch (Exception e) {
+            log.error("네이버 상품 상세 조회 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ResponseDto.fail("PRODUCT_NOT_FOUND", "네이버 상품을 찾을 수 없습니다: " + e.getMessage()));
+        }
+    }
+
+    /**
      * 인기 네이버 상품 조회
      */
     @GetMapping("/products/popular")
@@ -204,10 +221,30 @@ public class NaverShoppingController {
     @PostMapping("/save")
     public ResponseEntity<ResponseDto> saveNaverProduct(@RequestBody NaverProductDto naverProductDto) {
         try {
+            log.info("네이버 상품 저장 요청 받음: {}", naverProductDto);
+            
+            // 필수 필드 검증
+            if (naverProductDto == null) {
+                return ResponseEntity.badRequest().body(ResponseDto.fail("INVALID_REQUEST", "요청 데이터가 null입니다."));
+            }
+            
+            if (naverProductDto.getProductId() == null || naverProductDto.getProductId().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(ResponseDto.fail("INVALID_PRODUCT_ID", "productId는 필수입니다."));
+            }
+            
+            if (naverProductDto.getTitle() == null || naverProductDto.getTitle().trim().isEmpty()) {
+                return ResponseEntity.badRequest().body(ResponseDto.fail("INVALID_TITLE", "title은 필수입니다."));
+            }
+            
+            if (naverProductDto.getPrice() == null || naverProductDto.getPrice() <= 0) {
+                return ResponseEntity.badRequest().body(ResponseDto.fail("INVALID_PRICE", "price는 0보다 커야 합니다."));
+            }
+            
             Long savedProductId = naverShoppingService.saveOrUpdateNaverProduct(naverProductDto);
+            log.info("네이버 상품 저장 성공: {}", savedProductId);
             return ResponseEntity.ok(ResponseDto.success(savedProductId));
         } catch (Exception e) {
-            log.error("네이버 상품 저장 실패: {}", e.getMessage());
+            log.error("네이버 상품 저장 실패: {}", e.getMessage(), e);
             return ResponseEntity.badRequest().body(ResponseDto.fail("SAVE_FAILED", "네이버 상품 저장에 실패했습니다: " + e.getMessage()));
         }
     }

@@ -1040,31 +1040,7 @@ export default function StorePage({
                     )}
                   </div>
                 </CardContent>
-                <div className="px-4 pb-4">
-                  <div className="flex space-x-2 w-full">
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onViewProduct(product);
-                      }}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs h-8"
-                    >
-                      상품 보기
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddLocalProductToCart(product);
-                      }}
-                      disabled={product.stock === 0}
-                      className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black text-xs h-8"
-                    >
-                      {product.stock === 0 ? "품절" : "장바구니 추가"}
-                    </Button>
-                  </div>
-                </div>
+
               </Card>
             ))}
 
@@ -1111,30 +1087,7 @@ export default function StorePage({
                     </div>
                   </div>
                 </CardContent>
-                <div className="px-4 pb-4">
-                  <div className="flex space-x-2 w-full">
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onViewProduct(naverProduct);
-                      }}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white text-xs h-8"
-                    >
-                      상품 보기
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAddNaverProductToCart(naverProduct);
-                      }}
-                      className="flex-1 bg-yellow-400 hover:bg-yellow-500 text-black text-xs h-8"
-                    >
-                      장바구니 추가
-                    </Button>
-                  </div>
-                </div>
+
               </Card>
             ))}
           </div>

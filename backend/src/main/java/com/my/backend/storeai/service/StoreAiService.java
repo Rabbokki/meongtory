@@ -11,6 +11,8 @@ import com.my.backend.store.dto.NaverProductDto;
 import com.my.backend.store.dto.NaverShoppingSearchRequestDto;
 import com.my.backend.store.entity.TargetAnimal;
 import com.my.backend.store.entity.ProductSource;
+import com.my.backend.store.entity.NaverProduct;
+import com.my.backend.store.repository.NaverProductRepository;
 import com.my.backend.storeai.dto.ProductRecommendationResponseDto;
 import com.my.backend.storeai.enums.RecommendationType;
 import lombok.RequiredArgsConstructor;
@@ -31,32 +33,54 @@ public class StoreAiService {
     private final ProductService productService;
     private final MyPetService myPetService;
     private final NaverShoppingService naverShoppingService;
+    private final NaverProductRepository naverProductRepository;
     private final RestTemplate restTemplate;
     
     // 1. 상품 상세페이지용 추천
     public List<ProductRecommendationResponseDto> getProductRecommendations(
         Long productId, Long accountId, Long myPetId, RecommendationType type) {
         
+        log.info("상품 추천 요청 - productId: {}, accountId: {}, myPetId: {}, type: {}", 
+                productId, accountId, myPetId, type);
+        
         // 1) 현재 상품 정보 조회 (productId가 null이면 null)
         Product currentProduct = null;
         if (productId != null) {
-            currentProduct = productService.getProduct(productId);
+            try {
+                currentProduct = productService.getProduct(productId);
+                log.info("현재 상품 조회 성공: {}", currentProduct != null ? currentProduct.getName() : "null");
+            } catch (Exception e) {
+                log.error("상품 조회 실패: {}", e.getMessage());
+            }
         }
         
         // 2) 사용자 펫 정보 조회
-        MyPetListResponseDto myPetsResponse = myPetService.getMyPets(accountId);
-        List<MyPet> userPets = myPetsResponse.getMyPets().stream()
-            .map(dto -> {
-                MyPet pet = new MyPet();
-                pet.setMyPetId(dto.getMyPetId());
-                pet.setName(dto.getName());
-                pet.setBreed(dto.getBreed());
-                pet.setAge(dto.getAge());
-                pet.setType(dto.getType());
-                return pet;
-            })
-            .collect(Collectors.toList());
-        MyPet selectedPet = getSelectedPet(userPets, myPetId);
+        MyPetListResponseDto myPetsResponse = null;
+        List<MyPet> userPets = new ArrayList<>();
+        MyPet selectedPet = null;
+        
+        try {
+            myPetsResponse = myPetService.getMyPets(accountId);
+            log.info("펫 정보 조회 성공 - 펫 개수: {}", myPetsResponse.getMyPets().size());
+            
+            userPets = myPetsResponse.getMyPets().stream()
+                .map(dto -> MyPet.builder()
+                    .myPetId(dto.getMyPetId())
+                    .name(dto.getName())
+                    .breed(dto.getBreed())
+                    .age(dto.getAge())
+                    .type(dto.getType())
+                    .build())
+                .collect(Collectors.toList());
+            
+            selectedPet = getSelectedPet(userPets, myPetId);
+            log.info("선택된 펫: {}", selectedPet != null ? 
+                    String.format("ID=%d, 이름=%s, 품종=%s, 나이=%d", 
+                    selectedPet.getMyPetId(), selectedPet.getName(), selectedPet.getBreed(), selectedPet.getAge()) : "null");
+            
+        } catch (Exception e) {
+            log.error("펫 정보 조회 실패: {}", e.getMessage());
+        }
         
         // 3) AI 추천 시스템 호출
         String aiRecommendation = callAiRecommendationService(currentProduct, selectedPet, type);
@@ -124,18 +148,31 @@ public class StoreAiService {
         String aiServerUrl = "http://ai:9000/storeai/recommend";
         
         Map<String, Object> requestData = new HashMap<>();
-        requestData.put("age", pet != null ? pet.getAge() : null);
-        requestData.put("breed", pet != null ? pet.getBreed() : null);
-        requestData.put("petType", pet != null ? pet.getType().toLowerCase() : "dog");
+        
+        // 펫 정보가 없으면 AI 서버 호출을 건너뛰고 기본 메시지 반환
+        if (pet == null) {
+            log.warn("펫 정보가 없어 AI 서버 호출을 건너뜁니다.");
+            return "펫 정보를 등록하면 더 정확한 추천을 받을 수 있습니다.";
+        }
+        
+        // AI 서버에서 필수 파라미터로 요구하는 age와 breed에 기본값 제공
+        requestData.put("age", pet.getAge() != null ? pet.getAge() : 3); // 기본 나이 3살
+        requestData.put("breed", pet.getBreed() != null && !pet.getBreed().trim().isEmpty() ? pet.getBreed() : "믹스견"); // 기본 품종 믹스견
+        requestData.put("petType", pet.getType() != null ? pet.getType().toLowerCase() : "dog");
         requestData.put("productCategory", product != null ? product.getCategory().toString() : null);
         requestData.put("productName", product != null ? product.getName() : null);
         requestData.put("recommendationType", type.toString());
         
+        log.info("AI 서버 호출 요청 데이터: {}", requestData);
+        
         try {
+            log.info("AI 서버 호출 시작: {}", aiServerUrl);
             ResponseEntity<String> response = restTemplate.postForEntity(aiServerUrl, requestData, String.class);
+            log.info("AI 서버 응답 상태: {}, 응답: {}", response.getStatusCode(), response.getBody());
             return response.getBody();
         } catch (Exception e) {
-            log.error("AI 서버 호출 실패: {}", e.getMessage());
+            log.error("AI 서버 호출 실패: {}", e.getMessage(), e);
+            // AI 서버 호출 실패 시에도 기본 추천은 계속 진행
             return "AI 추천을 생성할 수 없습니다.";
         }
     }
@@ -355,27 +392,34 @@ public class StoreAiService {
         List<Product> products, MyPet pet, String aiSuggestion, RecommendationType type) {
         
         return products.stream()
-            .map(product -> ProductRecommendationResponseDto.builder()
-                .productId(product.getId())
-                .name(product.getName())
-                .description(product.getDescription())
-                .price(product.getPrice())
-                .imageUrl(product.getImageUrl())
-                .category(product.getCategory())
-                .targetAnimal(product.getTargetAnimal())
-                .source(product.getSource())
-                .externalProductUrl(product.getExternalProductUrl())
-                .externalMallName(product.getExternalMallName())
-                .recommendationReason(generateRecommendationReason(product, pet, type))
-                .aiExplanation(aiSuggestion)
-                .matchScore(calculateMatchScore(product, pet))
-                .recommendationType(type)
-                .isAiGenerated(true)
-                .myPetId(pet != null ? pet.getMyPetId() : null)
-                .petName(pet != null ? pet.getName() : null)
-                .petBreed(pet != null ? pet.getBreed() : null)
-                .petAge(pet != null ? pet.getAge() : null)
-                .build())
+            .map(product -> {
+                // 네이버 상품의 경우 externalProductId를 productId로 사용
+                Long productId = product.getSource() == ProductSource.NAVER && product.getExternalProductId() != null
+                    ? Long.parseLong(product.getExternalProductId())
+                    : product.getId();
+                
+                return ProductRecommendationResponseDto.builder()
+                    .productId(productId)
+                    .name(product.getName())
+                    .description(product.getDescription())
+                    .price(product.getPrice())
+                    .imageUrl(product.getImageUrl())
+                    .category(product.getCategory())
+                    .targetAnimal(product.getTargetAnimal())
+                    .source(product.getSource())
+                    .externalProductUrl(product.getExternalProductUrl())
+                    .externalMallName(product.getExternalMallName())
+                    .recommendationReason(generateRecommendationReason(product, pet, type))
+                    .aiExplanation(aiSuggestion)
+                    .matchScore(calculateMatchScore(product, pet))
+                    .recommendationType(type)
+                    .isAiGenerated(true)
+                    .myPetId(pet != null ? pet.getMyPetId() : null)
+                    .petName(pet != null ? pet.getName() : null)
+                    .petBreed(pet != null ? pet.getBreed() : null)
+                    .petAge(pet != null ? pet.getAge() : null)
+                    .build();
+            })
             .collect(Collectors.toList());
     }
     
@@ -398,8 +442,12 @@ public class StoreAiService {
             var naverResponse = naverShoppingService.searchProducts(searchRequest);
             
             if (naverResponse != null && naverResponse.getItems() != null) {
-                // 네이버 상품을 Product 엔티티로 변환
+                // 네이버 상품을 Product 엔티티로 변환하고 DB에 저장
                 for (var item : naverResponse.getItems()) {
+                    // 먼저 네이버 상품을 DB에 저장
+                    NaverProduct savedNaverProduct = saveNaverProductToDb(item);
+                    
+                    // Product 엔티티로 변환
                     Product product = Product.builder()
                         .name(item.getTitle())
                         .description(item.getTitle())
@@ -408,6 +456,7 @@ public class StoreAiService {
                         .category(Category.용품) // 기본값
                         .targetAnimal(TargetAnimal.ALL)
                         .source(ProductSource.NAVER)
+                        .externalProductId(item.getProductId()) // 네이버 상품 ID를 externalProductId로 저장
                         .externalProductUrl(item.getLink())
                         .externalMallName(item.getMallName())
                         .build();
@@ -454,7 +503,49 @@ public class StoreAiService {
         return keyword.toString();
     }
     
-    // 18. 가격 파싱
+    // 18. 네이버 상품을 DB에 저장
+    private NaverProduct saveNaverProductToDb(com.my.backend.store.dto.NaverShoppingItemDto item) {
+        try {
+            // 이미 존재하는지 확인
+            Optional<NaverProduct> existingProduct = naverProductRepository.findByProductId(item.getProductId());
+            
+            if (existingProduct.isPresent()) {
+                log.info("네이버 상품이 이미 DB에 존재합니다: {}", item.getProductId());
+                return existingProduct.get();
+            }
+            
+            // 새 네이버 상품 생성
+            NaverProduct naverProduct = NaverProduct.builder()
+                .productId(item.getProductId())
+                .title(item.getTitle())
+                .description(item.getTitle())
+                .price(parsePrice(item.getLprice()))
+                .imageUrl(item.getImage())
+                .mallName(item.getMallName())
+                .productUrl(item.getLink())
+                .brand(item.getBrand() != null ? item.getBrand() : "")
+                .maker(item.getMaker() != null ? item.getMaker() : "")
+                .category1(item.getCategory1() != null ? item.getCategory1() : "")
+                .category2(item.getCategory2() != null ? item.getCategory2() : "")
+                .category3(item.getCategory3() != null ? item.getCategory3() : "")
+                .category4(item.getCategory4() != null ? item.getCategory4() : "")
+                .reviewCount(parseInteger(item.getReviewCount()))
+                .rating(parseDouble(item.getRating()))
+                .searchCount(parseInteger(item.getSearchCount()))
+                .build();
+            
+            NaverProduct savedProduct = naverProductRepository.save(naverProduct);
+            log.info("네이버 상품을 DB에 저장했습니다: {}", savedProduct.getProductId());
+            return savedProduct;
+            
+        } catch (Exception e) {
+            log.error("네이버 상품 DB 저장 실패: {}", e.getMessage());
+            // 저장 실패해도 Product 엔티티는 생성할 수 있도록 null 반환
+            return null;
+        }
+    }
+    
+    // 19. 가격 파싱
     private Long parsePrice(String priceStr) {
         try {
             return Long.parseLong(priceStr.replaceAll("[^0-9]", ""));
@@ -463,7 +554,25 @@ public class StoreAiService {
         }
     }
     
-    // 19. 추천 이유 생성
+    // 20. 정수 파싱
+    private Integer parseInteger(String str) {
+        try {
+            return Integer.parseInt(str.replaceAll("[^0-9]", ""));
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+    
+    // 21. 실수 파싱
+    private Double parseDouble(String str) {
+        try {
+            return Double.parseDouble(str);
+        } catch (Exception e) {
+            return 0.0;
+        }
+    }
+    
+    // 22. 추천 이유 생성
     private String generateRecommendationReason(Product product, MyPet pet, RecommendationType type) {
         if (pet == null) {
             return product.getName() + "과 관련된 상품입니다.";

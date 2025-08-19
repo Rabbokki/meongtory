@@ -96,7 +96,7 @@ export default function CartPage({
       <PaymentPage
         items={paymentItems.map(item => ({
           id: item.product?.id || item.id, // 실제 상품 ID 사용
-          name: item.name,
+          name: item.name.replace(/<[^>]*>/g, ''), // HTML 태그 제거
           price: item.price,
           quantity: item.quantity,
           image: item.image,
@@ -170,7 +170,7 @@ export default function CartPage({
                   </div>
                   <CardContent className="p-4">
                     <p className="text-xs text-gray-500 mb-1">{item.brand}</p>
-                    <h3 className="font-medium text-sm mb-2 line-clamp-2 h-10">{item.name}</h3>
+                    <h3 className="font-medium text-sm mb-2 line-clamp-2 h-10">{item.name.replace(/<[^>]*>/g, '')}</h3>
                     <div className="mb-3">
                       <p className="text-sm text-gray-500">단가: {item.price.toLocaleString()}원</p>
                       <p className="font-bold text-lg text-yellow-600">

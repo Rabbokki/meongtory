@@ -286,77 +286,85 @@ public class OrderService {
      */
     @Transactional
     public OrderResponseDto createNaverProductOrder(Long accountId, Long naverProductId, int quantity) {
-        System.out.println("=== 네이버 상품 주문 생성 요청 ===");
-        System.out.println("AccountId: " + accountId);
-        System.out.println("NaverProductId: " + naverProductId);
-        System.out.println("Quantity: " + quantity);
-        
-        // 주문자 조회
-        Account account = accountRepository.findById(accountId)
-                .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
-        System.out.println("찾은 계정: " + account.getEmail() + " (ID: " + account.getId() + ")");
-
-        // 네이버 상품 조회
-        NaverProduct naverProduct = naverProductRepository.findById(naverProductId)
-                .orElseThrow(() -> new IllegalArgumentException("NaverProduct not found: " + naverProductId));
-        System.out.println("찾은 네이버 상품: " + naverProduct.getTitle() + " (ID: " + naverProduct.getId() + ", 가격: " + naverProduct.getPrice() + ")");
-
-        // 중복 주문 방지: 최근 10초 내에 같은 사용자가 같은 네이버 상품에 대해 주문한 경우 기존 주문 반환
-        LocalDateTime tenSecondsAgo = LocalDateTime.now().minusSeconds(10);
-        List<Order> recentOrders = orderRepository.findByAccountIdAndNaverProductIdAndCreatedAtAfter(
-                accountId, 
-                naverProductId, 
-                tenSecondsAgo
-        );
-        
-        if (!recentOrders.isEmpty()) {
-            Order existingOrder = recentOrders.get(0);
-            System.out.println("중복 주문 방지: 기존 주문 반환 - " + existingOrder.getMerchantOrderId());
-            return mapToResponseDto(existingOrder);
-        }
-
-        // 금액 계산
-        long amount = (long) naverProduct.getPrice() * quantity;
-        System.out.println("계산된 금액: " + amount);
-
-        // merchantOrderId 자동 생성
-        String merchantOrderId = generateMerchantOrderId();
-        System.out.println("생성된 주문 ID: " + merchantOrderId);
-
-        // 주문 생성
-        Order order = Order.builder()
-                .merchantOrderId(merchantOrderId)
-                .amount(amount)
-                .status(OrderStatus.CREATED)
-                .createdAt(LocalDateTime.now())
-                .quantity(quantity)
-                .account(account)
-                .naverProduct(naverProduct)
-                .imageUrl(naverProduct.getImageUrl())
-                .build();
-
-        Order saved = orderRepository.save(order);
-        System.out.println("네이버 상품 주문 저장 완료: " + saved.getId());
-        
-        // 장바구니에서 해당 네이버 상품 삭제
         try {
-            List<Cart> cartItems = cartRepository.findByAccount_Id(accountId);
-            List<Cart> itemsToDelete = cartItems.stream()
-                .filter(cart -> cart.getNaverProduct() != null && cart.getNaverProduct().getId().equals(naverProductId))
-                .collect(Collectors.toList());
+            System.out.println("=== 네이버 상품 주문 생성 요청 ===");
+            System.out.println("AccountId: " + accountId);
+            System.out.println("NaverProductId: " + naverProductId);
+            System.out.println("Quantity: " + quantity);
             
-            if (!itemsToDelete.isEmpty()) {
-                cartRepository.deleteAll(itemsToDelete);
-                System.out.println("장바구니에서 네이버 상품 삭제 완료: " + itemsToDelete.size() + "개 항목");
+            // 주문자 조회
+            Account account = accountRepository.findById(accountId)
+                    .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountId));
+            System.out.println("찾은 계정: " + account.getEmail() + " (ID: " + account.getId() + ")");
+
+            // 네이버 상품 조회
+            NaverProduct naverProduct = naverProductRepository.findById(naverProductId)
+                    .orElseThrow(() -> new IllegalArgumentException("NaverProduct not found: " + naverProductId));
+            System.out.println("찾은 네이버 상품: " + naverProduct.getTitle() + " (ID: " + naverProduct.getId() + ", 가격: " + naverProduct.getPrice() + ")");
+
+            // 중복 주문 방지: 최근 10초 내에 같은 사용자가 같은 네이버 상품에 대해 주문한 경우 기존 주문 반환
+            LocalDateTime tenSecondsAgo = LocalDateTime.now().minusSeconds(10);
+            List<Order> recentOrders = orderRepository.findByAccountIdAndNaverProductIdAndCreatedAtAfter(
+                    accountId, 
+                    naverProductId, 
+                    tenSecondsAgo
+            );
+            
+            if (!recentOrders.isEmpty()) {
+                Order existingOrder = recentOrders.get(0);
+                System.out.println("중복 주문 방지: 기존 주문 반환 - " + existingOrder.getMerchantOrderId());
+                return mapToResponseDto(existingOrder);
             }
+
+            // 금액 계산
+            long amount = (long) naverProduct.getPrice() * quantity;
+            System.out.println("계산된 금액: " + amount);
+
+            // merchantOrderId 자동 생성
+            String merchantOrderId = generateMerchantOrderId();
+            System.out.println("생성된 주문 ID: " + merchantOrderId);
+
+            // 주문 생성
+            Order order = Order.builder()
+                    .merchantOrderId(merchantOrderId)
+                    .amount(amount)
+                    .status(OrderStatus.CREATED)
+                    .createdAt(LocalDateTime.now())
+                    .quantity(quantity)
+                    .account(account)
+                    .naverProduct(naverProduct)
+                    .imageUrl(naverProduct.getImageUrl())
+                    .build();
+
+            System.out.println("주문 객체 생성 완료: " + order.getMerchantOrderId());
+
+            Order saved = orderRepository.save(order);
+            System.out.println("네이버 상품 주문 저장 완료: " + saved.getId());
+            
+            // 장바구니에서 해당 네이버 상품 삭제
+            try {
+                List<Cart> cartItems = cartRepository.findByAccount_Id(accountId);
+                List<Cart> itemsToDelete = cartItems.stream()
+                    .filter(cart -> cart.getNaverProduct() != null && cart.getNaverProduct().getId().equals(naverProductId))
+                    .collect(Collectors.toList());
+                
+                if (!itemsToDelete.isEmpty()) {
+                    cartRepository.deleteAll(itemsToDelete);
+                    System.out.println("장바구니에서 네이버 상품 삭제 완료: " + itemsToDelete.size() + "개 항목");
+                }
+            } catch (Exception e) {
+                System.out.println("장바구니 삭제 중 오류 발생: " + e.getMessage());
+                // 장바구니 삭제 실패는 주문 생성에 영향을 주지 않도록 함
+            }
+            
+            System.out.println("================================");
+            
+            return mapToResponseDto(saved);
         } catch (Exception e) {
-            System.out.println("장바구니 삭제 중 오류 발생: " + e.getMessage());
-            // 장바구니 삭제 실패는 주문 생성에 영향을 주지 않도록 함
+            System.out.println("네이버 상품 주문 생성 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
-        
-        System.out.println("================================");
-        
-        return mapToResponseDto(saved);
     }
 
 }

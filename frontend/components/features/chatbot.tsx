@@ -37,8 +37,8 @@ export default function Chatbot() {
       setMessages((prev) => [...prev, userMessage])
 
       try {
-        console.log("NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL);
-        const apiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/chatbot/query`;
+        console.log("NEXT_PUBLIC_BAKCEND_URL:", process.env.NEXT_PUBLIC_BAKCEND_URL);
+        const apiUrl = `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/chatbot/query`;
         console.log("Sending request to:", apiUrl);
         console.log("Request payload:", { query: inputMessage });
         const response = await axios.post(

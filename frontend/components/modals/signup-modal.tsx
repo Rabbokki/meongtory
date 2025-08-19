@@ -69,7 +69,7 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
         petAge,
         petBreeds: petBreed,
       });
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/accounts/register`, {
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/register`, {
         name,
         email,
         password,
