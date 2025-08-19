@@ -29,4 +29,5 @@ public class OrderResponseDto {
     private String productName; // 상품명
     private String imageUrl; // 상품 이미지 URL
     private int quantity;
+    private boolean isNaverProduct; // 네이버 상품 여부
 }

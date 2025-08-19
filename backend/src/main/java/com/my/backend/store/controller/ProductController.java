@@ -18,8 +18,15 @@ public class ProductController {
     private final ProductRepository productRepository;
 
     @GetMapping
-    public List<Product> getAllProducts() {
-        return productService.getAllProducts();
+    public ResponseDto<List<Product>> getAllProducts() {
+        try {
+            List<Product> products = productService.getAllProducts();
+            return ResponseDto.success(products);
+        } catch (Exception e) {
+            System.out.println("상품 목록 조회 실패: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseDto.fail("PRODUCT_FETCH_FAILED", "상품 목록을 가져오는데 실패했습니다: " + e.getMessage());
+        }
     }
 
     @PostMapping

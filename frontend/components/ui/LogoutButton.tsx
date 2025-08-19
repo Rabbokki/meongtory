@@ -17,7 +17,9 @@ export default function LogoutButton({ onLogout }: LogoutButtonProps) {
         throw new Error("로그인 상태가 아닙니다.");
       }
 
+
       await axios.post(`${getBackendUrl()}/api/accounts/logout`, {}, {
+
         headers: {
           "Content-Type": "application/json",
           "Access_Token": accessToken,

@@ -21,6 +21,7 @@ public class Product {
     @Column(name = "product_id")
     private Long id;
 
+
     @Column(nullable = false)
     private String name;
 
@@ -49,45 +50,38 @@ public class Product {
 
     private String registeredBy;
 
-    // 주문 목록 (역방향 연관관계) - 상품 삭제 시 주문은 유지
+    // StoreAI 관련 필드들
+    @Enumerated(EnumType.STRING)
+    @Column(name = "product_source")
+    @Builder.Default
+    private ProductSource source = ProductSource.MONGTORY;
+    
+    @Column(name = "external_product_id")
+    private String externalProductId;
+    
+    @Column(name = "external_product_url")
+    private String externalProductUrl;
+    
+    @Column(name = "external_mall_name")
+    private String externalMallName;
+
     @OneToMany(mappedBy = "product")
     @JsonIgnore
     @Builder.Default
     private List<Order> orders = new ArrayList<>();
 
-    // 문자열을 Category enum으로 변환하는 setter
     public void setCategory(String categoryStr) {
         if (categoryStr != null) {
             try {
                 this.category = Category.valueOf(categoryStr);
             } catch (IllegalArgumentException e) {
-                // 기본값 설정
                 this.category = Category.용품;
             }
         }
     }
 
-    // 문자열을 TargetAnimal enum으로 변환하는 setter
     public void setTargetAnimal(String targetAnimalStr) {
-        if (targetAnimalStr != null) {
-            try {
-                switch (targetAnimalStr.toLowerCase()) {
-                    case "dog":
-                        this.targetAnimal = TargetAnimal.DOG;
-                        break;
-                    case "cat":
-                        this.targetAnimal = TargetAnimal.CAT;
-                        break;
-                    case "all":
-                        this.targetAnimal = TargetAnimal.ALL;
-                        break;
-                    default:
-                        this.targetAnimal = TargetAnimal.ALL;
-                        break;
-                }
-            } catch (Exception e) {
-                this.targetAnimal = TargetAnimal.ALL;
-            }
-        }
+        // 항상 ALL로 설정
+        this.targetAnimal = TargetAnimal.ALL;
     }
 }

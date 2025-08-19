@@ -124,7 +124,7 @@ public class PaymentController {
     }
 
     /**
-     * 결제 승인
+     * 결제 승인 (일반 상품 + 네이버 상품)
      */
     @PostMapping("/confirm")
     public ResponseEntity<?> confirmPayment(
