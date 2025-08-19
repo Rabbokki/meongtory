@@ -44,17 +44,12 @@ export default function AnimalEditModal({
         breed: selectedPet.breed,
         age: selectedPet.age,
         gender: selectedPet.gender,
-        size: selectedPet.size,
         personality: selectedPet.personality,
-        healthStatus: selectedPet.healthStatus,
         description: selectedPet.description,
         location: selectedPet.location,
-        contact: selectedPet.contact,
-        adoptionFee: selectedPet.adoptionFee,
-        isNeutered: selectedPet.isNeutered,
-        isVaccinated: selectedPet.isVaccinated,
+        neutered: selectedPet.neutered,
+        vaccinated: selectedPet.vaccinated,
         specialNeeds: selectedPet.specialNeeds,
-        adoptionStatus: selectedPet.adoptionStatus,
         weight: selectedPet.weight,
         microchipId: selectedPet.microchipId,
         medicalHistory: selectedPet.medicalHistory,
@@ -65,9 +60,12 @@ export default function AnimalEditModal({
         status: selectedPet.status,
         type: selectedPet.type,
       })
-      // 빈 문자열이나 undefined인 이미지는 제외
-      const validImages = (selectedPet.images || []).filter(img => img && img.trim() !== '')
-      setImagePreviews(validImages)
+      
+      // 이미지 처리 - Pet은 imageUrl 사용
+      const validImages = selectedPet.imageUrl ? [selectedPet.imageUrl] : []
+      const filteredImages = validImages.filter((img: string) => img && img.trim() !== '')
+      
+      setImagePreviews(filteredImages)
       setImageFiles([])
       setDeletedImages([]) // 모달이 열릴 때마다 삭제된 이미지 목록 초기화
     }
@@ -78,8 +76,8 @@ export default function AnimalEditModal({
     files.forEach(file => {
       const reader = new FileReader()
       reader.onload = (e) => {
-        setImagePreviews(prev => [...prev, e.target?.result as string])
-        setImageFiles(prev => [...prev, file])
+        setImagePreviews((prev: string[]) => [...prev, e.target?.result as string])
+        setImageFiles((prev: File[]) => [...prev, file])
       }
       reader.readAsDataURL(file)
     })
@@ -90,11 +88,11 @@ export default function AnimalEditModal({
     
     // S3 이미지인 경우 삭제 목록에 추가 (실제 삭제는 저장 시에만)
     if (imageToRemove && imageToRemove.startsWith('https://')) {
-      setDeletedImages(prev => [...prev, imageToRemove])
+      setDeletedImages((prev: string[]) => [...prev, imageToRemove])
     }
     
-    setImageFiles(prev => prev.filter((_, i) => i !== index))
-    setImagePreviews(prev => prev.filter((_, i) => i !== index))
+    setImageFiles((prev: File[]) => prev.filter((_: File, i: number) => i !== index))
+    setImagePreviews((prev: string[]) => prev.filter((_: string, i: number) => i !== index))
   }
 
   const handleGenerateAIStory = async () => {
@@ -128,7 +126,7 @@ export default function AnimalEditModal({
       
       // 백엔드에서 ResponseDto로 래핑해서 보내므로 data 필드에서 추출
       if (result.success && result.data) {
-        setEditAnimal(prev => ({ ...prev, description: result.data.story }))
+        setEditAnimal((prev: any) => ({ ...prev, description: result.data.story }))
       } else {
         throw new Error(result.error?.message || 'AI 스토리 생성에 실패했습니다.')
       }
@@ -187,39 +185,44 @@ export default function AnimalEditModal({
       }
 
       console.log('업로드된 이미지 URLs:', uploadedImageUrls);
-      console.log('선택된 펫의 이미지:', selectedPet.images);
+      console.log('선택된 펫의 이미지:', selectedPet.imageUrl);
       
       const updateData = {
-        name: editAnimal.name,
-        breed: editAnimal.breed,
-        age: parseInt(editAnimal.age?.replace('살', '') || '0'),
-        gender: editAnimal.gender === '수컷' ? 'MALE' : 'FEMALE',
-        weight: editAnimal.weight,
-        location: editAnimal.location,
-        microchipId: editAnimal.microchipId,
-        description: editAnimal.description || "새로 등록된 반려동물입니다.",
-        specialNeeds: editAnimal.specialNeeds || undefined,
-        medicalHistory: editAnimal.medicalHistory,
-        vaccinations: editAnimal.vaccinations,
-        notes: editAnimal.notes,
-        personality: editAnimal.personality || '',
-        rescueStory: editAnimal.rescueStory,
-        aiBackgroundStory: editAnimal.aiBackgroundStory,
-        status: editAnimal.status || '보호중',
-        type: editAnimal.type,
-        neutered: editAnimal.isNeutered,
-        vaccinated: editAnimal.isVaccinated,
+        name: editAnimal.name || selectedPet.name,
+        breed: editAnimal.breed || selectedPet.breed,
+        age: typeof editAnimal.age === 'number' ? editAnimal.age : (editAnimal.age ? parseInt(String(editAnimal.age)) : selectedPet.age),
+        gender: editAnimal.gender || selectedPet.gender,
+        weight: typeof editAnimal.weight === 'number' ? editAnimal.weight : (editAnimal.weight ? parseFloat(String(editAnimal.weight)) : selectedPet.weight),
+        location: editAnimal.location || selectedPet.location,
+        microchipId: editAnimal.microchipId || selectedPet.microchipId,
+        description: editAnimal.description || selectedPet.description || "새로 등록된 반려동물입니다.",
+        specialNeeds: editAnimal.specialNeeds || selectedPet.specialNeeds,
+        medicalHistory: editAnimal.medicalHistory || selectedPet.medicalHistory,
+        vaccinations: editAnimal.vaccinations || selectedPet.vaccinations,
+        notes: editAnimal.notes || selectedPet.notes,
+        personality: editAnimal.personality || selectedPet.personality || '',
+        rescueStory: editAnimal.rescueStory || selectedPet.rescueStory,
+        aiBackgroundStory: editAnimal.aiBackgroundStory || selectedPet.aiBackgroundStory,
+        status: editAnimal.status || selectedPet.status || '보호중',
+        type: editAnimal.type || selectedPet.type,
+        neutered: editAnimal.neutered !== undefined ? editAnimal.neutered : selectedPet.neutered,
+        vaccinated: editAnimal.vaccinated !== undefined ? editAnimal.vaccinated : selectedPet.vaccinated,
         imageUrl: uploadedImageUrls[0] || 
-                 (selectedPet.images && selectedPet.images.length > 0 && !selectedPet.images[0].includes('placeholder') ? selectedPet.images[0] : undefined),
+                 (selectedPet.imageUrl && !selectedPet.imageUrl.includes('placeholder') ? selectedPet.imageUrl : undefined),
       } as any
 
-      const updatedPet = await petApi.updatePet(selectedPet.id, updateData)
+      console.log('전송할 데이터:', updateData)
+      console.log('Pet ID:', selectedPet.petId)
+      console.log('API 호출 시작...')
+      
+      const updatedPet = await petApi.updatePet(selectedPet.petId, updateData)
+      console.log('API 호출 성공:', updatedPet)
       
       // 프론트엔드 상태 업데이트
       const updatedPetForFrontend: Pet = {
         ...selectedPet,
         ...editAnimal,
-        images: uploadedImageUrls.length > 0 ? uploadedImageUrls : selectedPet.images,
+        imageUrl: uploadedImageUrls.length > 0 ? uploadedImageUrls[0] : selectedPet.imageUrl,
       }
       
       onUpdatePet(updatedPetForFrontend)
@@ -229,6 +232,14 @@ export default function AnimalEditModal({
       window.location.reload()
     } catch (error) {
       console.error("동물 정보 수정에 실패했습니다:", error)
+      if (axios.isAxiosError(error)) {
+        console.error("에러 상세 정보:", {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          message: error.message
+        })
+      }
       alert("동물 정보 수정에 실패했습니다.")
     } finally {
       setIsSaving(false)
@@ -277,19 +288,19 @@ export default function AnimalEditModal({
                     id="age"
                     type="number"
                     value={editAnimal.age || ""}
-                    onChange={(e) => setEditAnimal(prev => ({ ...prev, age: e.target.value }))}
+                    onChange={(e) => setEditAnimal(prev => ({ ...prev, age: parseInt(e.target.value) || undefined }))}
                     placeholder="나이"
                   />
                 </div>
                 <div>
                   <Label htmlFor="gender">성별</Label>
-                  <Select value={editAnimal.gender || ""} onValueChange={(value) => setEditAnimal(prev => ({ ...prev, gender: value }))}>
+                  <Select value={editAnimal.gender || ""} onValueChange={(value) => setEditAnimal(prev => ({ ...prev, gender: value as 'MALE' | 'FEMALE' | 'UNKNOWN' }))}>
                     <SelectTrigger>
                       <SelectValue placeholder="성별" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="수컷">수컷</SelectItem>
-                      <SelectItem value="암컷">암컷</SelectItem>
+                      <SelectItem value="MALE">수컷</SelectItem>
+                      <SelectItem value="FEMALE">암컷</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
