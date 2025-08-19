@@ -18,6 +18,12 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // 중복 주문 방지를 위한 메서드
     List<Order> findByAccountIdAndProductIdAndCreatedAtAfter(Long accountId, Long productId, LocalDateTime createdAt);
     
+    // 네이버 상품 중복 주문 방지를 위한 메서드
+    List<Order> findByAccountIdAndNaverProductIdAndCreatedAtAfter(Long accountId, Long naverProductId, LocalDateTime createdAt);
+    
     // 상품 ID로 주문 조회 (상품 삭제 시 사용)
     List<Order> findByProduct_Id(Long productId);
+    
+    // 네이버 상품 ID로 주문 조회 (네이버 상품 삭제 시 사용)
+    List<Order> findByNaverProduct_Id(Long naverProductId);
 }

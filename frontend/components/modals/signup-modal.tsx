@@ -61,6 +61,7 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
     setIsLoading(true);
 
     try {
+
       // PetType 매핑
       const petMapping: { [key: string]: string } = {
         DOG: "강아지",

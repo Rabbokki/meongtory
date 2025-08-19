@@ -73,8 +73,29 @@ public class CartController {
         System.out.println("================================");
         
         Account account = userDetails.getAccount();
-        Cart cart = cartService.addToCart(account.getId(), productId, quantity);
-        return ResponseDto.success(cartService.toDto(cart));
+        
+        // 네이버 상품인지 일반 상품인지 구분
+        // 네이버 상품 ID는 일반적으로 큰 숫자 (예: 5767909253)
+        // 일반 상품 ID는 작은 숫자 (예: 1, 2, 3, ...)
+        if (productId > 1000000) { // 100만 이상이면 네이버 상품으로 간주
+            System.out.println("네이버 상품으로 인식: " + productId);
+            try {
+                Cart cart = cartService.addNaverProductToCart(account.getId(), productId, quantity);
+                return ResponseDto.success(cartService.toDto(cart));
+            } catch (Exception e) {
+                System.out.println("네이버 상품 장바구니 추가 실패: " + e.getMessage());
+                return ResponseDto.fail("네이버 상품 추가 실패", e.getMessage());
+            }
+        } else {
+            System.out.println("일반 상품으로 인식: " + productId);
+            try {
+                Cart cart = cartService.addToCart(account.getId(), productId, quantity);
+                return ResponseDto.success(cartService.toDto(cart));
+            } catch (Exception e) {
+                System.out.println("일반 상품 장바구니 추가 실패: " + e.getMessage());
+                return ResponseDto.fail("상품 추가 실패", e.getMessage());
+            }
+        }
     }
 
     // =======================
