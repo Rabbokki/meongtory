@@ -8,6 +8,7 @@ import axios from 'axios';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
 import { getBackendUrl } from '@/lib/api';
 
+
 const API_BASE_URL = `${getBackendUrl()}/api`;
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ;
 console.log("CLIENT_KEY:", CLIENT_KEY);
@@ -19,6 +20,7 @@ interface PaymentItem {
   price: number;
   quantity: number;
   image: string;
+
   isNaverProduct?: boolean; // 네이버 상품 여부
 }
 

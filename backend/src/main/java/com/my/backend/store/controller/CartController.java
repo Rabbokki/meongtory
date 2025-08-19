@@ -107,7 +107,20 @@ public class CartController {
      * 예: DELETE /api/carts/5
      */
     @DeleteMapping("/{cartId}")
-    public void removeFromCart(@PathVariable Long cartId) {
+    public void removeFromCart(@AuthenticationPrincipal UserDetailsImpl userDetails,
+                              @PathVariable Long cartId) {
+        System.out.println("=== 장바구니 삭제 요청 ===");
+        System.out.println("userDetails: " + (userDetails != null ? "not null" : "null"));
+        
+        if(userDetails == null || userDetails.getAccount() == null) {
+            System.out.println("ERROR: userDetails가 null입니다. 인증이 필요합니다.");
+            throw new RuntimeException("로그인이 필요합니다.");
+        }
+        
+        System.out.println("사용자 ID: " + userDetails.getAccount().getId());
+        System.out.println("삭제할 장바구니 ID: " + cartId);
+        System.out.println("================================");
+        
         cartService.removeFromCart(cartId);
     }
 

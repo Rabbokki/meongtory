@@ -15,15 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns"
 import { formatToKST } from "@/lib/utils"
 import { adoptionRequestApi, userApi } from "@/lib/api"
-import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "@/lib/api/mypet"
+import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "@/lib/mypet"
 import { Edit, X, Plus, Trash2, Camera } from "lucide-react"
 import axios from "axios"
-
-interface User {
-  email: string
-  name: string
-}
-
 import type { MyPet } from "@/types/pets"
 
 interface AdoptionInquiry {
@@ -65,16 +59,8 @@ interface OrderItem {
   ImageUrl: string
 }
 
-interface MyPageProps {
-  currentUser: User | null
-  userPets: MyPet[]
-  userAdoptionInquiries: AdoptionInquiry[]
-  userOrders: OrderItem[]
-  onClose: () => void
-  onRefreshOrders?: () => void
-}
 
-export default function MyPage({ currentUser, userPets, userAdoptionInquiries, userOrders, onClose, onRefreshOrders }: MyPageProps) {
+export default function MyPage() {
   const [activeTab, setActiveTab] = useState("userInfo")
   const [isEditingUserInfo, setIsEditingUserInfo] = useState(false)
   const [userInfo, setUserInfo] = useState<any>(null)
@@ -227,7 +213,6 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
   // 컴포넌트 마운트 시 데이터 가져오기
   useEffect(() => {
     console.log("MyPage 컴포넌트 마운트됨")
-    console.log("currentUser prop:", currentUser)
     console.log("fetchUserInfo 함수 호출 시작")
     fetchUserInfo()
     console.log("fetchAdoptionRequests 함수 호출 시작")
@@ -241,18 +226,16 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
 
   // 주문 내역 탭이 활성화될 때 주문 데이터 새로고침
   useEffect(() => {
-    if (activeTab === "orders" && onRefreshOrders) {
-      onRefreshOrders()
+    if (activeTab === "orders") {
+      fetchOrders()
     }
-  }, [activeTab, onRefreshOrders])
+  }, [activeTab])
 
   // 관리자 페이지에서 주문 상태 변경 시 자동 새로고침
   const handleOrderStatusUpdate = useCallback(() => {
-    if (onRefreshOrders) {
-      console.log('주문 상태 변경 감지 - 마이페이지 주문 내역 새로고침')
-      onRefreshOrders()
-    }
-  }, [onRefreshOrders])
+    console.log('주문 상태 변경 감지 - 마이페이지 주문 내역 새로고침')
+    fetchOrders()
+  }, [])
 
   useEffect(() => {
     window.addEventListener('orderStatusUpdated', handleOrderStatusUpdate)
@@ -273,7 +256,7 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
           <CardContent>
             <h2 className="text-2xl font-bold text-red-600 mb-4">로그인이 필요합니다</h2>
             <p className="text-gray-600 mb-4">마이페이지를 이용하려면 로그인해주세요.</p>
-            <Button onClick={onClose}>홈으로 돌아가기</Button>
+            <Button onClick={() => window.history.back()}>이전 페이지로</Button>
           </CardContent>
         </Card>
       </div>
@@ -283,7 +266,6 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
   const handleUserInfoSave = () => {
     // Here you would typically send the updated info to a backend
     console.log("Updated User Info:", { name: editedName, email: editedEmail })
-    // In a real app, you'd update the currentUser state in the parent component (PetServiceWebsite)
     setIsEditingUserInfo(false)
   }
 
@@ -474,8 +456,8 @@ export default function MyPage({ currentUser, userPets, userAdoptionInquiries, u
             <h1 className="text-3xl font-bold text-gray-900">마이페이지</h1>
             <p className="text-gray-600 mt-2">{userInfo.name}님의 정보</p>
           </div>
-          <Button onClick={onClose} variant="outline">
-            홈으로 돌아가기
+          <Button onClick={() => window.history.back()} variant="outline">
+            이전 페이지로
           </Button>
         </div>
 
