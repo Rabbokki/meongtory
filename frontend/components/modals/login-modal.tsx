@@ -73,7 +73,8 @@ export default function LoginModal({ isOpen, onClose, onSwitchToSignup, onLoginS
 
     setIsLoading(true);
 
-    tr     const response = await axios.post(
+    try {
+      const response = await axios.post(
 
         `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/login`,
 
