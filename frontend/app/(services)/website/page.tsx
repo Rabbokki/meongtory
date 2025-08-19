@@ -216,85 +216,6 @@ export default function PetServiceWebsite() {
     return () => clearTimeout(timeout);
   }, [isLoading]);
 
-  // 로그인 상태 확인 (layout.tsx로 이동했으므로 주석 처리)
-  /*
-  useEffect(() => {
-    let isRefreshing = false;
-    const checkLoginStatus = async () => {
-      if (typeof window === "undefined" || isRefreshing) return;
-      setIsLoading(true);
-      let accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        setIsLoading(false);
-        return;
-      }
-      try {
-        const response = await axios.get("http://localhost:8080/api/accounts/me", {
-          headers: { "Access_Token": accessToken },
-          timeout: 5000,
-        });
-        const { id, email, name, role } = response.data.data;
-        setCurrentUser({ id, email, name });
-        setIsAdmin(role === "ADMIN");
-        setIsLoggedIn(true);
-        console.log("Initial login check successful:", { id, email, name, role });
-      } catch (err: any) {
-        console.error("사용자 정보 조회 실패:", err);
-        if (err.code === "ECONNABORTED" || err.code === "ERR_NETWORK" || !err.response) {
-          console.log("백엔드 서버 연결 실패, 로그아웃 처리");
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          setIsLoggedIn(false);
-          setCurrentUser(null);
-          setIsAdmin(false);
-          setIsLoading(false);
-          return;
-        }
-        if (err.response?.status === 401) {
-          isRefreshing = true;
-          accessToken = await refreshAccessToken();
-          if (accessToken) {
-            try {
-              const response = await axios.get("http://localhost:8080/api/accounts/me", {
-                headers: { "Access_Token": accessToken },
-                timeout: 5000,
-              });
-              const { id, email, name, role } = response.data.data;
-              setCurrentUser({ id, email, name });
-              setIsLoggedIn(true);
-              setIsAdmin(role === "ADMIN");
-              console.log("Retry login check successful:", { id, email, name, role });
-            } catch (retryErr) {
-              console.error("재시도 실패:", retryErr);
-              localStorage.removeItem("accessToken");
-              localStorage.removeItem("refreshToken");
-              setIsLoggedIn(false);
-              setCurrentUser(null);
-              setIsAdmin(false);
-            }
-          } else {
-            localStorage.removeItem("accessToken");
-            localStorage.removeItem("refreshToken");
-            setIsLoggedIn(false);
-            setCurrentUser(null);
-            setIsAdmin(false);
-          }
-        } else {
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          setIsLoggedIn(false);
-          setCurrentUser(null);
-          setIsAdmin(false);
-        }
-      } finally {
-        isRefreshing = false;
-        setIsLoading(false);
-      }
-    };
-    checkLoginStatus();
-  }, []);
-  */
-
   // OAuth 콜백 처리
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1080,7 +1001,7 @@ export default function PetServiceWebsite() {
           />
         );
 
-      case "myPage":
+      case "my":
         return (
           <MyPage
             currentUser={currentUser}
