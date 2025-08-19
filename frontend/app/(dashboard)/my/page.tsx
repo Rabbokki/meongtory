@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { format } from "date-fns"
 import { formatToKST } from "@/lib/utils"
 import { adoptionRequestApi, userApi } from "@/lib/api"
-import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "@/lib/api/mypet"
+import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "@/lib/mypet"
 import { Edit, X, Plus, Trash2, Camera } from "lucide-react"
 import axios from "axios"
 
