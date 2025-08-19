@@ -12,12 +12,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/accounts")
@@ -29,15 +31,16 @@ public class AccountController {
 
     //회원가입
     @PostMapping("/register")
-    public ResponseDto<?> register(@RequestBody @Valid AccountRegisterRequestDto request) {
+    public ResponseEntity<ResponseDto<?>> register(@RequestBody @Valid AccountRegisterRequestDto request) {
         log.info("회원가입 요청 수신: email={}, name={}", request.getEmail(), request.getName());
         try {
             ResponseDto<?> response = accountService.register(request);
-            log.info("회원가입 성공: email={}", request.getEmail());
-            return response;
+            log.info("회원가입 성공: email={}, response={}", request.getEmail(), response);
+            return ResponseEntity.status(HttpStatus.CREATED).body(response); // 201 Created
         } catch (Exception e) {
             log.error("회원가입 실패: email={}, error={}", request.getEmail(), e.getMessage());
-            return ResponseDto.fail("REGISTRATION_FAILED", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(ResponseDto.fail("REGISTRATION_FAILED", e.getMessage()));
         }
     }
 
@@ -68,6 +71,21 @@ public class AccountController {
         String email = userDetails.getUsername();
         return ResponseDto.success(accountService.getUserInfoByEmail(email));
     }
-
-
+    @PostMapping("/refresh")
+    public ResponseDto<?> refreshToken(@RequestBody Map<String, String> request) {
+        log.info("리프레시 토큰 요청 수신");
+        try {
+            String refreshToken = request.get("refreshToken");
+            if (refreshToken == null || refreshToken.isEmpty()) {
+                log.warn("리프레시 토큰이 제공되지 않음");
+                return ResponseDto.fail("INVALID_REFRESH_TOKEN", "리프레시 토큰이 필요합니다.");
+            }
+            TokenDto tokenDto = accountService.refreshAccessToken(refreshToken);
+            log.info("액세스 토큰 갱신 성공");
+            return ResponseDto.success(tokenDto);
+        } catch (Exception e) {
+            log.error("액세스 토큰 갱신 실패: {}", e.getMessage());
+            return ResponseDto.fail("REFRESH_FAILED", e.getMessage());
+        }
+    }
 }

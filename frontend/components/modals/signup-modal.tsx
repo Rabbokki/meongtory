@@ -3,12 +3,13 @@
 import type React from "react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
+import { getBackendUrl } from "@/lib/api";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -31,7 +32,7 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [petType, setPetType] = useState<string | undefined>(undefined);
+  const [petType, setPetType] = useState<string>("");
   const [petAge, setPetAge] = useState("");
   const [petBreed, setPetBreed] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -60,32 +61,43 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
     setIsLoading(true);
 
     try {
-      console.log("회원가입 요청 전송:", {
+
+      // PetType 매핑
+      const petMapping: { [key: string]: string } = {
+        DOG: "강아지",
+        CAT: "고양이",
+      };
+      const petValue = petType ? petMapping[petType] : null;
+
+      const requestData = {
         name,
         email,
         password,
         role: "USER",
-        pet: petType || null, // "강아지" 또는 "고양이"를 그대로 전송
-        petAge,
-        petBreeds: petBreed,
-      });
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/register`, {
-        name,
-        email,
-        password,
-        role: "USER",
-        pet: petType || null, // "강아지" 또는 "고양이"를 그대로 전송
+        pet: petValue,
         petAge: petAge || null,
         petBreeds: petBreed || null,
-      }, {
+      };
+      console.log("회원가입 요청 전송:", {
+        url: `${getBackendUrl()}/api/accounts/register`,
+        data: requestData,
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const response = await axios.post(`${getBackendUrl()}/api/accounts/register`, requestData, {
         headers: {
           "Content-Type": "application/json",
         },
       });
 
-      console.log("회원가입 응답:", response.status, response.data);
+      console.log("회원가입 응답:", {
+        status: response.status,
+        statusText: response.statusText,
+        data: response.data,
+        headers: response.headers,
+      });
 
-      if (response.status === 200 || response.status === 201) {
+      if (response.status >= 200 && response.status < 300) {
         console.log("회원가입 성공:", response.data);
         onSignup({
           name,
@@ -97,20 +109,19 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
         });
         onClose();
       } else {
-        setError(`회원가입 실패: 서버 응답 코드 ${response.status}`);
+        setError(`회원가입 실패: 서버 응답 코드 ${response.status} (${response.statusText})`);
       }
     } catch (err: any) {
-      console.error("회원가입 오류:", err);
+      console.error("회원가입 오류:", {
+        message: err.message,
+        response: err.response ? {
+          status: err.response.status,
+          statusText: err.response.statusText,
+          data: err.response.data,
+        } : null,
+      });
       if (err.response) {
-        if (err.response.status === 400) {
-          setError(err.response.data?.message || "잘못된 요청 데이터입니다. 입력 값을 확인해주세요.");
-        } else if (err.response.status === 401) {
-          setError("인증 오류: 회원가입 요청이 차단되었습니다.");
-        } else if (err.response.status === 302) {
-          setError("회원가입 요청이 리다이렉트되었습니다. 서버 설정을 확인해주세요.");
-        } else {
-          setError(err.response.data?.message || `회원가입 중 오류가 발생했습니다: ${err.response.status}`);
-        }
+        setError(err.response.data?.message || `회원가입 중 오류가 발생했습니다: ${err.response.status}`);
       } else {
         setError("서버와 연결할 수 없습니다: " + err.message);
       }
@@ -205,8 +216,8 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
                   <SelectValue placeholder="반려동물 종류를 선택하세요" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="강아지">강아지</SelectItem>
-                  <SelectItem value="고양이">고양이</SelectItem>
+                  <SelectItem value="DOG">강아지</SelectItem>
+                  <SelectItem value="CAT">고양이</SelectItem>
                 </SelectContent>
               </Select>
             </div>

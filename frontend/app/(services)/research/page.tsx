@@ -211,7 +211,8 @@ export default function DogResearchLabPage() {
 
       const backendUrl = getBackendUrl()
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/ai/predict-breeding`, 
+
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/predict-breeding`, 
         formData);
       const result = response.data;
       
@@ -298,7 +299,8 @@ export default function DogResearchLabPage() {
 
       const backendUrl = getBackendUrl()
       const apiResponse = await axios.post(
-        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/ai/analyze-emotion`, 
+
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/ai/analyze-emotion`, 
         formData, {
         headers: {
           'Content-Type': 'multipart/form-data',

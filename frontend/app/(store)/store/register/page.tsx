@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Upload, X } from "lucide-react"
 import { productApi } from "@/lib/api"
 import Image from "next/image"
+import { useRouter, useSearchParams } from "next/navigation"
 
 interface Product {
   id: number
@@ -34,17 +35,18 @@ interface StoreProductRegistrationPageProps {
   onAddProduct: (product: Product) => void
 }
 
+const categories = ["의류", "장난감", "건강관리", "용품", "간식", "사료"]
 
-
-  const categories = ["의류", "장난감", "건강관리", "용품", "간식", "사료"]
-
-export default function StoreProductRegistrationPage({
+function StoreProductRegistrationPageContent({
   isAdmin = false,
   currentUserId,
   onBack,
   products,
   onAddProduct,
 }: StoreProductRegistrationPageProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const returnUrlParam = searchParams.get("returnUrl")
   const [formData, setFormData] = useState({
     name: "",
     price: "",
@@ -79,8 +81,6 @@ export default function StoreProductRegistrationPage({
     }
   };
 
-
-
   const handleSaveProduct = async () => {
     console.log("=== 상품 등록 시작 ===")
     console.log("Form data:", formData)
@@ -90,8 +90,6 @@ export default function StoreProductRegistrationPage({
       alert("상품명을 입력해주세요.")
       return
     }
-
-  
 
     if (!formData.category) {
       alert("카테고리를 선택해주세요.")
@@ -161,8 +159,12 @@ export default function StoreProductRegistrationPage({
         (window as any).refreshStoreProducts();
       }
 
-      // 스토어 페이지로 돌아가기
-      onBack()
+      // 돌아갈 위치가 있으면 해당 위치로 이동, 없으면 onBack
+      if (returnUrlParam) {
+        router.push(decodeURIComponent(returnUrlParam))
+      } else {
+        onBack()
+      }
     } catch (error) {
       console.error("상품 등록 중 오류:", error)
       console.error('상품 등록 오류:', error);
@@ -172,19 +174,19 @@ export default function StoreProductRegistrationPage({
     }
   }
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <h2 className="text-xl font-semibold mb-2">접근 권한이 없습니다</h2>
-            <p className="text-gray-600 mb-4">관리자만 상품을 등록할 수 있습니다.</p>
-            <Button onClick={onBack}>돌아가기</Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  // if (!isAdmin) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+  //       <Card className="w-full max-w-md">
+  //         <CardContent className="pt-6 text-center">
+  //           <h2 className="text-xl font-semibold mb-2">접근 권한이 없습니다</h2>
+  //           <p className="text-gray-600 mb-4">관리자만 상품을 등록할 수 있습니다.</p>
+  //           <Button onClick={onBack}>돌아가기</Button>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -302,8 +304,6 @@ export default function StoreProductRegistrationPage({
                 />
               </div>
 
-
-
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4">
                 <Button variant="outline" onClick={onBack} className="flex-1 bg-transparent">
@@ -365,5 +365,13 @@ export default function StoreProductRegistrationPage({
         </div>
       </div>
     </div>
+  )
+}
+
+export default function StoreProductRegistrationPage(props: StoreProductRegistrationPageProps) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <StoreProductRegistrationPageContent {...props} />
+    </Suspense>
   )
 }

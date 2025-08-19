@@ -13,6 +13,7 @@ import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-reac
 import { createDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/api/diary"
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
+import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
 
 interface GrowthDiaryWritePageProps {
   onBack: () => void;
@@ -287,7 +288,7 @@ export default function GrowthDiaryWritePage({
           formData.append('audio', recordedBlob, 'recording.webm');
 
           // 백엔드로 직접 전송
-          const response = await fetch('http://localhost:8080/api/diary/voice', {
+          const response = await fetch(`${getBackendUrl()}/api/diary/voice`, {
             method: 'POST',
             headers: {
               'Access_Token': localStorage.getItem('accessToken') || '',

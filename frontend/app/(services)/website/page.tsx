@@ -1,5 +1,4 @@
-"use client"
-
+import { useRouter, usePathname } from "next/navigation";
 import { useState, useEffect, useCallback } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
@@ -35,9 +34,7 @@ import axios from "axios"
 import { Toaster, toast } from "react-hot-toast"
 import { getCurrentKSTDate } from "@/lib/utils"
 
-
 // Types
-
 import type { Pet } from "@/types/pets"
 import type { Product, WishlistItem, CartItem } from "@/types/store"
 import type { Insurance } from "@/types/insurance"
@@ -63,7 +60,7 @@ interface NaverProduct {
   createdAt: string
   updatedAt: string
   relatedProductId?: number
-  link?: string // 네이버 쇼핑 링크 (productUrl과 동일)
+  link?: string
 }
 
 interface DiaryEntry {
@@ -79,8 +76,8 @@ interface DiaryEntry {
   height?: number
   mood: string
   activities: string[]
-  ownerEmail?: string // Added for filtering
-  audioUrl?: string // Added for voice diary
+  ownerEmail?: string
+  audioUrl?: string
 }
 
 interface CommunityPost {
@@ -110,6 +107,76 @@ interface AdoptionInquiry {
   date: string
 }
 
+interface Pet {
+  id: number
+  name: string
+  breed: string
+  age: string
+  gender: string
+  size: string
+  personality: string[]
+  healthStatus: string
+  description: string
+  images: string[]
+  location: string
+  contact: string
+  adoptionFee: number
+  isNeutered: boolean
+  isVaccinated: boolean
+  dateRegistered: string
+  adoptionStatus: string
+  ownerEmail?: string
+}
+
+interface Product {
+  id: number
+  productId: number
+  name: string
+  brand: string
+  price: number
+  image: string
+  category: string
+  description: string
+  tags: string[]
+  stock: number
+  petType: string
+  registrationDate: string
+  registeredBy: string
+}
+
+interface WishlistItem {
+  id: number
+  name: string
+  price: number
+  image: string
+}
+
+interface CartItem {
+  id: number
+  name: string
+  brand: string
+  price: number
+  image: string
+  category: string
+  quantity: number
+  order: number
+  product?: Product
+}
+
+interface Insurance {
+  id: number
+  company: string
+  planName: string
+  monthlyPremium: number
+  coverage: string[]
+  deductible: number
+  maxPayout: number
+  ageLimit: string
+  description: string
+  rating: number
+  isPopular: boolean
+}
+
 interface Comment {
   id: number
   postId: number
@@ -131,327 +198,9 @@ interface OrderItem {
   ImageUrl: string
 }
 
-interface Order {
-  orderId: number
-  userId: number
-  totalPrice: number
-  paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED"
-  orderedAt: string
-}
-
-// AI 계약서 생성 관련 타입들
-interface ContractTemplate {
-  id: number
-  name: string
-  description: string
-  category: string
-  content: string
-  sections: ContractSection[]
-  isDefault: boolean
-  createdAt: string
-  updatedAt: string
-  createdBy: string
-}
-
-interface ContractSection {
-  id: number
-  title: string
-  content: string
-  isRequired: boolean
-  order: number
-  type: "text" | "checkbox" | "date" | "number" | "select"
-  options?: string[] // select 타입일 때 사용
-}
-
-interface ContractGenerationRequest {
-  templateId: number
-  customSections: ContractSection[]
-  removedSections: number[]
-  petInfo?: {
-    name: string
-    breed: string
-    age: string
-    healthStatus: string
-  }
-  userInfo?: {
-    name: string
-    phone: string
-    email: string
-  }
-  additionalInfo?: string
-}
-
-interface ContractGenerationResponse {
-  id: number
-  content: string
-  pdfUrl?: string
-  wordUrl?: string
-  generatedAt: string
-}
-
-interface AISuggestion {
-  id: number
-  suggestion: string
-  type: "section" | "clause" | "template"
-  confidence: number
-}
-
-// TODO: AI 계약서 생성 기능 구현 계획
-/*
-1. 템플릿 관리 기능
-   - 템플릿 등록/수정/삭제/조회
-   - 템플릿 카테고리별 분류 (입양계약서, 분양계약서, 보호계약서 등)
-   - 기본 템플릿과 사용자 커스텀 템플릿 구분
-
-2. AI 추천 기능
-   - ChatGPT OpenAI-4.1 연동
-   - 템플릿 작성 시 AI 추천 말풍선 표시
-   - "이런 건 어떠세요?" 형태의 추천 시스템
-   - 자동 템플릿 생성 버튼
-
-3. 계약서 생성 기능
-   - 템플릿 선택 후 커스터마이징
-   - 섹션 추가/삭제/수정
-   - PDF/Word 다운로드 기능
-   - 생성된 계약서 저장 및 관리
-
-4. UI/UX 구현
-   - 템플릿 선택 페이지
-   - 계약서 편집 페이지
-   - AI 추천 말풍선 컴포넌트
-   - 다운로드 모달
-
-5. 백엔드 API 구현
-   - 템플릿 CRUD API
-   - AI 추천 API
-   - 계약서 생성 API
-   - 파일 다운로드 API
-
-6. 데이터베이스 설계
-   - contract_templates 테이블
-   - contract_sections 테이블
-   - generated_contracts 테이블
-   - ai_suggestions 테이블
-*/
-
-// Axios Interceptor for Debugging and Token Management
-axios.interceptors.request.use(
-  (config) => {
-    // 자동으로 토큰 추가
-    const accessToken = localStorage.getItem("accessToken")
-    const refreshToken = localStorage.getItem("refreshToken")
-    
-    console.log("=== Axios Request Interceptor ===")
-    console.log("URL:", config.url)
-    console.log("Method:", config.method)
-    console.log("Access Token:", accessToken ? "존재함" : "없음")
-    console.log("Refresh Token:", refreshToken ? "존재함" : "없음")
-    
-    if (accessToken) {
-      config.headers["Access_Token"] = accessToken
-      console.log("Access_Token 헤더 설정됨")
-    }
-    if (refreshToken) {
-      config.headers["Refresh_Token"] = refreshToken
-      console.log("Refresh_Token 헤더 설정됨")
-    }
-    
-    console.log("전체 헤더:", config.headers)
-    console.log("================================")
-    
-    return config
-  },
-  (error) => {
-    console.error("Request Error:", error)
-    return Promise.reject(error)
-  }
-)
-
-axios.interceptors.response.use(
-  (response) => {
-    console.log("Response:", response.status, response.data)
-    return response
-  },
-  (error) => {
-    if (error.response) {
-      // 서버가 응답을 반환했지만 에러 상태 코드인 경우
-      console.error("Response Error:", error.response.status, error.response.data)
-    } else if (error.request) {
-      // 요청이 전송되었지만 응답을 받지 못한 경우
-      console.error("Network Error:", "서버에 연결할 수 없습니다")
-    } else {
-      // 요청 설정 중 오류가 발생한 경우
-      console.error("Request Error:", error.message)
-    }
-    return Promise.reject(error)
-  }
-)
-
-// Navigation Header Component
-function NavigationHeader({
-  currentPage,
-  onNavigate,
-  isLoggedIn,
-  isAdmin,
-  onLogin,
-  onLogout,
-  onNavigateToMyPage,
-  onNavigateToDiary, // 성장일기 네비게이션 함수 추가
-}: {
-  currentPage: string
-  onNavigate: (page: string) => void
-  isLoggedIn: boolean
-  isAdmin: boolean
-  onLogin: () => void
-  onLogout: () => void
-  onNavigateToMyPage: () => void
-  onNavigateToDiary: () => void // 성장일기 네비게이션 함수 타입 추가
-}) {
-  console.log("NavigationHeader 렌더링 - isLoggedIn:", isLoggedIn, "isAdmin:", isAdmin)
-  return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <button onClick={() => onNavigate("home")} className="flex items-center space-x-2">
-            <Image src="/KakaoTalk_20250729_160046076.png" alt="멍토리 로고" width={100} height={40} className="h-auto" />
-          </button>
-
-          {/* Navigation Menu */}
-          <nav className="hidden md:flex items-center space-x-8">
-            <button
-              onClick={() => onNavigate("adoption")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "adoption" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              입양
-            </button>
-            <button
-              onClick={() => onNavigate("insurance")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "insurance" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              펫보험
-            </button>
-            <button
-              onClick={() => onNavigateToDiary()}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "diary" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              성장일기
-            </button>
-            <button
-              onClick={() => onNavigate("community")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "community" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              커뮤니티
-            </button>
-            <button
-              onClick={() => onNavigate("store")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "store" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              스토어
-            </button>
-            <button
-              onClick={() => onNavigate("research")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "research" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              강아지 연구소
-            </button>
-
-
-
-            {isLoggedIn && (
-              <button
-                onClick={onNavigateToMyPage}
-                className={`text-sm font-medium transition-colors ${
-                  currentPage === "myPage" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-                }`}
-              >
-                마이페이지
-              </button>
-            )}
-            {isAdmin && (
-              <button
-                onClick={() => onNavigate("admin")}
-                className={`text-sm font-medium transition-colors ${
-                  currentPage === "admin" ? "text-red-600" : "text-red-700 hover:text-red-600"
-                }`}
-              >
-                관리자
-              </button>
-            )}
-          </nav>
-
-          {/* Right side buttons */}
-          <div className="flex items-center space-x-3">
-            {isLoggedIn ? (
-              <>
-            
-                <Button onClick={onLogout} variant="outline" size="sm" className="text-sm bg-transparent">
-                  로그아웃
-                </Button>
-
-              </>
-            ) : (
-              <>
-
-                <Button onClick={onLogin} variant="outline" size="sm" className="text-sm bg-transparent">
-                  <User className="w-4 h-4 mr-1" />
-                  로그인
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </header>
-  )
-}
-
-// Refresh Token Function
-const refreshAccessToken = async () => {
-  try {
-    const refreshToken = localStorage.getItem("refreshToken")
-    if (!refreshToken) throw new Error("No refresh token available")
-
-    const response = await axios.post(
-      "http://localhost:8080/api/accounts/refresh",
-      { refreshToken },
-      { headers: { "Content-Type": "application/json" } }
-    )
-
-    const { accessToken } = response.data.data
-    localStorage.setItem("accessToken", accessToken)
-    console.log("Token refreshed successfully")
-    return accessToken
-  } catch (err) {
-    console.error("토큰 갱신 실패:", err)
-    return null
-  }
-}
-
 export default function PetServiceWebsite() {
   // State management
   const [currentPage, setCurrentPage] = useState("home")
-
-  // 카트 페이지로 이동할 때 카트 데이터를 다시 불러오는 함수
-  const setCurrentPageWithCartRefresh = (page: string) => {
-    setCurrentPage(page);
-    if (page === "cart" && isLoggedIn) {
-      console.log("카트 페이지로 이동, 카트 데이터 새로고침");
-      fetchCartItems();
-    }
-  };
   const [showLoginModal, setShowLoginModal] = useState(false)
   const [showSignupModal, setShowSignupModal] = useState(false)
   const [showPasswordRecovery, setShowPasswordRecovery] = useState(false)
@@ -472,175 +221,80 @@ export default function PetServiceWebsite() {
   const [cart, setCart] = useState<CartItem[]>([])
   const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  
-  // 로딩 타임아웃 설정 (10초 후 자동 해제)
+  const [pets, setPets] = useState<Pet[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [insurances, setInsurances] = useState<Insurance[]>([])
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
+  const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([])
+  const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>([])
+  const [comments, setComments] = useState<Comment[]>([])
+  const [orders, setOrders] = useState<OrderItem[]>([])
+  const router = useRouter()
+  const pathname = usePathname()
+
+  // 카트 페이지로 이동할 때 카트 데이터를 다시 불러오는 함수
+  const setCurrentPageWithCartRefresh = (page: string) => {
+    setCurrentPage(page)
+    if (page === "cart" && isLoggedIn) {
+      console.log("카트 페이지로 이동, 카트 데이터 새로고침")
+      fetchCartItems()
+    }
+  }
+
+  // 현재 페이지 결정
+  useEffect(() => {
+    const getCurrentPage = () => {
+      if (pathname === "/") return "home"
+      const path = pathname.split("/")[2] || pathname.split("/")[1]
+      return path || "home"
+    }
+    setCurrentPage(getCurrentPage())
+  }, [pathname])
+
+  // 로딩 타임아웃
   useEffect(() => {
     const timeout = setTimeout(() => {
       if (isLoading) {
         console.log("로딩 타임아웃, 강제 해제")
         setIsLoading(false)
+        toast.error("서버 응답이 느립니다. 다시 시도해주세요.", { duration: 5000 })
       }
-    }, 10000)
-    
+    }, 3000)
     return () => clearTimeout(timeout)
   }, [isLoading])
-  const [isLoginFromDiary, setIsLoginFromDiary] = useState(false) // 성장일기에서 로그인 시도 여부
 
-  // currentPage 상태 변경 감지
-  useEffect(() => {
-    console.log("currentPage 상태 변경됨:", currentPage)
-  }, [currentPage])
-
-  // 사용자 변경 시 장바구니 초기화
-  useEffect(() => {
-    if (currentUser?.id && isLoggedIn) {
-      console.log("사용자 변경됨, 장바구니 초기화:", currentUser.id)
-      setCart([])
-      // 새 사용자의 장바구니 가져오기
-      fetchCartItems()
-    }
-  }, [currentUser?.id, isLoggedIn])
-
-  // Check initial login state and fetch user info
-  useEffect(() => {
-    const checkLoginStatus = async () => {
-      if (typeof window === "undefined") return
-
-      let accessToken = localStorage.getItem("accessToken")
-      if (!accessToken) {
-        setIsLoading(false)
-        // 로그인되지 않은 경우 장바구니 초기화
-        setCart([])
-        return
-      }
-
-      try {
-        const response = await axios.get("http://localhost:8080/api/accounts/me", {
-          headers: { "Access_Token": accessToken },
-          timeout: 5000, // 5초 타임아웃 추가
-        })
-        const { id, email, name, role } = response.data.data
-        setCurrentUser({ id, email, name })
-        setIsAdmin(role === "ADMIN")
-        setIsLoggedIn(true)
-        console.log("Initial login check successful:", { id, email, name, role })
-        
-        // 로그인 성공 시 장바구니 초기화 후 해당 사용자의 장바구니 가져오기
-        setCart([])
-        await fetchCartItems()
-      } catch (err: any) {
-        console.error("사용자 정보 조회 실패:", err)
-        
-        // 네트워크 오류나 서버 연결 실패 시 로그아웃 처리
-        if (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || !err.response) {
-          console.log("백엔드 서버 연결 실패, 로그아웃 처리")
-          localStorage.removeItem("accessToken")
-          localStorage.removeItem("refreshToken")
-          setIsLoggedIn(false)
-          setCurrentUser(null)
-          setIsAdmin(false)
-          setIsLoading(false)
-          return
-        }
-        
-        if (err.response?.status === 401) {
-          accessToken = await refreshAccessToken()
-          if (accessToken) {
-            try {
-              const response = await axios.get("http://localhost:8080/api/accounts/me", {
-                headers: { "Access_Token": accessToken },
-                timeout: 5000,
-              })
-              const { id, email, name, role } = response.data.data
-              setCurrentUser({ id, email, name })
-              setIsLoggedIn(true)
-              setIsAdmin(role === "ADMIN")
-              console.log("Retry login check successful:", { id, email, name, role })
-            } catch (retryErr) {
-              console.error("재시도 실패:", retryErr)
-              localStorage.removeItem("accessToken")
-              localStorage.removeItem("refreshToken")
-              setIsLoggedIn(false)
-              setCurrentUser(null)
-              setIsAdmin(false)
-            }
-          } else {
-            localStorage.removeItem("accessToken")
-            localStorage.removeItem("refreshToken")
-            setIsLoggedIn(false)
-            setCurrentUser(null)
-            setIsAdmin(false)
-          }
-        } else {
-          localStorage.removeItem("accessToken")
-          localStorage.removeItem("refreshToken")
-          setIsLoggedIn(false)
-          setCurrentUser(null)
-          setIsAdmin(false)
-        }
-      }
-      setIsLoading(false)
-    }
-
-    checkLoginStatus()
-  }, [])
-
-  // URL 파라미터를 읽어서 페이지 설정
+  // OAuth 콜백 처리
   useEffect(() => {
     if (typeof window === "undefined") return
-
-    const urlParams = new URLSearchParams(window.location.search)
-    const page = urlParams.get("page")
-    
-    if (page && ["home", "adoption", "insurance", "diary", "community", "store", "myPage"].includes(page)) {
-      setCurrentPage(page)
-    }
-  }, [])
-
-  // OAuth callback handling
-  useEffect(() => {
-    if (typeof window === "undefined") return
-
     const urlParams = new URLSearchParams(window.location.search)
     const success = urlParams.get("success")
     const error = urlParams.get("error")
     const accessToken = urlParams.get("accessToken")
     const refreshToken = urlParams.get("refreshToken")
-
     if (success && accessToken && refreshToken) {
       localStorage.setItem("accessToken", accessToken)
       localStorage.setItem("refreshToken", refreshToken)
-
       const fetchUserInfo = async () => {
         try {
-          console.log("OAuth 사용자 정보 조회 시작...")
           const response = await axios.get("http://localhost:8080/api/accounts/me")
-          console.log("OAuth 사용자 정보 응답:", response)
           const userData = response.data?.data
-          if (!userData) {
-            throw new Error("사용자 데이터가 없습니다")
-          }
+          if (!userData) throw new Error("사용자 데이터가 없습니다")
           const { id, email, name, role } = userData
           setCurrentUser({ id, email, name })
           setIsLoggedIn(true)
           setIsAdmin(role === "ADMIN")
           toast.success("OAuth 로그인 되었습니다", { duration: 5000 })
-          console.log("OAuth login successful:", { id, email, name, role })
+          router.push("/")
         } catch (err: any) {
           console.error("사용자 정보 조회 실패:", err)
-          
           let errorMessage = "사용자 정보 조회 실패"
           if (err.response) {
-            // 서버 응답이 있는 경우
             errorMessage += ": " + (err.response.data?.message || err.response.statusText)
           } else if (err.request) {
-            // 네트워크 오류
             errorMessage += ": 서버에 연결할 수 없습니다"
           } else {
-            // 기타 오류
             errorMessage += ": " + err.message
           }
-          
           toast.error(errorMessage, { duration: 5000 })
           localStorage.removeItem("accessToken")
           localStorage.removeItem("refreshToken")
@@ -648,9 +302,7 @@ export default function PetServiceWebsite() {
           setCurrentUser(null)
           setIsAdmin(false)
         }
-        window.history.replaceState({}, document.title, window.location.pathname)
       }
-
       fetchUserInfo()
     } else if (error) {
       toast.error(decodeURIComponent(error), { duration: 5000 })
@@ -711,7 +363,7 @@ export default function PetServiceWebsite() {
 
     if (userData.petType && userData.petAge && userData.petBreed) {
       const newPet: Pet = {
-        petId: pets.length + 1,
+        id: pets.length + 1,
         name: `${userData.name}'s Pet`,
         breed: userData.petBreed,
         age: userData.petAge,
@@ -782,14 +434,8 @@ export default function PetServiceWebsite() {
   }
 
   const handleAddToCart = async (product: Product) => {
-    console.log("=== handleAddToCart 시작 ===")
-    console.log("로그인 상태:", isLoggedIn)
-    console.log("현재 사용자:", currentUser)
-    console.log("상품 정보:", product)
-    
     if (!isLoggedIn) {
       toast.error("로그인이 필요합니다", { duration: 5000 })
-      setShowLoginModal(true)
       return
     }
 
@@ -798,7 +444,7 @@ export default function PetServiceWebsite() {
       console.log("네이버 상품 장바구니 추가 처리")
       
       try {
-        const accessToken = localStorage.getItem("accessToken");
+        const accessToken = localStorage.getItem("accessToken")
         if (!accessToken || accessToken.trim() === '') {
           console.error("Access Token이 없거나 비어있습니다!")
           toast.error("인증 토큰이 없습니다. 다시 로그인해주세요.", { duration: 5000 })
@@ -839,8 +485,8 @@ export default function PetServiceWebsite() {
     // 일반 상품 처리
     try {
       console.log('일반 상품 장바구니 추가 시작...')
-      const accessToken = localStorage.getItem("accessToken");
-      const refreshToken = localStorage.getItem("refreshToken");
+      const accessToken = localStorage.getItem("accessToken")
+      const refreshToken = localStorage.getItem("refreshToken")
       console.log("Access Token 존재 여부:", !!accessToken)
       console.log("Refresh Token 존재 여부:", !!refreshToken)
       console.log("Access Token 길이:", accessToken?.length)
@@ -865,37 +511,20 @@ export default function PetServiceWebsite() {
 
       // 장바구니 추가 API (수량 포함)
       const url = `http://localhost:8080/api/carts?productId=${product.productId}&quantity=${quantity}`
-      const response = await axios.post(url, null, {
-        headers: { 
-          "Content-Type": "application/x-www-form-urlencoded",
-          "Authorization": `${accessToken}`,
-          "Access_Token": accessToken,
-          "Refresh_Token": localStorage.getItem('refreshToken') || ''
-        },
-        timeout: 5000
-      })
 
+      const response = await axios.post(url, null, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        timeout: 5000,
+      })
       if (response.status !== 200) {
         throw new Error(`장바구니 추가에 실패했습니다. (${response.status})`)
       }
-
       await fetchCartItems()
-      toast.success(`${product.name}을(를) 장바구니에 ${quantity}개 추가했습니다`, { duration: 5000 })
-      setCurrentPage("cart")
+      toast.success(`${product.name}을(를) 장바구니에 추가했습니다`, { duration: 5000 })
+      router.push("/cart")
     } catch (error: any) {
       console.error("장바구니 추가 오류:", error)
-      console.error('에러 상세 정보:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      })
-      
-      // 백엔드에서 재고 부족 에러 처리
-      if (error.response?.data?.message?.includes('재고가 부족합니다')) {
-        toast.error(error.response.data.message, { duration: 5000 })
-      } else {
-        toast.error("백엔드 서버 연결에 실패했습니다. 장바구니 추가가 불가능합니다.", { duration: 5000 })
-      }
+      toast.error("백엔드 서버 연결에 실패했습니다. 장바구니 추가가 불가능합니다.", { duration: 5000 })
     }
   }
 
@@ -904,69 +533,21 @@ export default function PetServiceWebsite() {
   }
 
   const fetchCartItems = async () => {
-    console.log("=== fetchCartItems 시작 ===")
-    console.log("로그인 상태:", isLoggedIn)
-    console.log("현재 사용자:", currentUser)
-    
-    if (!isLoggedIn) {
-      console.log('로그인되지 않음, 장바구니 조회 중단')
-      return
-    }
-
+    if (!isLoggedIn) return
     try {
-      console.log('장바구니 조회 시작...')
-      
-      // accessToken에서 사용자 ID 추출
-      const accessToken = localStorage.getItem("accessToken");
-      console.log("Access Token 존재 여부:", !!accessToken)
-      
-      if (!accessToken || accessToken.trim() === '') {
-        console.log('Access token이 없거나 비어있습니다.');
-        return;
+      const accessToken = localStorage.getItem("accessToken")
+      if (!accessToken) {
+        console.log("Access token이 없습니다.")
+        return
       }
-
-      // 토큰 유효성 간단 체크
-      if (accessToken.split('.').length !== 3) {
-        console.log('토큰 형식이 유효하지 않습니다.');
-        return;
-      }
-
-      let userId: number | null = null;
-      try {
-        const tokenParts = accessToken.split('.');
-        if (tokenParts.length === 3) {
-          const payload = JSON.parse(atob(tokenParts[1]));
-          console.log('JWT payload:', payload);
-          // JWT에서 사용자 ID를 직접 가져올 수 없으므로, 백엔드에서 사용자 정보를 가져와야 함
-          // 임시로 currentUser?.id 사용
-          userId = currentUser?.id || null;
-        }
-      } catch (error) {
-        console.error('JWT 파싱 오류:', error);
-        userId = currentUser?.id || null;
-      }
-
-      if (!userId) {
-        console.log('사용자 ID를 찾을 수 없습니다.');
-        return;
-      }
-
-      // 사용자별 장바구니 조회 API 사용
       const response = await axios.get(`http://localhost:8080/api/carts`, {
-        headers: {
-          "Authorization": `${accessToken}`,
-          "Access_Token": accessToken,
-          "Refresh_Token": localStorage.getItem('refreshToken') || ''
-        },
-        timeout: 5000
+        headers: { "Access_Token": accessToken },
+        timeout: 5000,
       })
       if (response.status !== 200) {
         throw new Error("장바구니 조회에 실패했습니다.")
       }
-
       const cartData = response.data
-      console.log('백엔드에서 받은 장바구니 데이터:', cartData)
-      
       const cartItems: CartItem[] = cartData
         .sort((a: any, b: any) => a.id - b.id)
         .map((item: any, index: number) => {
@@ -982,13 +563,13 @@ export default function PetServiceWebsite() {
               category: item.naverProduct.category1 || "기타",
               quantity: item.quantity,
               order: index,
-              isNaverProduct: true, // 네이버 상품 표시
+              isNaverProduct: true,
               product: {
                 id: item.naverProduct.id,
                 name: item.naverProduct.title,
                 description: item.naverProduct.description,
                 price: item.naverProduct.price,
-                stock: 999, // 네이버 상품은 재고 제한 없음
+                stock: 999,
                 imageUrl: item.naverProduct.imageUrl,
                 category: item.naverProduct.category1 || "기타",
                 targetAnimal: "기타",
@@ -1001,13 +582,13 @@ export default function PetServiceWebsite() {
             return {
               id: item.id,
               name: item.product.name,
-              brand: "브랜드 없음", // Product 엔티티에 brand 필드가 없음
+              brand: "브랜드 없음",
               price: item.product.price,
               image: item.product.imageUrl || "/placeholder.svg",
               category: item.product.category,
               quantity: item.quantity,
               order: index,
-              isNaverProduct: false, // 일반 상품 표시
+              isNaverProduct: false,
               product: {
                 id: item.product.id,
                 name: item.product.name,
@@ -1027,45 +608,18 @@ export default function PetServiceWebsite() {
       console.log('장바구니 설정 완료:', cartItems.length, '개')
     } catch (error: any) {
       console.error("장바구니 조회 오류:", error)
-      console.error('에러 상세 정보:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      })
-      
-      // 백엔드 서버가 응답하지 않을 때 빈 장바구니로 설정
       setCart([])
-      toast.error('백엔드 서버 연결에 실패했습니다. 장바구니를 불러올 수 없습니다.', { duration: 5000 })
+      toast.error("백엔드 서버 연결에 실패했습니다. 장바구니를 불러올 수 없습니다.", { duration: 5000 })
     }
   }
 
   const handleRemoveFromCart = async (cartId: number) => {
     try {
-      console.log("handleRemoveFromCart 시작 - cartId:", cartId)
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        toast.error("인증 토큰이 없습니다. 다시 로그인해주세요.", { duration: 5000 })
-        return
-      }
-
-      console.log("백엔드 API 호출 시작 - DELETE /api/carts/" + cartId)
-      const response = await axios.delete(`http://localhost:8080/api/carts/${cartId}`, {
-        headers: {
-          "Authorization": `${accessToken}`,
-          "Access_Token": accessToken,
-          "Refresh_Token": localStorage.getItem('refreshToken') || ''
-        }
-      })
-
-      console.log("백엔드 API 응답:", response.status, response.data)
-
+      const response = await axios.delete(`http://localhost:8080/api/carts/${cartId}`)
       if (response.status !== 200) {
         throw new Error("장바구니에서 삭제에 실패했습니다.")
       }
-
-      console.log("fetchCartItems 호출 시작")
       await fetchCartItems()
-      console.log("fetchCartItems 완료")
       toast.success("장바구니에서 상품을 삭제했습니다", { duration: 5000 })
     } catch (error) {
       console.error("장바구니 삭제 오류:", error)
@@ -1075,59 +629,30 @@ export default function PetServiceWebsite() {
 
   const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
     try {
-      const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) {
-        toast.error("인증 토큰이 없습니다. 다시 로그인해주세요.", { duration: 5000 })
-        return
-      }
-
-      const response = await axios.put(`http://localhost:8080/api/carts/${cartId}?quantity=${quantity}`, null, {
-        headers: {
-          "Authorization": `${accessToken}`,
-          "Access_Token": accessToken,
-          "Refresh_Token": localStorage.getItem('refreshToken') || ''
-        }
-      })
-
+      const response = await axios.put(`http://localhost:8080/api/carts/${cartId}?quantity=${quantity}`)
       if (response.status !== 200) {
         throw new Error("수량 업데이트에 실패했습니다.")
       }
-
       await fetchCartItems()
       toast.success("장바구니 수량을 업데이트했습니다", { duration: 5000 })
-    } catch (error: any) {
+    } catch (error) {
       console.error("수량 업데이트 오류:", error)
-      
-      // 백엔드에서 재고 부족 에러 처리
-      if (error.response?.data?.message?.includes('재고가 부족합니다')) {
-        toast.error(error.response.data.message, { duration: 5000 })
-      } else {
-        toast.error("수량 업데이트에 실패했습니다", { duration: 5000 })
-      }
+      toast.error("수량 업데이트에 실패했습니다", { duration: 5000 })
     }
   }
 
   useEffect(() => {
-    if (isLoggedIn) {
-      fetchCartItems()
-    }
+    if (isLoggedIn) fetchCartItems()
   }, [isLoggedIn])
-
-  // 상품 목록 가져오기
-  useEffect(() => {
-    fetchProducts()
-  }, [])
 
   const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
     try {
       const response = await axios.post("http://localhost:8080/api/orders", orderData, {
         headers: { "Content-Type": "application/json" },
       })
-
       if (response.status !== 200) {
         throw new Error("주문 생성에 실패했습니다.")
       }
-
       const newOrder = response.data
       setOrders((prev) => [...prev, newOrder])
       toast.success("주문이 생성되었습니다", { duration: 5000 })
@@ -1142,23 +667,19 @@ export default function PetServiceWebsite() {
   const purchaseAllFromCart = async () => {
     if (!isLoggedIn || !currentUser) {
       toast.error("로그인이 필요합니다", { duration: 5000 })
-      setShowLoginModal(true)
       return
     }
-
     try {
       const response = await axios.post(`http://localhost:8080/api/orders/purchase-all/${currentUser.id}`)
-
       if (response.status !== 200) {
         throw new Error("전체 구매에 실패했습니다.")
       }
-
       const newOrder = response.data
       setOrders((prev) => [...prev, newOrder])
       setCart([])
       await fetchUserOrders()
       toast.success("전체 구매가 완료되었습니다", { duration: 5000 })
-      setCurrentPage("myPage")
+      router.push("/my")
     } catch (error) {
       console.error("전체 구매 오류:", error)
       toast.error("전체 구매에 실패했습니다", { duration: 5000 })
@@ -1168,84 +689,52 @@ export default function PetServiceWebsite() {
   const purchaseSingleItem = async (cartItem: CartItem) => {
     if (!isLoggedIn || !currentUser) {
       toast.error("로그인이 필요합니다", { duration: 5000 })
-      setShowLoginModal(true)
       return
     }
-
     try {
-      // 인증 토큰 가져오기
-      const accessToken = localStorage.getItem('accessToken')
+      const accessToken = localStorage.getItem("accessToken")
       const headers: any = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
-      
-      // 토큰이 있으면 헤더에 추가
-      if (accessToken) {
-        headers['access_token'] = accessToken
-      }
-
-      // 사용자 정보 확인
-      if (!currentUser || !currentUser.id) {
-        console.error("사용자 정보가 없습니다:", currentUser)
-        toast.error("로그인이 필요합니다. 다시 로그인해주세요.", { duration: 5000 })
-        return
-      }
-
-      // 상품 정보 확인
-      if (!cartItem.product?.id) {
-        console.error("상품 정보가 없습니다:", cartItem)
-        toast.error("상품 정보를 찾을 수 없습니다.", { duration: 5000 })
-        return
-      }
-
+      if (accessToken) headers["access_token"] = accessToken
       const orderData = {
-        accountId: currentUser.id,
-        productId: cartItem.product.id, // 실제 상품 ID 사용
-        quantity: cartItem.quantity
+        userId: currentUser.id,
+        totalPrice: cartItem.price * cartItem.quantity,
+        orderItems: [
+          {
+            productId: cartItem.product?.productId || cartItem.id,
+            productName: cartItem.product?.name || cartItem.name || cartItem.brand + " " + cartItem.category,
+            imageUrl: cartItem.product?.imageUrl || cartItem.image || "/placeholder.svg",
+            quantity: cartItem.quantity,
+            price: cartItem.product?.price || cartItem.price,
+          },
+        ],
       }
-
-      console.log("개별 구매 요청 데이터:", orderData)
-      console.log("cartItem 상세 정보:", cartItem)
-      console.log("cartItem.product:", cartItem.product)
-      console.log("currentUser:", currentUser)
-
       const response = await axios.post("http://localhost:8080/api/orders", orderData, {
-        headers: headers,
-        timeout: 10000
+        headers,
+        timeout: 10000,
       })
-
-      console.log("개별 구매 응답:", response.data)
-
       if (response.status !== 200) {
         throw new Error("개별 구매에 실패했습니다.")
       }
-
-      // 백엔드에서 자동으로 장바구니에서 삭제하므로 프론트엔드에서만 새로고침
-      console.log("구매 성공, 장바구니 새로고침 시작")
-      await fetchCartItems()
-      console.log("장바구니 새로고침 완료")
+      await handleRemoveFromCart(cartItem.id)
       await fetchUserOrders()
       toast.success("개별 구매가 완료되었습니다", { duration: 5000 })
-      setCurrentPage("myPage")
+      router.push("/my")
     } catch (error: any) {
       console.error("개별 구매 오류:", error)
-      console.error("에러 응답 데이터:", error.response?.data)
-      console.error("에러 상태 코드:", error.response?.status)
-      console.error("에러 메시지:", error.message)
       toast.error("개별 구매에 실패했습니다", { duration: 5000 })
     }
   }
 
   const fetchUserOrders = useCallback(async () => {
     if (!isLoggedIn || !currentUser) return
-
     try {
       const response = await axios.get(`http://localhost:8080/api/orders/user/${currentUser.id}`)
       if (response.status !== 200) {
         throw new Error("주문 조회에 실패했습니다.")
       }
-
       const userOrders = response.data
       const orderItems: OrderItem[] = userOrders.flatMap((order: any) => {
         if (order.orderItems && order.orderItems.length > 0) {
@@ -1260,16 +749,18 @@ export default function PetServiceWebsite() {
             ImageUrl: item.ImageUrl || "/placeholder.svg",
           }))
         } else {
-          return [{
-            id: order.orderId,
-            productId: 0,
-            productName: `주문 #${order.orderId}`,
-            price: order.totalPrice,
-            quantity: 1,
-            orderDate: order.orderedAt || new Date().toISOString(),
-            status: order.paymentStatus === "COMPLETED" ? "completed" : order.paymentStatus === "PENDING" ? "pending" : "cancelled",
-            ImageUrl: "/placeholder.svg",
-          }]
+          return [
+            {
+              id: order.orderId,
+              productId: 0,
+              productName: `주문 #${order.orderId}`,
+              price: order.totalPrice,
+              quantity: 1,
+              orderDate: order.orderedAt || new Date().toISOString(),
+              status: order.paymentStatus === "COMPLETED" ? "completed" : order.paymentStatus === "PENDING" ? "pending" : "cancelled",
+              ImageUrl: "/placeholder.svg",
+            },
+          ]
         }
       })
       const sortedOrderItems = orderItems.sort((a, b) => {
@@ -1287,11 +778,9 @@ export default function PetServiceWebsite() {
   const deleteOrder = async (orderId: number) => {
     try {
       const response = await axios.delete(`http://localhost:8080/api/orders/${orderId}`)
-
       if (response.status !== 200) {
         throw new Error("주문 삭제에 실패했습니다.")
       }
-
       setOrders((prev) => prev.filter((order) => order.id !== orderId))
       toast.success("주문이 삭제되었습니다", { duration: 5000 })
     } catch (error) {
@@ -1303,12 +792,9 @@ export default function PetServiceWebsite() {
   const updatePaymentStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
     try {
       const response = await axios.put(`http://localhost:8080/api/orders/${orderId}/status?status=${status}`)
-
       if (response.status !== 200) {
         throw new Error("결제 상태 업데이트에 실패했습니다.")
       }
-
-      const updatedOrder = response.data
       setOrders((prev) =>
         prev.map((order) =>
           order.id === orderId
@@ -1332,35 +818,18 @@ export default function PetServiceWebsite() {
     }
     setPets((prev) => [...prev, newPet])
     toast.success("새로운 펫이 등록되었습니다", { duration: 5000 })
-    setCurrentPage("adoption")
+    router.push("/adoption")
   }
 
   const fetchProducts = async () => {
     try {
-      console.log('상품 목록 조회 시작...')
-      console.log('요청 URL:', 'http://localhost:8080/api/products')
-      
-      // 백엔드 서버 상태 확인 (선택적)
-      try {
-        const healthCheck = await axios.get('http://localhost:8080/actuator/health', {
-          timeout: 3000
-        })
-        console.log('백엔드 서버 상태:', healthCheck.data)
-      } catch (healthError) {
-        console.warn('백엔드 서버 상태 확인 실패 (무시됨):', healthError)
-        // 헬스체크 실패는 무시하고 계속 진행
-      }
-      
-      // 인증 토큰 가져오기
-      const accessToken = localStorage.getItem('accessToken')
+      const accessToken = localStorage.getItem("accessToken")
       const headers: any = {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       }
       
-      // 토큰이 있고 유효한 경우에만 헤더에 추가
       if (accessToken && accessToken.trim() !== '') {
-        // 토큰 유효성 간단 체크 (JWT 형식인지 확인)
         if (accessToken.split('.').length === 3) {
           headers['Access_Token'] = accessToken
           headers['Refresh_Token'] = localStorage.getItem('refreshToken') || ''
@@ -1373,7 +842,7 @@ export default function PetServiceWebsite() {
       }
       
       const response = await axios.get('http://localhost:8080/api/products', {
-        timeout: 10000, // 10초로 증가
+        timeout: 10000,
         headers: headers
       })
       
@@ -1384,62 +853,38 @@ export default function PetServiceWebsite() {
       console.log('응답 데이터가 배열인가?', Array.isArray(response.data))
       console.log('응답 데이터 길이:', response.data?.length)
       
-      // ResponseDto 구조에 맞춰 데이터 추출
       const backendProducts = response.data?.data || response.data
       console.log('백엔드에서 받은 상품 데이터:', backendProducts)
       
       if (!Array.isArray(backendProducts)) {
-        console.error('백엔드 응답이 배열이 아닙니다:', typeof backendProducts)
-        throw new Error('잘못된 데이터 형식')
+        throw new Error("잘못된 데이터 형식")
       }
-      
-      // 백엔드 데이터를 프론트엔드 형식으로 변환
       const convertedProducts: Product[] = backendProducts.map((product: any) => ({
         id: product.id || product.productId || 0,
         productId: product.id || product.productId || 0,
         name: product.name || '상품명 없음',
         description: product.description || '',
         price: product.price || 0,
+        image: product.imageUrl || product.image || "/placeholder.svg?height=300&width=300",
+        category: product.category || "기타",
+        tags: product.tags || [],
         stock: product.stock || 0,
-        imageUrl: product.imageUrl || product.image || '/placeholder.svg?height=300&width=300',
-        category: product.category || '용품',
-        targetAnimal: product.targetAnimal || 'ALL',
-        registrationDate: product.registrationDate || new Date().toISOString().split('T')[0],
-        registeredBy: product.registeredBy || 'admin'
+        petType: product.targetAnimal?.toLowerCase() || product.petType || "all",
+        registrationDate: product.registrationDate || new Date().toISOString().split("T")[0],
+        registeredBy: product.registeredBy || "admin",
       }))
-      
       setProducts(convertedProducts)
-      console.log('상품 목록 설정 완료:', convertedProducts.length, '개')
+      console.log("상품 목록 설정 완료:", convertedProducts.length, "개")
     } catch (error: any) {
-      console.error('상품 목록 조회 오류:', error)
-      console.error('에러 상세 정보:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          timeout: error.config?.timeout
-        }
-      })
-      
-      // 백엔드 서버 연결 실패 시 빈 배열로 설정
-      console.log('백엔드 서버 연결 실패로 상품 데이터를 가져올 수 없습니다.')
+      console.error("상품 목록 조회 오류:", error)
       setProducts([])
-      
-      let errorMessage = '백엔드 서버 연결에 실패했습니다.'
-      if (error.response?.status === 500) {
-        errorMessage = '서버 내부 오류가 발생했습니다.'
-      } else if (error.response?.status === 404) {
-        errorMessage = '상품 API 엔드포인트를 찾을 수 없습니다.'
-      } else if (error.code === 'ECONNABORTED') {
-        errorMessage = '서버 응답 시간이 초과되었습니다.'
-      }
-      
-      toast.error(errorMessage, { duration: 5000 })
+      toast.error("백엔드 서버 연결에 실패했습니다. 상품 목록을 불러올 수 없습니다.", { duration: 5000 })
     }
   }
+
+  useEffect(() => {
+    fetchProducts()
+  }, [])
 
   const handleAddProduct = (productData: any) => {
     const newProduct: Product = {
@@ -1451,18 +896,16 @@ export default function PetServiceWebsite() {
     }
     setProducts((prev) => [...prev, newProduct])
     toast.success("새로운 상품이 등록되었습니다", { duration: 5000 })
-    setCurrentPage("store")
+    router.push("/store")
   }
 
   const handleViewProduct = (product: Product | NaverProduct) => {
-    // 네이버 상품인 경우에도 멍토리 사이트 상품 상세 페이지로 이동
     if ('productUrl' in product && product.productUrl) {
-      setSelectedNaverProduct(product);
-      setCurrentPage("product-detail");
-      return;
+      setSelectedNaverProduct(product)
+      setCurrentPage("product-detail")
+      return
     }
     
-    // 일반 상품인 경우 상세 페이지로 이동
     if ('id' in product && product.id) {
       setSelectedProductId(Number(product.id))
       setCurrentPage("product-detail")
@@ -1471,11 +914,11 @@ export default function PetServiceWebsite() {
 
   const handleEditProduct = (product: Product) => {
     setSelectedProductForEdit(product)
-    setCurrentPage("product-edit")
+    router.push("/store/edit")
   }
 
   const handleSaveProduct = (updatedProduct: Product) => {
-    setProducts((prev) => prev.map((p) => (p.productId === updatedProduct.productId ? updatedProduct : p)))
+    setProducts((prev) => prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p)))
     toast.success("상품이 수정되었습니다", { duration: 5000 })
   }
 
@@ -1493,9 +936,7 @@ export default function PetServiceWebsite() {
   }
 
   const handleUpdateDiaryEntry = (updatedEntry: DiaryEntry) => {
-    setDiaryEntries((prev) =>
-      prev.map((entry) => (entry.id === updatedEntry.id ? updatedEntry : entry))
-    )
+    setDiaryEntries((prev) => prev.map((entry) => (entry.id === updatedEntry.id ? updatedEntry : entry)))
     setSelectedDiaryEntry(updatedEntry)
     toast.success("성장일기가 수정되었습니다", { duration: 5000 })
   }
@@ -1515,215 +956,46 @@ export default function PetServiceWebsite() {
   const handleBuyNow = async (product: Product) => {
     if (!isLoggedIn || !currentUser) {
       toast.error("로그인이 필요합니다", { duration: 5000 })
-      setShowLoginModal(true)
       return
     }
-
     try {
-      // 인증 토큰 가져오기
-      const accessToken = localStorage.getItem('accessToken')
+      const accessToken = localStorage.getItem("accessToken")
       const headers: any = {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        "Content-Type": "application/json",
+        Accept: "application/json",
       }
-      
-      // 토큰이 있으면 헤더에 추가
-      if (accessToken) {
-        headers['Access_Token'] = accessToken
-        headers['Refresh_Token'] = localStorage.getItem('refreshToken') || ''
-        console.log('인증 토큰 추가됨')
-      } else {
-        console.log('인증 토큰 없음')
-      }
-
+      if (accessToken) headers["access_token"] = accessToken
       const orderData = {
-        accountId: currentUser.id,
-        productId: Number(product.productId || product.id),
-        quantity: 1
+        userId: currentUser.id,
+        totalPrice: product.price,
+        orderItems: [
+          {
+            productId: product.id,
+            productName: product.name || product.brand + " " + product.category,
+            imageUrl: product.image || "/placeholder.svg",
+            quantity: 1,
+            price: product.price,
+          },
+        ],
       }
-
-      console.log('주문 데이터:', orderData)
-
       const response = await axios.post("http://localhost:8080/api/orders", orderData, {
-        headers: headers,
-        timeout: 10000
+        headers,
+        timeout: 10000,
       })
-
-      console.log('주문 응답:', response.data)
-
       if (response.status !== 200) {
         throw new Error("주문 생성에 실패했습니다.")
       }
-
       await fetchUserOrders()
       toast.success("바로구매가 완료되었습니다", { duration: 5000 })
-      setCurrentPage("myPage")
+      router.push("/my")
     } catch (error: any) {
       console.error("바로구매 오류:", error)
-      console.error('에러 상세 정보:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        config: {
-          url: error.config?.url,
-          method: error.config?.method,
-          headers: error.config?.headers
-        }
-      })
       toast.error("바로구매에 실패했습니다", { duration: 5000 })
     }
   }
 
-  // Sample data
-  const [pets, setPets] = useState<Pet[]>([
-    {
-      id: 1,
-      name: "초코",
-      breed: "골든 리트리버",
-      age: "2년",
-      gender: "수컷",
-      size: "대형",
-      personality: ["온순함", "활발함", "사람을 좋아함"],
-      healthStatus: "건강함",
-      description: "매우 온순하고 사람을 좋아하는 골든 리트리버입니다. 아이들과도 잘 어울리며, 산책을 좋아합니다.",
-      images: ["/placeholder.svg?height=400&width=600"],
-      location: "서울시 강남구",
-      contact: "010-1234-5678",
-      adoptionFee: 200000,
-      isNeutered: true,
-      isVaccinated: true,
-      dateRegistered: "2024-01-15",
-      adoptionStatus: "available",
-      ownerEmail: "user@test.com",
-    },
-    {
-      id: 2,
-      name: "메리",
-      breed: "푸들",
-      age: "1년",
-      gender: "암컷",
-      size: "소형",
-      personality: ["애교 많음", "장난기 많음"],
-      healthStatus: "건강함",
-      description: "활발하고 애교 많은 푸들입니다. 작은 체구로 실내 생활에 적합합니다.",
-      images: ["/placeholder.svg?height=400&width=600"],
-      location: "경기도 성남시",
-      contact: "010-1111-2222",
-      adoptionFee: 150000,
-      isNeutered: true,
-      isVaccinated: true,
-      dateRegistered: "2024-02-01",
-      adoptionStatus: "available",
-      ownerEmail: "user@test.com",
-    },
-  ])
-
-  const [products, setProducts] = useState<Product[]>([])
-
-  const [insurances, setInsurances] = useState<Insurance[]>([
-    {
-      id: 1,
-      company: "펫퍼스트",
-      planName: "기본 플랜",
-      monthlyPremium: 35000,
-      coverage: ["질병치료", "상해치료", "수술비"],
-      deductible: 20000,
-      maxPayout: 3000000,
-      ageLimit: "만 8세 이하",
-      description: "기본적인 질병과 상해를 보장하는 플랜입니다.",
-      rating: 4.2,
-      isPopular: true,
-    },
-  ])
-
-  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
-  const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([
-    {
-      id: 1,
-      title: "강아지 훈련 방법 문의",
-      content: "우리 강아지가 짖는 버릇이 있는데 어떻게 훈련시켜야 할까요?",
-      author: "펫러버123",
-      date: "2024-01-20",
-      category: "훈련",
-      boardType: "자유게시판",
-      views: 45,
-      likes: 12,
-      comments: 8,
-      tags: ["훈련", "짖음", "행동교정"],
-    },
-    {
-      id: 2,
-      title: "고양이와 행복한 하루",
-      content: "오늘 우리 고양이랑 놀아줬는데 너무 귀여워요! 사진 공유합니다.",
-      author: "냥집사",
-      date: "2024-02-10",
-      category: "일상",
-      boardType: "자유게시판",
-      views: 120,
-      likes: 30,
-      comments: 15,
-      tags: ["고양이", "일상", "사진"],
-    },
-  ])
-
-  const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>([
-    {
-      id: 1,
-      petId: 1,
-      petName: "초코",
-      inquirerName: "김철수",
-      phone: "010-9876-5432",
-      email: "user@test.com",
-      message: "초코를 입양하고 싶습니다. 아이들과 함께 살고 있는데 괜찮을까요?",
-      status: "대기중",
-      date: "2024-01-21",
-    },
-    {
-      id: 2,
-      petId: 2,
-      petName: "메리",
-      inquirerName: "박영희",
-      phone: "010-5555-6666",
-      email: "user@test.com",
-      message: "메리 입양에 관심 있습니다. 방문 상담 가능할까요?",
-      status: "연락완료",
-      date: "2024-02-05",
-    },
-  ])
-
-  const [comments, setComments] = useState<Comment[]>([
-    {
-      id: 1,
-      postId: 1,
-      postTitle: "강아지 훈련 방법 문의",
-      author: "훈련전문가",
-      content: "긍정적 강화 훈련을 추천드립니다. 짖을 때마다 무시하고, 조용할 때 보상을 주세요.",
-      date: "2024-01-20",
-      isReported: false,
-    },
-  ])
-
-  const [orders, setOrders] = useState<OrderItem[]>([])
-
-  // Render current page
   const renderCurrentPage = () => {
-    console.log("renderCurrentPage 호출됨, currentPage:", currentPage)
-    
-    // URL 파라미터 확인 (SSR 안전)
-    let page = null;
-    let editId = null;
-    
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      page = urlParams.get("page");
-      editId = urlParams.get("edit");
-    }
-    
-    console.log("URL params - page:", page, "edit:", editId);
-    
     if (isLoading) {
-      console.log("로딩 중...")
       return (
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <p className="text-gray-600">로딩 중...</p>
@@ -1751,7 +1023,6 @@ export default function PetServiceWebsite() {
                 toast.success("입양 문의가 등록되었습니다", { duration: 5000 })
               }}
               isLoggedIn={isLoggedIn}
-              onShowLogin={() => setShowLoginModal(true)}
             />
           )
         }
@@ -1759,17 +1030,17 @@ export default function PetServiceWebsite() {
           <AdoptionPage
             pets={pets}
             onViewPet={setSelectedPet}
-            onClose={() => setCurrentPage("home")}
+            onClose={() => router.push("/")}
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
-            onNavigateToAnimalRegistration={() => setCurrentPage("animalRegistration")}
+            onNavigateToAnimalRegistration={() => router.push("/adoption/register")}
           />
         )
 
       case "animalRegistration":
         return (
           <AnimalRegistrationPage
-            onClose={() => setCurrentPage("admin")}
+            onClose={() => router.push("/admin")}
             onAddPet={handleAddPet}
             isAdmin={isAdmin}
             currentUserId={isLoggedIn ? currentUser?.id.toString() : undefined}
@@ -1779,12 +1050,12 @@ export default function PetServiceWebsite() {
       case "store":
         return (
           <StorePage
-            onClose={() => setCurrentPage("home")}
+            onClose={() => router.push("/")}
             onAddToWishlist={handleAddToWishlist}
             isInWishlist={isInWishlist}
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
-            onNavigateToStoreRegistration={() => setCurrentPage("storeRegistration")}
+            onNavigateToStoreRegistration={() => router.push("/store/register")}
             products={products}
             onViewProduct={handleViewProduct}
             setCurrentPage={setCurrentPageWithCartRefresh}
@@ -1792,11 +1063,10 @@ export default function PetServiceWebsite() {
         )
 
       case "product-detail":
-        // 네이버 상품인 경우
         if (selectedNaverProduct) {
           return (
             <StoreProductDetailPage
-              productId={0} // 네이버 상품은 ID가 0으로 처리
+              productId={0}
               naverProduct={selectedNaverProduct}
               onBack={() => {
                 setSelectedNaverProduct(null)
@@ -1811,13 +1081,12 @@ export default function PetServiceWebsite() {
           )
         }
         
-        // 일반 상품인 경우
         return (
           <StoreProductDetailPage
             productId={selectedProductId!}
             onBack={() => {
               setSelectedProductId(null)
-              setCurrentPage("store")
+              router.push("/store")
             }}
             onAddToWishlist={handleAddToWishlist}
             onAddToCart={handleAddToCart}
@@ -1833,7 +1102,7 @@ export default function PetServiceWebsite() {
             productId={selectedProductForEdit!.id}
             onBack={() => {
               setSelectedProductForEdit(null)
-              setCurrentPage("admin")
+              router.push("/admin")
             }}
             onSave={handleSaveProduct}
           />
@@ -1842,7 +1111,7 @@ export default function PetServiceWebsite() {
       case "storeRegistration":
         return (
           <StoreProductRegistrationPage
-            onBack={() => setCurrentPage("admin")}
+            onClose={() => router.push("/admin")}
             onAddProduct={handleAddProduct}
             isAdmin={isAdmin}
             currentUserId={isLoggedIn ? currentUser?.id.toString() : undefined}
@@ -1868,47 +1137,39 @@ export default function PetServiceWebsite() {
           <InsuranceFavoritesPage
             favoriteInsurance={favoriteInsurance}
             onRemoveFromFavorites={removeFromInsuranceFavorites}
-            onNavigateToInsurance={() => setCurrentPage("insurance")}
+            onNavigateToInsurance={() => router.push("/insurance")}
             onViewDetails={(insurance) => setSelectedInsurance(insurance)}
           />
         )
 
       case "diary":
-        // 수정 모드인지 확인
-        if (editId) {
-          console.log("Diary edit mode detected for ID:", editId);
-          // 수정 페이지로 리다이렉트
-          window.location.href = `/diary/edit/${editId}`;
-          return null;
-        }
-        
         return (
           <GrowthDiaryPage
-            entries={[]}
+            entries={diaryEntries}
             onViewEntry={() => {}}
-            onClose={() => setCurrentPage("home")}
+            onClose={() => router.push("/")}
             onAddEntry={() => {}}
             isLoggedIn={isLoggedIn}
             currentUserId={currentUser?.id?.toString()}
-            onNavigateToWrite={() => {}}
+            onNavigateToWrite={() => router.push("/diary/write")}
           />
         )
 
       case "growthDiaryWrite":
         return (
           <GrowthDiaryWritePage
-            onBack={() => setCurrentPage("diary")}
+            onBack={() => router.push("/diary")}
             onSubmit={(entryData) => {
               const newEntry: DiaryEntry = {
                 id: diaryEntries.length + 1,
                 ...entryData,
                 date: new Date().toISOString().split("T")[0],
-                ownerEmail: currentUser?.email, // 작성자 이메일 추가
-                audioUrl: entryData.audioUrl, // 음성 URL 추가
+                ownerEmail: currentUser?.email,
+                audioUrl: entryData.audioUrl,
               }
               setDiaryEntries((prev) => [...prev, newEntry])
               toast.success("성장일기가 작성되었습니다", { duration: 5000 })
-              setCurrentPage("diary")
+              router.push("/diary")
             }}
           />
         )
@@ -1920,7 +1181,6 @@ export default function PetServiceWebsite() {
               post={selectedPost}
               onBack={() => setSelectedPost(null)}
               isLoggedIn={isLoggedIn}
-              onShowLogin={() => setShowLoginModal(true)}
               onUpdatePost={(updatedPost) => {
                 setCommunityPosts((prev) => prev.map((post) => (post.id === updatedPost.id ? updatedPost : post)))
                 setSelectedPost(updatedPost)
@@ -1934,11 +1194,7 @@ export default function PetServiceWebsite() {
         return (
           <CommunityPage
             posts={communityPosts}
-            onViewPost={setSelectedPost}
-            onClose={() => setCurrentPage("home")}
-            onNavigateToWrite={() => setCurrentPage("communityWrite")}
             isLoggedIn={isLoggedIn}
-            onShowLogin={() => setShowLoginModal(true)}
             onUpdatePosts={setCommunityPosts}
           />
         )
@@ -1946,7 +1202,7 @@ export default function PetServiceWebsite() {
       case "communityWrite":
         return (
           <CommunityWritePage
-            onBack={() => setCurrentPage("community")}
+            onBack={() => router.push("/community")}
             onSubmit={(postData) => {
               const newPost: CommunityPost = {
                 id: communityPosts.length + 1,
@@ -1964,17 +1220,17 @@ export default function PetServiceWebsite() {
               }
               setCommunityPosts((prev) => [newPost, ...prev])
               toast.success("게시물이 작성되었습니다", { duration: 5000 })
-              setCurrentPage("community")
+              router.push("/community")
             }}
           />
         )
 
       case "research":
-        return <DogResearchLabPage onClose={() => setCurrentPage("home")} />
+        return <DogResearchLabPage onClose={() => router.push("/")} />
 
       case "cart":
         if (!isLoggedIn) {
-        return (
+          return (
             <div className="min-h-screen bg-gray-50 pt-20">
               <div className="container mx-auto px-4 py-8">
                 <div className="max-w-md mx-auto text-center">
@@ -1985,15 +1241,8 @@ export default function PetServiceWebsite() {
                   <p className="text-gray-600 mb-6">장바구니를 이용하려면 로그인해주세요.</p>
                   <div className="space-y-3">
                     <Button
-                      onClick={() => setShowLoginModal(true)}
+                      onClick={() => router.push("/")}
                       className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
-                    >
-                      로그인하기
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setCurrentPage("home")}
-                      className="w-full"
                     >
                       홈으로 돌아가기
                     </Button>
@@ -2007,7 +1256,7 @@ export default function PetServiceWebsite() {
           <CartPage
             cartItems={cart}
             onRemoveFromCart={handleRemoveFromCart}
-            onNavigateToStore={() => setCurrentPage("store")}
+            onNavigateToStore={() => router.push("/store")}
             onPurchaseAll={purchaseAllFromCart}
             onPurchaseSingle={purchaseSingleItem}
             onUpdateQuantity={handleUpdateCartQuantity}
@@ -2015,20 +1264,20 @@ export default function PetServiceWebsite() {
         )
 
       case "naming":
-        return <PetNamingService onClose={() => setCurrentPage("home")} />
+        return <PetNamingService onClose={() => router.push("/")} />
 
       case "admin":
         return (
           <AdminPage
-            onClose={() => setCurrentPage("home")}
+            onClose={() => router.push("/")}
             products={products}
             pets={pets}
             communityPosts={communityPosts}
             adoptionInquiries={adoptionInquiries}
             comments={comments}
-            onNavigateToStoreRegistration={() => setCurrentPage("storeRegistration")}
-            onNavigateToAnimalRegistration={() => setCurrentPage("animalRegistration")}
-            onNavigateToCommunity={() => setCurrentPage("community")}
+            onNavigateToStoreRegistration={() => router.push("/store/register")}
+            onNavigateToAnimalRegistration={() => router.push("/adoption/register")}
+            onNavigateToCommunity={() => router.push("/community")}
             onUpdateInquiryStatus={(id, status) => {
               setAdoptionInquiries((prev) =>
                 prev.map((inquiry) => (inquiry.id === id ? { ...inquiry, status } : inquiry))
@@ -2048,29 +1297,22 @@ export default function PetServiceWebsite() {
             }}
             onEditProduct={handleEditProduct}
             onDeleteProduct={(productId) => {
-              setProducts((prev) => prev.filter((product) => product.productId !== productId))
+              setProducts((prev) => prev.filter((product) => product.id !== productId))
               toast.success("상품이 삭제되었습니다", { duration: 5000 })
             }}
             onUpdateOrderStatus={updatePaymentStatus}
             isAdmin={isAdmin}
-            onAdminLogout={handleLogout}
           />
         )
 
-
-
-
-
       case "myPage":
-        console.log("myPage case 실행됨")
-        console.log("currentUser:", currentUser)
         return (
           <MyPage
             currentUser={currentUser}
             userPets={pets.filter((pet) => pet.ownerEmail === currentUser?.email)}
             userAdoptionInquiries={adoptionInquiries.filter((inquiry) => inquiry.email === currentUser?.email)}
             userOrders={orders}
-            onClose={() => setCurrentPage("home")}
+            onClose={() => router.push("/")}
             onRefreshOrders={fetchUserOrders}
           />
         )
@@ -2082,7 +1324,7 @@ export default function PetServiceWebsite() {
               <div className="text-center">
                 <h1 className="text-2xl font-bold text-gray-900 mb-4">접근 권한이 없습니다</h1>
                 <p className="text-gray-600">AI 계약서 서비스는 관리자만 접근할 수 있습니다.</p>
-                <Button onClick={() => setCurrentPage("home")} className="mt-4">
+                <Button onClick={() => router.push("/")} className="mt-4">
                   홈으로 돌아가기
                 </Button>
               </div>
@@ -2096,9 +1338,11 @@ export default function PetServiceWebsite() {
                 <h1 className="text-3xl font-bold mb-4">AI 계약서 서비스</h1>
                 <p className="text-gray-600">템플릿을 관리하고 AI의 도움을 받아 맞춤형 계약서를 생성하세요.</p>
               </div>
-              
               <div className="grid md:grid-cols-2 gap-6">
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowContractTemplatePage(true)}>
+                <Card
+                  className="hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => setShowContractTemplatePage(true)}
+                >
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <FileText className="w-5 h-5" />
@@ -2109,8 +1353,10 @@ export default function PetServiceWebsite() {
                     <p className="text-gray-600">계약서 템플릿을 생성, 수정, 관리할 수 있습니다.</p>
                   </CardContent>
                 </Card>
-                
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => setShowContractGenerationPage(true)}>
+                <Card
+                  className="hover:shadow-lg transition-shadow cursor-pointer"
+                  onClick={() => setShowContractGenerationPage(true)}
+                >
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <MessageSquare className="w-5 h-5" />
@@ -2157,7 +1403,6 @@ export default function PetServiceWebsite() {
                 </div>
               </div>
             </section>
-
             <section className="py-20 bg-gray-50">
               <div className="container mx-auto px-4">
                 <div className="grid md:grid-cols-2 gap-8 justify-center">
@@ -2172,13 +1417,13 @@ export default function PetServiceWebsite() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => setCurrentPage("adoption")} className="text-center space-y-2 w-full">
+                        <button onClick={() => router.push("/adoption")} className="text-center space-y-2 w-full">
                           <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
                             <Heart className="w-8 h-8 text-yellow-600 fill-yellow-600" />
                           </div>
                           <p className="text-sm font-medium">보호소 입양</p>
                         </button>
-                        <button onClick={() => setCurrentPage("naming")} className="text-center space-y-2 w-full">
+                        <button onClick={() => router.push("/naming")} className="text-center space-y-2 w-full">
                           <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
                             <BookOpen className="w-8 h-8 text-yellow-600" />
                           </div>
@@ -2186,7 +1431,7 @@ export default function PetServiceWebsite() {
                         </button>
                         {isAdmin && isLoggedIn && (
                           <button
-                            onClick={() => setCurrentPage("animalRegistration")}
+                            onClick={() => router.push("/adoption/register")}
                             className="text-center space-y-2 w-full"
                           >
                             <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
@@ -2198,7 +1443,6 @@ export default function PetServiceWebsite() {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card className="bg-white shadow-lg hover:shadow-xl transition-shadow">
                     <CardHeader className="text-center pb-4">
                       <CardTitle className="text-2xl font-bold text-gray-900 border-b-4 border-green-400 inline-block pb-2">
@@ -2207,7 +1451,7 @@ export default function PetServiceWebsite() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => setCurrentPage("store")} className="text-center space-y-2 w-full">
+                        <button onClick={() => router.push("/store")} className="text-center space-y-2 w-full">
                           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
                             <Store className="w-8 h-8 text-green-600" />
                           </div>
@@ -2217,9 +1461,9 @@ export default function PetServiceWebsite() {
                           onClick={() => {
                             if (!isLoggedIn) {
                               toast.error("장바구니를 이용하려면 로그인이 필요합니다", { duration: 5000 })
-                              setShowLoginModal(true)
+                              router.push("/")
                             } else {
-                              setCurrentPage("cart")
+                              router.push("/cart")
                             }
                           }}
                           className="text-center space-y-2 w-full"
@@ -2247,129 +1491,8 @@ export default function PetServiceWebsite() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Toaster position="bottom-right" />
-      <NavigationHeader
-        currentPage={currentPage}
-        onNavigate={setCurrentPage}
-        isLoggedIn={isLoggedIn}
-        isAdmin={isAdmin}
-        onLogin={() => setShowLoginModal(true)}
-        onLogout={handleLogout}
-        onNavigateToMyPage={() => {
-          console.log("마이페이지 버튼 클릭됨")
-          console.log("현재 페이지:", currentPage)
-          setCurrentPage("myPage")
-          console.log("페이지를 myPage로 설정함")
-          
-          // 상태 변경 확인을 위한 setTimeout
-          setTimeout(() => {
-            console.log("setTimeout 후 현재 페이지:", currentPage)
-          }, 100)
-        }}
-        onNavigateToDiary={() => {
-          console.log("성장일기 버튼 클릭됨")
-          setCurrentPage("diary")
-        }}
-      />
-
+      <Toaster />
       {renderCurrentPage()}
-
-      <Chatbot />
-
-      {showLoginModal && (
-        <LoginModal
-          isOpen={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          onSwitchToSignup={() => {
-            setShowLoginModal(false)
-            setShowSignupModal(true)
-          }}
-          onLoginSuccess={async () => {
-            console.log("LoginModal에서 로그인 성공 알림 받음")
-            // 모달 명시적으로 닫기
-            setShowLoginModal(false)
-            // 로그인 상태 강제 업데이트
-            setIsLoggedIn(true)
-            
-            // 장바구니 초기화
-            setCart([])
-            
-            // 토큰 저장 상태 확인
-            const accessToken = localStorage.getItem("accessToken")
-            const refreshToken = localStorage.getItem("refreshToken")
-            console.log("로그인 후 토큰 저장 상태 확인:")
-            console.log("Access Token 존재:", !!accessToken)
-            console.log("Refresh Token 존재:", !!refreshToken)
-            console.log("Access Token 길이:", accessToken?.length)
-            
-            // 사용자 정보 즉시 가져와서 isAdmin 상태 설정
-            try {
-              if (accessToken && accessToken.trim() !== '') {
-                const response = await axios.get("http://localhost:8080/api/accounts/me", {
-                  headers: { "Access_Token": accessToken },
-                })
-                const { id, email, name, role } = response.data.data
-                setCurrentUser({ id, email, name })
-                setIsAdmin(role === "ADMIN")
-                console.log("로그인 후 사용자 정보 업데이트:", { id, email, name, role })
-                
-                // 로그인 성공 후 해당 사용자의 장바구니 가져오기 (약간의 지연 후)
-                setTimeout(async () => {
-                  await fetchCartItems()
-                }, 100)
-              } else {
-                console.error("Access Token이 저장되지 않았습니다!")
-              }
-            } catch (err) {
-              console.error("로그인 후 사용자 정보 조회 실패:", err)
-            }
-          }}
-          onLogoutSuccess={() => {
-            console.log("LoginModal에서 로그아웃 성공 알림 받음")
-            // 로그아웃 상태 강제 업데이트
-            setIsLoggedIn(false)
-            setIsAdmin(false)
-            setCurrentUser(null)
-            // 로그아웃 시 장바구니 초기화
-            setCart([])
-          }}
-        />
-      )}
-
-      {showSignupModal && (
-        <SignupModal
-          isOpen={showSignupModal}
-          onClose={() => setShowSignupModal(false)}
-          onSignup={handleSignup}
-          onSwitchToLogin={() => {
-            setShowSignupModal(false)
-            setShowLoginModal(true)
-          }}
-        />
-      )}
-
-      {showPasswordRecovery && (
-        <PasswordRecoveryModal
-          onClose={() => setShowPasswordRecovery(false)}
-          onRecover={(email) => {
-            console.log("비밀번호 복구:", email)
-            toast.success("비밀번호 복구 이메일이 전송되었습니다", { duration: 5000 })
-            setShowPasswordRecovery(false)
-          }}
-          onSwitchToLogin={() => {
-            setShowPasswordRecovery(false)
-            setShowLoginModal(true)
-          }}
-        />
-      )}
-      
-      {showContractTemplatePage && (
-        <ContractTemplatePage />
-      )}
-      
-      {showContractGenerationPage && (
-        <ContractGenerationPage />
-      )}
     </div>
   )
 }

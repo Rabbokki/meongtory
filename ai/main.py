@@ -35,14 +35,14 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://43.201.106.146:3000"],
+    allow_origins=["http://localhost:3000", "http://13.209.7.54"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-app.include_router(breed_router)
-app.include_router(emotion_router)
+app.include_router(breed_router, prefix="/api/ai")
+app.include_router(emotion_router, prefix="/api/ai")
 
 # StoreAI 서비스 라우터 포함
 app.mount("/storeai", storeai_app)

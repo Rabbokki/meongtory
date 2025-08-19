@@ -1,80 +1,85 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import Image from "next/image"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { MessageSquare, Heart, Eye, Plus, Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { MessageSquare, Heart, Eye, Plus, Search } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 interface CommunityPost {
-  id: number
-  title: string
-  content: string
-  author: string
-  date: string
-  category: string
-  boardType: "Q&A" | "자유게시판"
-  views: number
-  likes: number
-  comments: number
-  tags: string[]
-  images?: string[] // Optional array of image URLs
+  id: number;
+  title: string;
+  content: string;
+  author: string;
+  date: string;
+  category: string;
+  boardType: "Q&A" | "자유게시판";
+  views: number;
+  likes: number;
+  comments: number;
+  tags: string[];
+  images?: string[];
 }
 
 interface CommunityPageProps {
-  posts: CommunityPost[]
-  onViewPost: (post: CommunityPost) => void
-  onClose: () => void
-  onNavigateToWrite: () => void
-  isLoggedIn: boolean
-  onShowLogin: () => void
-  onUpdatePosts: (posts: CommunityPost[]) => void
+  posts: CommunityPost[];
+  isLoggedIn: boolean;
+  onShowLogin: () => void;
+  onUpdatePosts: (posts: CommunityPost[]) => void;
 }
 
 export default function CommunityPage({
   posts,
-  onViewPost,
-  onClose,
-  onNavigateToWrite,
   isLoggedIn,
   onShowLogin,
   onUpdatePosts,
 }: CommunityPageProps) {
-  const [searchTerm, setSearchTerm] = useState("")
+  const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
 
   const filteredPosts = posts?.filter((post) => {
     const matchesSearch =
       post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
       post.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      post.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()))
-    return matchesSearch
-  })
+      post.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    return matchesSearch;
+  });
 
-  // Sort posts by date (newest first)
-  const sortedPosts = filteredPosts ? [...filteredPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()) : []
+  const sortedPosts = filteredPosts
+    ? [...filteredPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    : [];
 
-  // Sample popular posts (for sidebar) - now from all posts
-  const popularPosts = posts?.sort((a, b) => b.views - a.views).slice(0, 5) || []
+  const popularPosts = posts?.sort((a, b) => b.views - a.views).slice(0, 5) || [];
 
   const handleLike = (postId: number) => {
-    onUpdatePosts(posts?.map((post) => (post.id === postId ? { ...post, likes: post.likes + 1 } : post)) || [])
-  }
+    onUpdatePosts(posts?.map((post) => (post.id === postId ? { ...post, likes: post.likes + 1 } : post)) || []);
+  };
+
+  const handleNavigateToWrite = () => {
+    if (!isLoggedIn) {
+      onShowLogin();
+      return;
+    }
+    router.push("/community/write");
+  };
+
+  const handleViewPost = (post: CommunityPost) => {
+    router.push(`/community/${post.id}`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold text-gray-900">커뮤니티</h1>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content Area */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Search and Write Post Button */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Input
                 type="text"
@@ -87,17 +92,16 @@ export default function CommunityPage({
                 <Search className="h-4 w-4 mr-2" />
                 검색
               </Button>
-              <Button onClick={onNavigateToWrite} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+              <Button onClick={handleNavigateToWrite} className="bg-yellow-400 hover:bg-yellow-500 text-black">
                 <Plus className="h-4 w-4 mr-2" />
                 글쓰기
               </Button>
             </div>
 
-            {/* Post List */}
             {sortedPosts && sortedPosts.length > 0 ? (
               sortedPosts.map((post) => (
                 <Card key={post.id} className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="p-6" onClick={() => onViewPost(post)}>
+                  <CardContent className="p-6" onClick={() => handleViewPost(post)}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
@@ -118,8 +122,8 @@ export default function CommunityPage({
                           </span>
                           <button
                             onClick={(e) => {
-                              e.stopPropagation() // Prevent card click
-                              handleLike(post.id)
+                              e.stopPropagation();
+                              handleLike(post.id);
                             }}
                             className="flex items-center hover:text-red-500 transition-colors"
                           >
@@ -150,16 +154,14 @@ export default function CommunityPage({
             )}
           </div>
 
-          {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Popular Posts */}
             <Card>
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold mb-4">인기 게시글</h3>
                 <ul className="space-y-3">
                   {popularPosts.map((post) => (
                     <li key={post.id} className="border-b pb-3 last:border-b-0 last:pb-0">
-                      <button onClick={() => onViewPost(post)} className="text-left w-full">
+                      <button onClick={() => handleViewPost(post)} className="text-left w-full">
                         <p className="text-sm font-medium text-gray-800 hover:text-blue-600 line-clamp-2">
                           {post.title}
                         </p>
@@ -172,10 +174,9 @@ export default function CommunityPage({
                 </ul>
               </CardContent>
             </Card>
-            {/* 카테고리 / 태그 섹션 제거됨 */}
           </div>
         </div>
       </div>
     </div>
-  )
+  );
 }

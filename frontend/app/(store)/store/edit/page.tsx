@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import { ArrowLeft, Save, X, Upload } from 'lucide-react';
 import Image from 'next/image';
 import axios from 'axios';
 import { getBackendUrl } from '@/lib/api';
+
 
 interface Product {
   id: number;
@@ -46,7 +48,18 @@ const petTypes = [
   { name: "모든 동물", value: "all" },
 ];
 
-export default function StoreProductEditPage({ productId, onBack, onSave }: StoreProductEditPageProps) {
+function StoreProductEditPageContent({ productId: propProductId, onBack, onSave }: StoreProductEditPageProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlProductId = searchParams.get('productId');
+  
+  // URL에서 productId를 우선적으로 사용, 없으면 props에서 사용
+  const actualProductId = urlProductId ? parseInt(urlProductId) : propProductId;
+  
+  console.log('Product ID from URL:', urlProductId);
+  console.log('Product ID from props:', propProductId);
+  console.log('Actual Product ID to use:', actualProductId);
+  
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,14 +76,14 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
     const fetchProduct = async () => {
       try {
         setLoading(true);
-        console.log('Fetching product with ID:', productId, 'Type:', typeof productId);
+        console.log('Fetching product with ID:', actualProductId, 'Type:', typeof actualProductId);
         
         const accessToken = localStorage.getItem("accessToken");
         if (!accessToken) {
           throw new Error('인증 토큰이 없습니다.');
         }
 
-        const response = await axios.get(`${BACKEND_URL}/api/products/${productId}`, {
+        const response = await axios.get(`http://localhost:8080/api/products/${actualProductId}`, {
           headers: {
             Authorization: accessToken, // Bearer 접두사 제거
             'Access_Token': accessToken,
@@ -81,7 +94,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
 
         const productData = response.data;
         const convertedProduct: Product = {
-          id: productData.id || productData.productId || productId,
+          id: productData.id || productData.productId || actualProductId,
           name: productData.name || productData.productName || '이름 없음',
           price: productData.price || 0,
           image: productData.image_url || productData.imageUrl || productData.image || '/placeholder.svg',
@@ -98,7 +111,9 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
               : productData.targetAnimal === 'DOG' ? 'dog'
               : 'cat'
             : 'all',
-          registrationDate: productData.registration_date || productData.registrationDate || productData.createdAt || new Date().toISOString(),
+          registrationDate: Array.isArray(productData.registrationDate) 
+            ? new Date(productData.registrationDate[0], productData.registrationDate[1] - 1, productData.registrationDate[2]).toISOString()
+            : productData.registration_date || productData.registrationDate || productData.createdAt || new Date().toISOString(),
           registeredBy: productData.registered_by || productData.registeredBy || 'admin',
         };
 
@@ -112,7 +127,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
           setImagePreview(imageUrl);
           
           // 파일명 추출
-          const fileName = imageUrl.split('/').pop() || `product-${productId}.jpg`;
+          const fileName = imageUrl.split('/').pop() || `product-${actualProductId}.jpg`;
           setSelectedFileName(fileName);
           console.log('Extracted file name:', fileName);
         } else {
@@ -130,7 +145,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
           });
           const status = err.response?.status;
           setError(
-            status === 400 ? `잘못된 요청입니다. (상품 ID: ${productId})` :
+            status === 400 ? `잘못된 요청입니다. (상품 ID: ${actualProductId})` :
             status === 404 ? '상품을 찾을 수 없습니다.' :
             `서버 오류가 발생했습니다. (${status || '알 수 없음'})`
           );
@@ -143,7 +158,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
     };
 
     fetchProduct();
-  }, [productId]);
+      }, [actualProductId]);
 
   const handleInputChange = (field: keyof Product, value: any) => {
     if (product) {
@@ -211,7 +226,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
         throw new Error('인증 토큰이 없습니다.');
       }
 
-      await axios.put(`${BACKEND_URL}/api/products/${productId}`, updateData, {
+      await axios.put(`http://localhost:8080/api/products/${actualProductId}`, updateData, {
         headers: {
           Authorization: accessToken,
           'Access_Token': accessToken,
@@ -220,9 +235,8 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
         },
       });
 
-      onSave(product);
       alert('상품이 성공적으로 수정되었습니다.');
-      onBack();
+      router.push('/admin?tab=products');
     } catch (err) {
       console.error('Error updating product:', err);
       if (axios.isAxiosError(err)) {
@@ -254,7 +268,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
           <CardContent className="p-6 text-center">
             <h2 className="text-xl font-semibold text-red-600 mb-4">오류 발생</h2>
             <p className="text-gray-600 mb-4">{error || '상품을 찾을 수 없습니다.'}</p>
-            <Button onClick={onBack} className="w-full">
+            <Button onClick={() => router.push('/admin?tab=products')} className="w-full">
               <ArrowLeft className="h-4 w-4 mr-2" />
               돌아가기
             </Button>
@@ -268,7 +282,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4 max-w-2xl">
         <div className="flex items-center justify-between mb-6">
-          <Button variant="outline" onClick={onBack}>
+          <Button variant="outline" onClick={() => router.push('/admin?tab=products')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             돌아가기
           </Button>
@@ -428,7 +442,7 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
               </Button>
               <Button
                 variant="outline"
-                onClick={onBack}
+                onClick={() => router.push('/admin?tab=products')}
                 disabled={saving}
                 className="flex-1"
               >
@@ -441,4 +455,12 @@ export default function StoreProductEditPage({ productId, onBack, onSave }: Stor
       </div>
     </div>
   );
+}
+
+export default function StoreProductEditPage(props: StoreProductEditPageProps) {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <StoreProductEditPageContent {...props} />
+    </Suspense>
+  )
 }
