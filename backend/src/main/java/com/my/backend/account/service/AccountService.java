@@ -145,6 +145,24 @@ public class AccountService {
                 return "반려동물";
         }
     }
+
+    @Transactional
+    public TokenDto refreshAccessToken(String refreshToken) {
+        if (!jwtUtil.refreshTokenValidation(refreshToken)) {
+            log.warn("유효하지 않은 리프레시 토큰: {}", refreshToken);
+            throw new IllegalArgumentException("유효하지 않은 리프레시 토큰입니다.");
+        }
+
+        String email = jwtUtil.getEmailFromToken(refreshToken);
+        Account account = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 계정입니다: " + email));
+
+        // 새로운 액세스 토큰 생성
+        String newAccessToken = jwtUtil.createToken(email, account.getRole(), "Access");
+        log.info("새로운 액세스 토큰 생성 성공: email={}", email);
+
+        return new TokenDto(newAccessToken, refreshToken);
+    }
     
 
 }

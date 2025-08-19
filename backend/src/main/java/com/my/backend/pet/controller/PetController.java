@@ -66,37 +66,20 @@ public class PetController {
     
     // 펫 정보 수정
     @PutMapping("/{petId}")
-    public ResponseEntity<Pet> updatePet(@PathVariable Long petId, @RequestBody String requestBody) {
+    public ResponseEntity<Pet> updatePet(@PathVariable Long petId, @RequestBody Pet petDetails) {
         log.info("=== 펫 수정 요청 시작 ===");
         log.info("Pet ID: {}", petId);
-        log.info("Raw request body: {}", requestBody);
+        log.info("Received pet data - name: {}, breed: {}, personality: {}, imageUrl: {}", 
+                petDetails.getName(), petDetails.getBreed(), petDetails.getPersonality(), petDetails.getImageUrl());
+        log.info("Full pet details: {}", petDetails);
         
         try {
-            // JSON을 Map으로 파싱하여 personality 배열을 문자열로 변환
-            ObjectMapper objectMapper = new ObjectMapper();
-            @SuppressWarnings("unchecked")
-            java.util.Map<String, Object> petMap = objectMapper.readValue(requestBody, java.util.Map.class);
-            
-            // personality가 배열인 경우 문자열로 변환
-            if (petMap.containsKey("personality") && petMap.get("personality") instanceof java.util.List) {
-                java.util.List<?> personalityList = (java.util.List<?>) petMap.get("personality");
-                String personalityString = objectMapper.writeValueAsString(personalityList);
-                petMap.put("personality", personalityString);
-            }
-            
-            // 변환된 Map을 다시 JSON으로 직렬화
-            String modifiedRequestBody = objectMapper.writeValueAsString(petMap);
-            
-            Pet petDetails = objectMapper.readValue(modifiedRequestBody, Pet.class);
-            log.info("Parsed pet data - name: {}, breed: {}, personality: {}, imageUrl: {}", 
-                    petDetails.getName(), petDetails.getBreed(), petDetails.getPersonality(), petDetails.getImageUrl());
-            log.info("Full pet details: {}", petDetails);
-            
             Pet updatedPet = petService.updatePet(petId, petDetails);
             log.info("펫 수정 성공: {}", updatedPet.getName());
             return ResponseEntity.ok(updatedPet);
         } catch (Exception e) {
-            log.error("Error parsing or updating pet: {}", e.getMessage(), e);
+            log.error("Error updating pet: {}", e.getMessage(), e);
+            log.error("Stack trace: ", e);
             return ResponseEntity.badRequest().build();
         }
     }

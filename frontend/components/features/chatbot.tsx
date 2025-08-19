@@ -47,6 +47,7 @@ export default function Chatbot() {
 
       // 비동기적으로 챗봇 응답 처리
       try {
+
         const apiUrl = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/chatbot/query`;
         const response = await axios.post(
           `${getBackendUrl()}/api/chatbot/query`,

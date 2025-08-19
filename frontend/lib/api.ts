@@ -2,8 +2,12 @@ import axios from 'axios';
 
 // API 설정을 위한 공통 유틸리티
 export const getBackendUrl = () => {
-  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-  return url;
+  
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8080';
+  const normalizedUrl = url.endsWith('/') ? url.slice(0, -1) : url;
+  console.log('Backend URL:', normalizedUrl);
+  console.log('NEXT_PUBLIC_BACKEND_URL:', process.env.NEXT_PUBLIC_BACKEND_URL);
+  return normalizedUrl;
 };
 
 export const getApiBaseUrl = () => {
@@ -12,13 +16,26 @@ export const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+// 인증이 필요 없는 엔드포인트 목록
+const PUBLIC_ENDPOINTS = [
+  '/accounts/register',
+  '/accounts/login', // 로그인 엔드포인트도 추가 (필요한 경우)
+  '/accounts/refresh',
+];
+
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `${token}`;
-      config.headers['Access_Token'] = token; // 백엔드에서 Access_Token 헤더 사용
+    // PUBLIC_ENDPOINTS에 포함된 경로에는 토큰을 추가하지 않음
+    const isPublicEndpoint = PUBLIC_ENDPOINTS.some((endpoint) =>
+      config.url?.includes(endpoint)
+    );
+    if (!isPublicEndpoint) {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        config.headers.Authorization = `${token}`;
+        config.headers['Access_Token'] = token; // 백엔드에서 Access_Token 헤더 사용
+      }
     }
     return config;
   },
@@ -37,9 +54,15 @@ axios.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
-          const response = await axios.post(`${API_BASE_URL}/accounts/refresh`, {
-            refreshToken: refreshToken,
-          });
+          const response = await axios.post(
+            `${API_BASE_URL}/accounts/refresh`,
+            { refreshToken },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            }
+          );
           const newAccessToken = response.data.accessToken;
           localStorage.setItem('accessToken', newAccessToken);
 
@@ -110,7 +133,9 @@ export const petApi = {
     }
     console.log('Fetching pets with URL:', `${API_BASE_URL}/pets?${params.toString()}`);
     const response = await axios.get(`${API_BASE_URL}/pets?${params.toString()}`);
-    return response.data.data;
+    console.log('Raw pets response:', response.data);
+    // 응답이 배열이면 그대로 반환, 아니면 response.data.data 반환
+    return Array.isArray(response.data) ? response.data : response.data.data;
   },
 
   createPet: async (petData: Omit<Pet, 'petId'>): Promise<Pet> => {
@@ -126,6 +151,8 @@ export const petApi = {
   },
 
   updatePet: async (petId: number, petData: Partial<Pet>): Promise<Pet> => {
+    console.log('전송할 데이터:', petData);
+    
     const response = await axios.put(`${API_BASE_URL}/pets/${petId}`, petData, {
       headers: {
         'Content-Type': 'application/json',
@@ -174,7 +201,9 @@ export const s3Api = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data.data;
+    console.log('S3 업로드 응답:', response.data);
+    // 백엔드에서 직접 String을 반환하므로 response.data 사용
+    return response.data;
   },
 
   deleteFile: async (fileName: string): Promise<void> => {
@@ -210,7 +239,9 @@ export const adoptionRequestApi = {
 
   getAdoptionRequests: async (): Promise<any[]> => {
     const response = await axios.get(`${API_BASE_URL}/adoption-requests`);
-    return response.data.data;
+    console.log('Raw adoption requests response:', response.data);
+    // 응답이 배열이면 그대로 반환, 아니면 response.data.data 반환
+    return Array.isArray(response.data) ? response.data : response.data.data;
   },
 
   getUserAdoptionRequests: async (): Promise<any[]> => {
@@ -253,7 +284,9 @@ export const adoptionRequestApi = {
 export const productApi = {
   getProducts: async (): Promise<any[]> => {
     const response = await axios.get(`${API_BASE_URL}/products`);
-    return response.data.data;
+    console.log('Raw products response:', response.data);
+    // 응답이 배열이면 그대로 반환, 아니면 response.data.data 반환
+    return Array.isArray(response.data) ? response.data : response.data.data;
   },
 
   getProduct: async (productId: number): Promise<any> => {

@@ -13,8 +13,8 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: '/api/:path*',
-        destination: 'http://localhost:9090/api/:path*',
+        source: '/ai/:path*',
+        destination: 'http://localhost:9000/:path*',
       },
     ];
 
