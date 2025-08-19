@@ -27,6 +27,8 @@ import {
 import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import type { Pet as PetsTypePet } from "@/types/pets"
 import ProductsTab from "@/components/admin/ProductsTab"
+import PetsTab from "@/components/admin/PetsTab"
+import type { AdminPet } from "@/types/admin"
 import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
 import axios from "axios"
 import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "@/lib/utils"
@@ -228,6 +230,46 @@ export default function AdminPage({
   const [filteredRequests, setFilteredRequests] = useState<AdoptionRequest[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
+  // ProductsTab(AdminProduct)와 동일하게, PetsTab(AdminPet) → 본 페이지 Pet 형태로 변환하는 어댑터
+  const convertAdminPetToPet = (adminPet: AdminPet): Pet => {
+    return {
+      id: (adminPet as any).petId ?? (adminPet as any).id ?? 0,
+      name: String(adminPet.name ?? ""),
+      breed: String(adminPet.breed ?? ""),
+      age: String((adminPet as any).age ?? ""),
+      gender: (adminPet.gender as any) === "MALE" ? "수컷" : (adminPet.gender as any) === "FEMALE" ? "암컷" : String(adminPet.gender ?? ""),
+      size: String((adminPet as any).size ?? ""),
+      personality: Array.isArray((adminPet as any).personality) ? (adminPet as any).personality.join(", ") : String((adminPet as any).personality ?? ""),
+      healthStatus: String((adminPet as any).medicalHistory ?? (adminPet as any).healthStatus ?? ""),
+      description: String((adminPet as any).description ?? ""),
+      images: (typeof (adminPet as any).imageUrl === "string" && (adminPet as any).imageUrl)
+        ? [(adminPet as any).imageUrl]
+        : Array.isArray((adminPet as any).images)
+          ? (adminPet as any).images
+          : [],
+      location: String((adminPet as any).location ?? ""),
+      contact: String((adminPet as any).contact ?? ""),
+      adoptionFee: Number((adminPet as any).adoptionFee ?? 0),
+      isNeutered: Boolean((adminPet as any).neutered ?? (adminPet as any).isNeutered ?? false),
+      isVaccinated: Boolean((adminPet as any).vaccinated ?? (adminPet as any).isVaccinated ?? false),
+      specialNeeds: (adminPet as any).specialNeeds,
+      dateRegistered: String((adminPet as any).dateRegistered ?? new Date().toISOString()),
+      adoptionStatus: ((adminPet as any).adopted ? "adopted" : "available") as any,
+    }
+  }
+
+  const handleEditPetFromTab = (adminPet: AdminPet) => {
+    const converted = convertAdminPetToPet(adminPet)
+    setSelectedPetForEdit(converted)
+    setShowEditModal(true)
+  }
+
+  const handleViewContractFromTab = (adminPet: AdminPet) => {
+    const converted = convertAdminPetToPet(adminPet)
+    // 기존 계약서 보기 핸들러 재사용
+    handleViewContract(converted as any)
+  }
 
   // 상품 목록을 백엔드에서 가져오기
  useEffect(() => {
@@ -529,8 +571,13 @@ export default function AdminPage({
   }
 
   const handleUpdatePet = (updatedPet: Pet) => {
-    onUpdatePet(updatedPet)
+    // 로컬 상태 업데이트
+          setPets(prev => prev.map(pet => 
+        pet.id === updatedPet.id ? updatedPet : pet
+      ))
     handleCloseEditModal()
+    // 페이지 새로고침으로 변경사항 반영
+    window.location.reload()
   }
 
   // 펫 입양 상태 수동 변경 함수
@@ -1562,121 +1609,11 @@ export default function AdminPage({
 
           {/* Pets Tab */}
           <TabsContent value="pets" className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold">입양 관리</h2>
-              <Button onClick={onNavigateToAnimalRegistration} className="bg-yellow-400 hover:bg-yellow-500 text-black">
-                <Plus className="h-4 w-4 mr-2" />새 동물 등록
-              </Button>
-            </div>
-
-            <div className="grid gap-4">
-              {loading ? (
-                <div className="text-center py-8">
-                  <p>데이터를 불러오는 중...</p>
-                </div>
-              ) : pets.length === 0 ? (
-                <div className="text-center py-8">
-                  <p>등록된 동물이 없습니다.</p>
-                </div>
-              ) : (
-                pets.map((pet, index) => (
-                <Card key={pet.id || `pet-${index}`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-4">
-                        <img
-                          src={pet.images?.[0] || "/placeholder.svg"}
-                          alt={pet.name}
-                          className="w-16 h-16 object-cover rounded-lg"
-                        />
-                        <div>
-                          <h3 className="font-semibold">{pet.name}</h3>
-                          <p className="text-sm text-gray-600">
-                            {pet.breed} • {pet.age} • {pet.gender}
-                          </p>
-                          <p className="text-sm text-gray-500">{pet.location}</p>
-                          <div className="flex items-center space-x-2 mt-2">
-                            <Badge className={getStatusColor(pet.adoptionStatus)}>
-                              {pet.adoptionStatus === "available"
-                                ? "입양가능"
-                                : pet.adoptionStatus === "pending"
-                                  ? "입양대기"
-                                  : "입양완료"}
-                            </Badge>
-                            {/* 입양신청 현황 표시 */}
-                            {(() => {
-                              const petRequests = adoptionRequests.filter(request => request.petId === pet.id)
-                              const pendingCount = petRequests.filter(r => r.status === "PENDING").length
-                              const approvedCount = petRequests.filter(r => r.status === "APPROVED").length
-                              
-                              if (petRequests.length > 0) {
-                                return (
-                                  <div className="flex space-x-1">
-                                    {pendingCount > 0 && (
-                                      <Badge className="bg-yellow-100 text-yellow-800 text-xs">
-                                        대기 {pendingCount}건
-                                      </Badge>
-                                    )}
-                                    {approvedCount > 0 && (
-                                      <Badge className="bg-green-100 text-green-800 text-xs">
-                                        승인 {approvedCount}건
-                                      </Badge>
-                                    )}
-                                  </div>
-                                )
-                              }
-                              return null
-                            })()}
-                          </div>
-                        </div>
-                      </div>
-                                              <div className="flex space-x-2">
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleEditPet(pet)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleUpdatePetStatus(pet.id, "available")}
-                            disabled={pet.adoptionStatus === "available"}
-                          >
-                            입양가능
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleUpdatePetStatus(pet.id, "adopted")}
-                            disabled={pet.adoptionStatus === "adopted"}
-                          >
-                            입양완료
-                          </Button>
-                          {/* 계약서 보기 버튼 - 모든 동물에 대해 표시 */}
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleViewContract(pet)}
-                          >
-                            <FileText className="h-4 w-4" />
-                            계약서 보기
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => handleDeletePet(pet.id, pet.name)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
-            )}
-            </div>
+            <PetsTab
+              onNavigateToAnimalRegistration={onNavigateToAnimalRegistration}
+              onUpdatePet={handleEditPetFromTab}
+              onViewContract={handleViewContractFromTab}
+            />
           </TabsContent>
 
           {/* Adoption Requests Tab */}
@@ -2241,29 +2178,10 @@ export default function AdminPage({
         isOpen={showEditModal}
         onClose={handleCloseEditModal}
         selectedPet={selectedPetForEdit as unknown as PetsTypePet | null}
-        onUpdatePet={(pet: PetsTypePet) => {
-          // 편의상 최소 변환만 수행
-          const converted: Pet = {
-            id: (pet as any).petId ?? (pet as any).id ?? 0,
-            name: pet.name as any,
-            breed: pet.breed as any,
-            age: String(pet.age ?? ""),
-            gender: (pet.gender as any) === "MALE" ? "수컷" : (pet.gender as any) === "FEMALE" ? "암컷" : "",
-            size: String((pet as any).size ?? ""),
-            personality: Array.isArray((pet as any).personality) ? (pet as any).personality.join(", ") : String(pet.personality ?? ""),
-            healthStatus: String((pet as any).medicalHistory ?? (pet as any).healthStatus ?? ""),
-            description: String((pet as any).description ?? ""),
-            images: (typeof (pet as any).imageUrl === "string" && (pet as any).imageUrl) ? [(pet as any).imageUrl] : Array.isArray((pet as any).images) ? (pet as any).images : [],
-            location: String((pet as any).location ?? ""),
-            contact: String((pet as any).contact ?? ""),
-            adoptionFee: Number((pet as any).adoptionFee ?? 0),
-            isNeutered: Boolean((pet as any).neutered ?? (pet as any).isNeutered ?? false),
-            isVaccinated: Boolean((pet as any).vaccinated ?? (pet as any).isVaccinated ?? false),
-            specialNeeds: (pet as any).specialNeeds,
-            dateRegistered: String((pet as any).dateRegistered ?? new Date().toISOString()),
-            adoptionStatus: ((pet as any).adopted ? "adopted" : "available") as any,
-          }
-          handleUpdatePet(converted)
+        onUpdatePet={() => {
+          // 모달 내부에서 직접 처리하므로 여기서는 아무것도 하지 않음
+          handleCloseEditModal()
+          window.location.reload()
         }}
       />
 

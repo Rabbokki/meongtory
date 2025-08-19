@@ -151,6 +151,8 @@ export const petApi = {
   },
 
   updatePet: async (petId: number, petData: Partial<Pet>): Promise<Pet> => {
+    console.log('전송할 데이터:', petData);
+    
     const response = await axios.put(`${API_BASE_URL}/pets/${petId}`, petData, {
       headers: {
         'Content-Type': 'application/json',
@@ -199,7 +201,9 @@ export const s3Api = {
         'Content-Type': 'multipart/form-data',
       },
     });
-    return response.data.data;
+    console.log('S3 업로드 응답:', response.data);
+    // 백엔드에서 직접 String을 반환하므로 response.data 사용
+    return response.data;
   },
 
   deleteFile: async (fileName: string): Promise<void> => {
