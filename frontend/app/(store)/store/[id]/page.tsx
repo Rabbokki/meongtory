@@ -270,6 +270,8 @@ export default function StoreProductDetailPage({
 
         if (response.status === 200) {
           alert(`장바구니에 ${quantity}개가 추가되었습니다!`)
+          // 장바구니 페이지로 이동
+          router.push('/store/cart')
         } else {
           alert('장바구니 추가에 실패했습니다.')
         }

@@ -8,7 +8,7 @@ import axios from 'axios';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
 
 const API_BASE_URL = 'http://localhost:8080/api';
-const CLIENT_KEY = ``;
+const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || `test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq`;
 console.log("CLIENT_KEY:", CLIENT_KEY);
 
 
@@ -18,6 +18,7 @@ interface PaymentItem {
   price: number;
   quantity: number;
   image: string;
+  isNaverProduct?: boolean;
 }
 
 interface PaymentPageProps {

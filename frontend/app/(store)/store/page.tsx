@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus } from "lucide-react"
+import { Search, Plus, ShoppingCart } from "lucide-react"
 import { useEffect } from "react"
 import axios from "axios" // axios 직접 import
 
-const API_BASE_URL = 'http://localhost:8080/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(
@@ -100,7 +100,7 @@ export default function StorePage({
     // 모든 상품 조회
     getProducts: async (): Promise<any[]> => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/products`);
+        const response = await axios.get(`${API_BASE_URL}/api/products`);
         return response.data;
       } catch (error) {
         console.error('상품 목록 조회 실패:', error);
@@ -111,7 +111,7 @@ export default function StorePage({
     // 특정 상품 조회
     getProduct: async (productId: number): Promise<any> => {
       try {
-        const response = await axios.get(`${API_BASE_URL}/products/${productId}`);
+        const response = await axios.get(`${API_BASE_URL}/api/products/${productId}`);
         return response.data;
       } catch (error) {
         console.error('상품 조회 실패:', error);
@@ -122,7 +122,7 @@ export default function StorePage({
     // 상품 생성
     createProduct: async (productData: any): Promise<any> => {
       try {
-        const response = await axios.post(`${API_BASE_URL}/products`, productData, {
+        const response = await axios.post(`${API_BASE_URL}/api/products`, productData, {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -137,7 +137,7 @@ export default function StorePage({
     // 상품 수정
     updateProduct: async (productId: number, productData: any): Promise<any> => {
       try {
-        const response = await axios.put(`${API_BASE_URL}/products/${productId}`, productData, {
+        const response = await axios.put(`${API_BASE_URL}/api/products/${productId}`, productData, {
           headers: {
             'Content-Type': 'application/json',
           },
@@ -216,6 +216,39 @@ export default function StorePage({
 
   const handleSelectCategory = (category: string) => {
     setSelectedCategory(category);
+  };
+
+  const handleAddToCart = async (product: Product) => {
+    const isLoggedIn = !!localStorage.getItem("accessToken");
+    if (!isLoggedIn) {
+      alert("로그인이 필요합니다.");
+      return;
+    }
+    
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      const response = await axios.post(`${API_BASE_URL}/api/carts?productId=${product.id}&quantity=1`, null, {
+        headers: {
+          "Access_Token": accessToken,
+          "Content-Type": "application/x-www-form-urlencoded"
+        }
+      });
+      
+      if (response.status === 200) {
+        alert("장바구니에 추가되었습니다!");
+        // 장바구니 페이지로 이동
+        window.location.href = "/store/cart";
+      } else {
+        alert("장바구니 추가에 실패했습니다.");
+      }
+    } catch (error: any) {
+      console.error("장바구니 추가 오류:", error);
+      if (error.response?.data?.message?.includes('재고가 부족합니다')) {
+        alert(error.response.data.message);
+      } else {
+        alert("장바구니 추가에 실패했습니다.");
+      }
+    }
   };
 
   const allProducts = [...products]
@@ -424,17 +457,28 @@ export default function StorePage({
                   Best
                 </div>
               )}
-              <div className="relative" onClick={() => onViewProduct(product)}>
-                <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
+              <div className="relative">
+                <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden cursor-pointer" onClick={() => window.location.href = `/store/${product.id}`}>
                   <img
                     src={product.imageUrl || "/placeholder.svg"}
                     alt={product.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                   />
                 </div>
-
+                {/* 장바구니 버튼 */}
+                <Button
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddToCart(product);
+                  }}
+                  className="absolute bottom-2 right-2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-full p-2 h-8 w-8"
+                  disabled={product.stock === 0}
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                </Button>
               </div>
-              <CardContent className="p-4" onClick={() => onViewProduct(product)}>
+              <CardContent className="p-4 cursor-pointer" onClick={() => window.location.href = `/store/${product.id}`}>
                 <h3 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">{product.name}</h3>
                 <p className="text-lg font-bold text-gray-900">{product.price.toLocaleString()}원</p>
                 {product.stock === 0 && (

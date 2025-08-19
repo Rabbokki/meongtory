@@ -9,9 +9,9 @@ import { Heart, Search, Store, BookOpen, ShoppingCart } from "lucide-react";
 import AdoptionPage from "../../(pets)/adoption/page";
 import AdoptionDetailPage from "../../(pets)/adoption/[id]/page";
 import StorePage from "../../(store)/store/page";
-import StoreProductDetailPage from "../../(store)/store/[id]/page";
+
 import StoreProductRegistrationPage from "../../(store)/store/register/page";
-import StoreProductEditPage from "../../(store)/store/edit/page";
+
 import PetInsurancePage from "../insurance/page";
 import InsuranceDetailPage from "../insurance/[id]/page";
 import GrowthDiaryPage from "../../(pets)/diary/page";
@@ -21,7 +21,7 @@ import CommunityDetailPage from "../../(community)/community/[id]/page";
 import CommunityWritePage from "../../(community)/community/write/page";
 import DogResearchLabPage from "../research/page";
 import AnimalRegistrationPage from "../../(pets)/adoption/register/page";
-import CartPage from "../../(store)/store/cart/page";
+
 import AdminPage from "../../(dashboard)/admin/page";
 import PetNamingService from "../naming/page";
 import InsuranceFavoritesPage from "../insurance/favorites/page";
@@ -174,13 +174,13 @@ export default function PetServiceWebsite() {
   const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null);
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
-  const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null);
+
   const [selectedInsurance, setSelectedInsurance] = useState<Insurance | null>(null);
   const [selectedDiaryEntry, setSelectedDiaryEntry] = useState<DiaryEntry | null>(null);
   const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+
   const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [pets, setPets] = useState<Pet[]>([]);
@@ -197,7 +197,21 @@ export default function PetServiceWebsite() {
   // 현재 페이지 결정
   useEffect(() => {
     const getCurrentPage = () => {
-      if (pathname === "/") return "home";
+      if (pathname === "/") {
+        // URL 파라미터 확인 (예: /?page=cart)
+        const urlParams = new URLSearchParams(window.location.search);
+        const pageParam = urlParams.get('page');
+        if (pageParam) {
+          return pageParam;
+        }
+        return "home";
+      }
+      
+      // /store/cart 경로는 독립적인 페이지로 처리
+      if (pathname === "/store/cart") {
+        return "external"; // 외부 페이지로 처리
+      }
+      
       const path = pathname.split("/")[2] || pathname.split("/")[1];
       return path || "home";
     };
@@ -360,6 +374,62 @@ export default function PetServiceWebsite() {
     return wishlist.some((item) => item.id === id);
   };
 
+  const fetchCartItems = async () => {
+    if (!isLoggedIn) return;
+    try {
+      const accessToken = localStorage.getItem("accessToken");
+      if (!accessToken) {
+        console.log("Access token이 없습니다.");
+        return;
+      }
+      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts`, {
+        headers: { "Access_Token": accessToken },
+        timeout: 5000,
+      });
+      if (response.status !== 200) {
+        throw new Error("장바구니 조회에 실패했습니다.");
+      }
+      const cartData = response.data;
+      const cartItems: CartItem[] = cartData
+        .sort((a: any, b: any) => a.id - b.id)
+        .map((item: any, index: number) => ({
+          id: item.id,  // cartId가 아니라 id입니다!
+          name: item.product.name,
+          brand: "브랜드 없음",
+          price: item.product.price,
+          image: item.product.imageUrl || "/placeholder.svg",
+          category: item.product.category,
+          quantity: item.quantity,
+          order: index,
+          product: {
+            id: item.product.id,  // productId가 아니라 id입니다!
+            name: item.product.name,
+            description: item.product.description,
+            price: item.product.price,
+            stock: item.product.stock,
+            imageUrl: item.product.imageUrl,
+            category: item.product.category,
+            targetAnimal: item.product.targetAnimal,
+            registrationDate: item.product.registrationDate,
+            registeredBy: item.product.registeredBy,
+          },
+        }));
+      console.log("fetchCartItems - 매핑된 cartItems:", cartItems);
+      setCart(cartItems);
+      console.log("장바구니 설정 완료:", cartItems.length, "개");
+    } catch (error: any) {
+      console.error("장바구니 조회 오류:", error);
+      setCart([]);
+      toast.error("백엔드 서버 연결에 실패했습니다. 장바구니를 불러올 수 없습니다.", { duration: 5000 });
+    }
+  };
+
+  useEffect(() => {
+    if (isLoggedIn) fetchCartItems();
+  }, [isLoggedIn]);
+
+
+
   const handleAddToCart = async (product: Product) => {
     if (!isLoggedIn) {
       toast.error("로그인이 필요합니다", { duration: 5000 });
@@ -377,7 +447,7 @@ export default function PetServiceWebsite() {
       }
       await fetchCartItems();
       toast.success(`${product.name}을(를) 장바구니에 추가했습니다`, { duration: 5000 });
-      router.push("/cart");
+      router.push("/store/cart");
     } catch (error: any) {
       console.error("장바구니 추가 오류:", error);
       toast.error("백엔드 서버 연결에 실패했습니다. 장바구니 추가가 불가능합니다.", { duration: 5000 });
@@ -388,86 +458,128 @@ export default function PetServiceWebsite() {
     return cart.some((item) => item.id === id);
   };
 
-  const fetchCartItems = async () => {
-    if (!isLoggedIn) return;
+  // 장바구니에서 상품 제거
+  const onRemoveFromCart = async (cartId: number) => {
     try {
-      const accessToken = localStorage.getItem("accessToken");
+      const accessToken = localStorage.getItem("accessToken")
       if (!accessToken) {
-        console.log("Access token이 없습니다.");
-        return;
+        toast.error("로그인이 필요합니다")
+        return
       }
-      const response = await axios.get(`http://localhost:8080/api/carts`, {
-        headers: { "Access_Token": accessToken },
-        timeout: 5000,
-      });
-      if (response.status !== 200) {
-        throw new Error("장바구니 조회에 실패했습니다.");
+
+      const response = await axios.delete(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}`, {
+        headers: { "Access_Token": accessToken }
+      })
+      
+      if (response.status === 200) {
+        await fetchCartItems()
+        toast.success("장바구니에서 상품을 삭제했습니다")
+      } else {
+        throw new Error("장바구니에서 삭제에 실패했습니다.")
       }
-      const cartData = response.data;
-      const cartItems: CartItem[] = cartData
-        .sort((a: any, b: any) => a.cartId - b.cartId)
-        .map((item: any, index: number) => ({
-          id: item.cartId,
-          name: item.product.name,
-          brand: "브랜드 없음",
-          price: item.product.price,
-          image: item.product.imageUrl || "/placeholder.svg",
-          category: item.product.category,
-          quantity: item.quantity,
-          order: index,
-          product: {
-            productId: item.product.productId,
-            name: item.product.name,
-            description: item.product.description,
-            price: item.product.price,
-            stock: item.product.stock,
-            imageUrl: item.product.imageUrl,
-            category: item.product.category,
-            targetAnimal: item.product.targetAnimal,
-            registrationDate: item.product.registrationDate,
-            registeredBy: item.product.registeredBy,
-          },
-        }));
-      setCart(cartItems);
-      console.log("장바구니 설정 완료:", cartItems.length, "개");
     } catch (error: any) {
-      console.error("장바구니 조회 오류:", error);
-      setCart([]);
-      toast.error("백엔드 서버 연결에 실패했습니다. 장바구니를 불러올 수 없습니다.", { duration: 5000 });
+      console.error("장바구니 삭제 오류:", error)
+      toast.error("장바구니에서 삭제에 실패했습니다")
     }
-  };
+  }
 
-  const handleRemoveFromCart = async (cartId: number) => {
+  // 수량 업데이트
+  const onUpdateQuantity = async (cartId: number, quantity: number) => {
     try {
-      const response = await axios.delete(`http://localhost:8080/api/carts/${cartId}`);
-      if (response.status !== 200) {
-        throw new Error("장바구니에서 삭제에 실패했습니다.");
+      const accessToken = localStorage.getItem("accessToken")
+      if (!accessToken) {
+        toast.error("로그인이 필요합니다")
+        return
       }
-      await fetchCartItems();
-      toast.success("장바구니에서 상품을 삭제했습니다", { duration: 5000 });
-    } catch (error) {
-      console.error("장바구니 삭제 오류:", error);
-      toast.error("장바구니에서 삭제에 실패했습니다", { duration: 5000 });
-    }
-  };
 
-  const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
+      const response = await axios.put(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}?quantity=${quantity}`, null, {
+        headers: { "Access_Token": accessToken }
+      })
+      
+      if (response.status === 200) {
+        await fetchCartItems()
+        toast.success("장바구니 수량을 업데이트했습니다")
+      } else {
+        throw new Error("수량 업데이트에 실패했습니다.")
+      }
+    } catch (error: any) {
+      console.error("수량 업데이트 오류:", error)
+      toast.error("수량 업데이트에 실패했습니다")
+    }
+  }
+
+  // 전체 구매
+  const onPurchaseAll = async (items: CartItem[]) => {
     try {
-      const response = await axios.put(`http://localhost:8080/api/carts/${cartId}?quantity=${quantity}`);
-      if (response.status !== 200) {
-        throw new Error("수량 업데이트에 실패했습니다.");
+      const accessToken = localStorage.getItem("accessToken")
+      if (!accessToken) {
+        toast.error("로그인이 필요합니다")
+        return
       }
-      await fetchCartItems();
-      toast.success("장바구니 수량을 업데이트했습니다", { duration: 5000 });
-    } catch (error) {
-      console.error("수량 업데이트 오류:", error);
-      toast.error("수량 업데이트에 실패했습니다", { duration: 5000 });
-    }
-  };
 
-  useEffect(() => {
-    if (isLoggedIn) fetchCartItems();
-  }, [isLoggedIn]);
+      // 각 상품을 개별적으로 주문
+      for (const item of items) {
+        const orderData = {
+          accountId: currentUser?.id || 1,
+          productId: item.product?.id || item.id,
+          quantity: item.quantity,
+        }
+
+        await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
+          headers: { "Access_Token": accessToken }
+        })
+      }
+
+      // 장바구니 비우기
+      for (const item of items) {
+        await onRemoveFromCart(item.id)
+      }
+
+      toast.success("전체 구매가 완료되었습니다")
+      router.push("/my")
+    } catch (error: any) {
+      console.error("전체 구매 오류:", error)
+      toast.error("전체 구매에 실패했습니다")
+    }
+  }
+
+  // 개별 구매
+  const onPurchaseSingle = async (item: CartItem) => {
+    try {
+      const accessToken = localStorage.getItem("accessToken")
+      if (!accessToken) {
+        toast.error("로그인이 필요합니다")
+        return
+      }
+
+      const orderData = {
+        accountId: currentUser?.id || 1,
+        productId: item.product?.id || item.id,
+        quantity: item.quantity,
+      }
+
+      const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
+        headers: { "Access_Token": accessToken }
+      })
+
+      if (response.status === 200) {
+        await onRemoveFromCart(item.id)
+        toast.success("개별 구매가 완료되었습니다")
+        router.push("/my")
+      } else {
+        throw new Error("개별 구매에 실패했습니다.")
+      }
+    } catch (error: any) {
+      console.error("개별 구매 오류:", error)
+      toast.error("개별 구매에 실패했습니다")
+    }
+  }
+
+
+
+
+
+
 
   const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
     try {
@@ -488,69 +600,7 @@ export default function PetServiceWebsite() {
     }
   };
 
-  const purchaseAllFromCart = async () => {
-    if (!isLoggedIn || !currentUser) {
-      toast.error("로그인이 필요합니다", { duration: 5000 });
-      return;
-    }
-    try {
-      const response = await axios.post(`http://localhost:8080/api/orders/purchase-all/${currentUser.id}`);
-      if (response.status !== 200) {
-        throw new Error("전체 구매에 실패했습니다.");
-      }
-      const newOrder = response.data;
-      setOrders((prev) => [...prev, newOrder]);
-      setCart([]);
-      await fetchUserOrders();
-      toast.success("전체 구매가 완료되었습니다", { duration: 5000 });
-      router.push("/my");
-    } catch (error) {
-      console.error("전체 구매 오류:", error);
-      toast.error("전체 구매에 실패했습니다", { duration: 5000 });
-    }
-  };
 
-  const purchaseSingleItem = async (cartItem: CartItem) => {
-    if (!isLoggedIn || !currentUser) {
-      toast.error("로그인이 필요합니다", { duration: 5000 });
-      return;
-    }
-    try {
-      const accessToken = localStorage.getItem("accessToken");
-      const headers: any = {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      };
-      if (accessToken) headers["access_token"] = accessToken;
-      const orderData = {
-        userId: currentUser.id,
-        totalPrice: cartItem.price * cartItem.quantity,
-        orderItems: [
-          {
-            productId: cartItem.product?.productId || cartItem.id,
-            productName: cartItem.product?.name || cartItem.name || cartItem.brand + " " + cartItem.category,
-            imageUrl: cartItem.product?.imageUrl || cartItem.image || "/placeholder.svg",
-            quantity: cartItem.quantity,
-            price: cartItem.product?.price || cartItem.price,
-          },
-        ],
-      };
-      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
-        headers,
-        timeout: 10000,
-      });
-      if (response.status !== 200) {
-        throw new Error("개별 구매에 실패했습니다.");
-      }
-      await handleRemoveFromCart(cartItem.id);
-      await fetchUserOrders();
-      toast.success("개별 구매가 완료되었습니다", { duration: 5000 });
-      router.push("/my");
-    } catch (error: any) {
-      console.error("개별 구매 오류:", error);
-      toast.error("개별 구매에 실패했습니다", { duration: 5000 });
-    }
-  };
 
   const fetchUserOrders = useCallback(async () => {
     if (!isLoggedIn || !currentUser) return;
@@ -702,13 +752,11 @@ export default function PetServiceWebsite() {
   };
 
   const handleViewProduct = (product: Product) => {
-    setSelectedProductId(product.id);
     router.push(`/store/${product.id}`);
   };
 
   const handleEditProduct = (product: Product) => {
-    setSelectedProductForEdit(product);
-    router.push("/store/edit");
+    router.push(`/store/edit?productId=${product.id}`);
   };
 
   const handleSaveProduct = (updatedProduct: Product) => {
@@ -799,31 +847,13 @@ export default function PetServiceWebsite() {
 
     switch (currentPage) {
       case "adoption":
-        if (selectedPet) {
-          return (
-            <AdoptionDetailPage
-              pet={selectedPet}
-              onBack={() => setSelectedPet(null)}
-              onAdopt={(petId, inquiryData) => {
-                const newInquiry: AdoptionInquiry = {
-                  id: adoptionInquiries.length + 1,
-                  petId,
-                  petName: selectedPet.name,
-                  ...inquiryData,
-                  status: "대기중",
-                  date: getCurrentKSTDate(),
-                };
-                setAdoptionInquiries((prev) => [...prev, newInquiry]);
-                toast.success("입양 문의가 등록되었습니다", { duration: 5000 });
-              }}
-              isLoggedIn={isLoggedIn}
-            />
-          );
-        }
         return (
           <AdoptionPage
             pets={pets}
-            onViewPet={setSelectedPet}
+            onViewPet={(pet) => {
+              // window.location.href를 사용하여 상세페이지로 이동
+              window.location.href = `/adoption/${pet.id}`;
+            }}
             onClose={() => router.push("/")}
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
@@ -855,33 +885,9 @@ export default function PetServiceWebsite() {
           />
         );
 
-      case "product-detail":
-        return (
-          <StoreProductDetailPage
-            productId={selectedProductId!}
-            onBack={() => {
-              setSelectedProductId(null);
-              router.push("/store");
-            }}
-            onAddToWishlist={handleAddToWishlist}
-            onAddToCart={handleAddToCart}
-            onBuyNow={handleBuyNow}
-            isInWishlist={isInWishlist}
-            isInCart={isInCart}
-          />
-        );
 
-      case "product-edit":
-        return (
-          <StoreProductEditPage
-            productId={selectedProductForEdit!.id}
-            onBack={() => {
-              setSelectedProductForEdit(null);
-              router.push("/admin");
-            }}
-            onSave={handleSaveProduct}
-          />
-        );
+
+
 
       case "storeRegistration":
         return (
@@ -893,6 +899,10 @@ export default function PetServiceWebsite() {
             products={products}
           />
         );
+
+      case "external":
+        // 외부 페이지는 렌더링하지 않음
+        return null;
 
       case "insurance":
         if (selectedInsurance) {
@@ -1003,40 +1013,7 @@ export default function PetServiceWebsite() {
       case "research":
         return <DogResearchLabPage onClose={() => router.push("/")} />;
 
-      case "cart":
-        if (!isLoggedIn) {
-          return (
-            <div className="min-h-screen bg-gray-50 pt-20">
-              <div className="container mx-auto px-4 py-8">
-                <div className="max-w-md mx-auto text-center">
-                  <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <ShoppingCart className="w-12 h-12 text-gray-400" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">로그인이 필요합니다</h3>
-                  <p className="text-gray-600 mb-6">장바구니를 이용하려면 로그인해주세요.</p>
-                  <div className="space-y-3">
-                    <Button
-                      onClick={() => router.push("/")} // 로그인 모달은 layout.tsx에서 관리
-                      className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
-                    >
-                      홈으로 돌아가기
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        }
-        return (
-          <CartPage
-            cartItems={cart}
-            onRemoveFromCart={handleRemoveFromCart}
-            onNavigateToStore={() => router.push("/store")}
-            onPurchaseAll={purchaseAllFromCart}
-            onPurchaseSingle={purchaseSingleItem}
-            onUpdateQuantity={handleUpdateCartQuantity}
-          />
-        );
+
 
       case "naming":
         return <PetNamingService onClose={() => router.push("/")} />;
@@ -1080,7 +1057,7 @@ export default function PetServiceWebsite() {
           />
         );
 
-      case "myPage":
+      case "my":
         return (
           <MyPage
             currentUser={currentUser}
@@ -1238,7 +1215,7 @@ export default function PetServiceWebsite() {
                               toast.error("장바구니를 이용하려면 로그인이 필요합니다", { duration: 5000 });
                               router.push("/"); // 로그인 모달은 layout.tsx에서 관리
                             } else {
-                              router.push("/cart");
+                              router.push("/store/cart");
                             }
                           }}
                           className="text-center space-y-2 w-full"
