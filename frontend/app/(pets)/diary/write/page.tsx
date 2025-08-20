@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"; // Label 컴포넌트 추가
 import { Card, CardContent } from "@/components/ui/card"; // Card 컴포넌트 추가
 import Image from "next/image";
 import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-react"; // 음성 관련 아이콘 추가
-import { createDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/diary"
+import { createDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/api/diary"
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { getApiBaseUrl, getBackendUrl } from "@/lib/api";

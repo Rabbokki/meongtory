@@ -85,8 +85,9 @@ export default function AdoptionPage({
   }
 
   const handlePetClick = (pet: Pet) => {
-    // router를 사용하여 상세페이지로 이동
-    window.location.href = `/adoption/${pet.id}`
+    if (onViewPet) {
+      onViewPet(pet)
+    }
   }
 
   // API 데이터를 프론트엔드 형식으로 변환

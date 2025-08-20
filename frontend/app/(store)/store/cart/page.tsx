@@ -2,10 +2,8 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Trash2, ShoppingCart, ArrowLeft } from "lucide-react"
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import axios from "axios"
+import { Trash2, ShoppingCart } from "lucide-react"
+import { useState } from "react"
 import PaymentPage from "../../payment/PaymentPage"
 
 interface CartItem {
@@ -16,10 +14,8 @@ interface CartItem {
   image: string
   category: string
   quantity: number
-
   order: number // 순서 고정을 위한 필드
   isNaverProduct?: boolean // 네이버 상품 여부
-
   product?: {
     id: number
     name: string
@@ -34,190 +30,23 @@ interface CartItem {
   }
 }
 
-export default function CartPage() {
-  const router = useRouter()
-  const [cartItems, setCartItems] = useState<CartItem[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showPayment, setShowPayment] = useState(false)
-  const [paymentItems, setPaymentItems] = useState<CartItem[]>([])
+interface CartPageProps {
+  cartItems: CartItem[]
+  onRemoveFromCart: (id: number) => void
+  onNavigateToStore: () => void
+  onPurchaseAll: (items: CartItem[]) => void
+  onPurchaseSingle: (item: CartItem) => void
+  onUpdateQuantity: (id: number, quantity: number) => void
+}
 
-  // 장바구니 데이터 가져오기
-  const fetchCartItems = async () => {
-    try {
-      setLoading(true)
-      const token = localStorage.getItem("accessToken")
-      if (!token) {
-        console.log("토큰이 없어서 장바구니를 불러올 수 없습니다.")
-        setCartItems([])
-        return
-      }
-
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts`, {
-        headers: { "Access_Token": token },
-        timeout: 5000,
-      })
-
-      if (response.status !== 200) {
-        throw new Error("장바구니 조회에 실패했습니다.")
-      }
-
-      const cartData = response.data
-      const items: CartItem[] = cartData
-        .sort((a: any, b: any) => a.id - b.id)
-        .map((item: any, index: number) => ({
-          id: item.id,
-          name: item.product.name,
-          brand: "브랜드 없음",
-          price: item.product.price,
-          image: item.product.imageUrl || "/placeholder.svg",
-          category: item.product.category,
-          quantity: item.quantity,
-          order: index,
-          product: {
-            id: item.product.id,
-            name: item.product.name,
-            description: item.product.description,
-            price: item.product.price,
-            stock: item.product.stock,
-            imageUrl: item.product.imageUrl,
-            category: item.product.category,
-            targetAnimal: item.product.targetAnimal,
-            registrationDate: item.product.registrationDate,
-            registeredBy: item.product.registeredBy,
-          },
-        }))
-
-      setCartItems(items)
-      console.log("장바구니 설정 완료:", items.length, "개")
-    } catch (error: any) {
-      console.error("장바구니 조회 오류:", error)
-      setCartItems([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  // 장바구니에서 상품 제거
-  const onRemoveFromCart = async (cartId: number) => {
-    try {
-      const accessToken = localStorage.getItem("accessToken")
-      if (!accessToken) {
-        alert("로그인이 필요합니다")
-        return
-      }
-
-      const response = await axios.delete(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}`, {
-        headers: { "Access_Token": accessToken }
-      })
-      
-      if (response.status === 200) {
-        await fetchCartItems()
-        alert("장바구니에서 상품을 삭제했습니다")
-      } else {
-        throw new Error("장바구니에서 삭제에 실패했습니다.")
-      }
-    } catch (error: any) {
-      console.error("장바구니 삭제 오류:", error)
-      alert("장바구니에서 삭제에 실패했습니다")
-    }
-  }
-
-  // 수량 업데이트
-  const onUpdateQuantity = async (cartId: number, quantity: number) => {
-    try {
-      const accessToken = localStorage.getItem("accessToken")
-      if (!accessToken) {
-        alert("로그인이 필요합니다")
-        return
-      }
-
-      const response = await axios.put(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}?quantity=${quantity}`, null, {
-        headers: { "Access_Token": accessToken }
-      })
-      
-      if (response.status === 200) {
-        await fetchCartItems()
-      } else {
-        throw new Error("수량 업데이트에 실패했습니다.")
-      }
-    } catch (error: any) {
-      console.error("수량 업데이트 오류:", error)
-      alert("수량 업데이트에 실패했습니다")
-    }
-  }
-
-  // 전체 구매
-  const onPurchaseAll = async (items: CartItem[]) => {
-    try {
-      const accessToken = localStorage.getItem("accessToken")
-      if (!accessToken) {
-        alert("로그인이 필요합니다")
-        return
-      }
-
-      // 각 상품을 개별적으로 주문
-      for (const item of items) {
-        const orderData = {
-          accountId: 1, // TODO: 실제 사용자 ID 가져오기
-          productId: item.product?.id || item.id,
-          quantity: item.quantity,
-        }
-
-        await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
-          headers: { "Access_Token": accessToken }
-        })
-      }
-
-      // 장바구니 비우기
-      for (const item of items) {
-        await onRemoveFromCart(item.id)
-      }
-
-      alert("전체 구매가 완료되었습니다")
-      router.push("/my")
-    } catch (error: any) {
-      console.error("전체 구매 오류:", error)
-      alert("전체 구매에 실패했습니다")
-    }
-  }
-
-  // 개별 구매
-  const onPurchaseSingle = async (item: CartItem) => {
-    try {
-      const accessToken = localStorage.getItem("accessToken")
-      if (!accessToken) {
-        alert("로그인이 필요합니다")
-        return
-      }
-
-      const orderData = {
-        accountId: 1, // TODO: 실제 사용자 ID 가져오기
-        productId: item.product?.id || item.id,
-        quantity: item.quantity,
-      }
-
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
-        headers: { "Access_Token": accessToken }
-      })
-
-      if (response.status === 200) {
-        await onRemoveFromCart(item.id)
-        alert("개별 구매가 완료되었습니다")
-        router.push("/my")
-      } else {
-        throw new Error("개별 구매에 실패했습니다.")
-      }
-    } catch (error: any) {
-      console.error("개별 구매 오류:", error)
-      alert("개별 구매에 실패했습니다")
-    }
-  }
-
-  // 페이지 로드 시 장바구니 데이터 가져오기
-  useEffect(() => {
-    fetchCartItems()
-  }, [])
-
+export default function CartPage({
+  cartItems,
+  onRemoveFromCart,
+  onNavigateToStore,
+  onPurchaseAll,
+  onPurchaseSingle,
+  onUpdateQuantity,
+}: CartPageProps) {
   // 디버깅: cartItems 배열 확인
   console.log('CartPage - cartItems:', cartItems);
   if (cartItems) {
@@ -227,6 +56,8 @@ export default function CartPage() {
       console.warn('CartPage - 중복된 ID가 있습니다:', ids);
     }
   }
+  const [showPayment, setShowPayment] = useState(false)
+  const [paymentItems, setPaymentItems] = useState<CartItem[]>([])
 
   const handlePurchaseAll = () => {
     setPaymentItems(cartItems)
@@ -269,25 +100,12 @@ export default function CartPage() {
           price: item.price,
           quantity: item.quantity,
           image: item.image,
-
           isNaverProduct: item.isNaverProduct || false
         }))}
+        onBack={handleBackFromPayment}
         onSuccess={handlePaymentSuccess}
         onFail={handlePaymentFail}
-        onBack={handleBackFromPayment}
       />
-    )
-  }
-
-  // 로딩 중
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
-          <p className="text-gray-600">장바구니를 불러오는 중...</p>
-        </div>
-      </div>
     )
   }
 
@@ -306,7 +124,7 @@ export default function CartPage() {
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">장바구니가 비어있습니다</h3>
             <p className="text-gray-600 mb-6">마음에 드는 상품을 장바구니에 담아보세요!</p>
-            <Button onClick={() => router.push("/store")} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+            <Button onClick={onNavigateToStore} className="bg-yellow-400 hover:bg-yellow-500 text-black">
               쇼핑하러 가기
             </Button>
           </div>
@@ -348,6 +166,7 @@ export default function CartPage() {
                       height={200}
                       className="w-full h-48 object-cover"
                     />
+
                   </div>
                   <CardContent className="p-4">
                     <p className="text-xs text-gray-500 mb-1">{item.brand}</p>

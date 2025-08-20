@@ -88,9 +88,9 @@ function NavigationHeader({
             </button>
             {isLoggedIn && (
               <button
-                onClick={() => onNavigate("my")}
+                onClick={() => onNavigate("myPage")}
                 className={`text-sm font-medium transition-colors ${
-                  currentPage === "my" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                  currentPage === "myPage" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
                 }`}
               >
                 마이페이지
@@ -310,13 +310,7 @@ export default function Navigation() {
     <>
       <NavigationHeader
         currentPage={currentPage}
-        onNavigate={(page) => {
-          if (page === "home") {
-            router.push("/");
-          } else {
-            router.push(`/${page}`);
-          }
-        }}
+        onNavigate={(page) => router.push(`/${page === "home" ? "" : page}`)}
         isLoggedIn={isLoggedIn}
         isAdmin={isAdmin}
         onLogin={() => {

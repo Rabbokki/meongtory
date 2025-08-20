@@ -6,39 +6,31 @@ import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Heart, Search, Store, BookOpen, User, ShoppingCart, FileText, MessageSquare } from "lucide-react"
-
 import LoginModal from "@/components/modals/login-modal"
 import SignupModal from "@/components/modals/signup-modal"
 import PasswordRecoveryModal from "@/components/modals/password-recovery-modal"
-import Chatbot from "@/components/features/chatbot"
-
 import MyPage from "../../(dashboard)/my/page"
-import AdminPage from "../../(dashboard)/admin/page"
-
 import AdoptionPage from "../../(pets)/adoption/page"
 import AdoptionDetailPage from "../../(pets)/adoption/[id]/page"
-import AnimalRegistrationPage from "../../(pets)/adoption/register/page"
-
-import GrowthDiaryPage from "../../(pets)/diary/page"
-import GrowthDiaryWritePage from "../../(pets)/diary/write/page"
-import DiaryEntryDetail from "../../(pets)/diary/[id]/page"
-
 import StorePage from "../../(store)/store/page"
 import StoreProductDetailPage from "../../(store)/store/[id]/page"
 import StoreProductRegistrationPage from "../../(store)/store/register/page"
 import StoreProductEditPage from "../../(store)/store/edit/page"
-import CartPage from "../../(store)/store/cart/page"
-
 import PetInsurancePage from "../insurance/page"
 import InsuranceDetailPage from "../insurance/[id]/page"
-import InsuranceFavoritesPage from "../insurance/favorites/page"
-
+import GrowthDiaryPage from "../../(pets)/diary/page"
+import DiaryEntryDetail from "../../(pets)/diary/[id]/page"
 import CommunityPage from "../../(community)/community/page"
 import CommunityDetailPage from "../../(community)/community/[id]/page"
 import CommunityWritePage from "../../(community)/community/write/page"
-
 import DogResearchLabPage from "../research/page"
+import AnimalRegistrationPage from "../../(pets)/adoption/register/page"
+import CartPage from "../../(store)/store/cart/page"
+import Chatbot from "@/components/features/chatbot"
+import AdminPage from "../../(dashboard)/admin/page"
 import PetNamingService from "../naming/page"
+import InsuranceFavoritesPage from "../insurance/favorites/page"
+import GrowthDiaryWritePage from "../../(pets)/diary/write/page"
 
 import axios from "axios"
 import { Toaster, toast } from "react-hot-toast"
@@ -209,51 +201,38 @@ interface OrderItem {
 }
 
 export default function PetServiceWebsite() {
-  
-// State management
-const [currentPage, setCurrentPage] = useState("home")
-
-// UI 상태
-const [showLoginModal, setShowLoginModal] = useState(false)
-const [showSignupModal, setShowSignupModal] = useState(false)
-const [showPasswordRecovery, setShowPasswordRecovery] = useState(false)
-const [showContractTemplatePage, setShowContractTemplatePage] = useState(false)
-const [showContractGenerationPage, setShowContractGenerationPage] = useState(false)
-
-// 사용자 관련
-const [isLoggedIn, setIsLoggedIn] = useState(false)
-const [isAdmin, setIsAdmin] = useState(false)
-const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null)
-
-// 선택된 데이터
-const [selectedPet, setSelectedPet] = useState<Pet | null>(null)
-const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
-const [selectedNaverProduct, setSelectedNaverProduct] = useState<NaverProduct | null>(null)
-const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null)
-const [selectedInsurance, setSelectedInsurance] = useState<Insurance | null>(null)
-const [selectedDiaryEntry, setSelectedDiaryEntry] = useState<DiaryEntry | null>(null)
-const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null)
-
-// 컬렉션 데이터
-const [wishlist, setWishlist] = useState<WishlistItem[]>([])
-const [cart, setCart] = useState<CartItem[]>([])
-const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([])
-const [pets, setPets] = useState<Pet[]>([])
-const [products, setProducts] = useState<Product[]>([])
-const [insurances, setInsurances] = useState<Insurance[]>([])
-const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
-const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([])
-const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>([])
-const [comments, setComments] = useState<Comment[]>([])
-const [orders, setOrders] = useState<OrderItem[]>([])
-
-// 기타
-const [isLoading, setIsLoading] = useState(true)
-
-// Next.js router
-const router = useRouter()
-const pathname = usePathname()
+  // State management
+  const [currentPage, setCurrentPage] = useState("home")
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [showSignupModal, setShowSignupModal] = useState(false)
+  const [showPasswordRecovery, setShowPasswordRecovery] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null)
+  const [showContractTemplatePage, setShowContractTemplatePage] = useState(false)
+  const [showContractGenerationPage, setShowContractGenerationPage] = useState(false)
+  const [selectedPet, setSelectedPet] = useState<Pet | null>(null)
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null)
+  const [selectedNaverProduct, setSelectedNaverProduct] = useState<NaverProduct | null>(null)
+  const [selectedProductForEdit, setSelectedProductForEdit] = useState<Product | null>(null)
+  const [selectedInsurance, setSelectedInsurance] = useState<Insurance | null>(null)
+  const [selectedDiaryEntry, setSelectedDiaryEntry] = useState<DiaryEntry | null>(null)
+  const [selectedPost, setSelectedPost] = useState<CommunityPost | null>(null)
+  const [wishlist, setWishlist] = useState<WishlistItem[]>([])
+  const [cart, setCart] = useState<CartItem[]>([])
+  const [favoriteInsurance, setFavoriteInsurance] = useState<number[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [pets, setPets] = useState<Pet[]>([])
+  const [products, setProducts] = useState<Product[]>([])
+  const [insurances, setInsurances] = useState<Insurance[]>([])
+  const [diaryEntries, setDiaryEntries] = useState<DiaryEntry[]>([])
+  const [communityPosts, setCommunityPosts] = useState<CommunityPost[]>([])
+  const [adoptionInquiries, setAdoptionInquiries] = useState<AdoptionInquiry[]>([])
+  const [comments, setComments] = useState<Comment[]>([])
+  const [orders, setOrders] = useState<OrderItem[]>([])
+  const router = useRouter()
+  const pathname = usePathname()
 
   // 카트 페이지로 이동할 때 카트 데이터를 다시 불러오는 함수
   const setCurrentPageWithCartRefresh = (page: string) => {
@@ -267,27 +246,12 @@ const pathname = usePathname()
   // 현재 페이지 결정
   useEffect(() => {
     const getCurrentPage = () => {
-
-      if (pathname === "/") {
-        // URL 파라미터 확인 (예: /?page=cart)
-        const urlParams = new URLSearchParams(window.location.search);
-        const pageParam = urlParams.get('page');
-        if (pageParam) {
-          return pageParam;
-        }
-        return "home";
-      }
-      
-      // /store/cart 경로는 독립적인 페이지로 처리
-      if (pathname === "/store/cart") {
-        return "external"; // 외부 페이지로 처리
-      }
-      
-      const path = pathname.split("/")[2] || pathname.split("/")[1];
-      return path || "home";
-    };
-    setCurrentPage(getCurrentPage());
-  }, [pathname]);
+      if (pathname === "/") return "home"
+      const path = pathname.split("/")[2] || pathname.split("/")[1]
+      return path || "home"
+    }
+    setCurrentPage(getCurrentPage())
+  }, [pathname])
 
   // 로딩 타임아웃
   useEffect(() => {
@@ -471,7 +435,6 @@ const pathname = usePathname()
     return wishlist.some((item) => item.id === id)
   }
 
-
   const handleAddToCart = async (product: Product) => {
     if (!isLoggedIn) {
       toast.error("로그인이 필요합니다", { duration: 5000 })
@@ -579,7 +542,7 @@ const pathname = usePathname()
         console.log("Access token이 없습니다.")
         return
       }
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts`, {
+      const response = await axios.get(`http://localhost:8080/api/carts`, {
         headers: { "Access_Token": accessToken },
         timeout: 5000,
       })
@@ -589,7 +552,6 @@ const pathname = usePathname()
       const cartData = response.data
       const cartItems: CartItem[] = cartData
         .sort((a: any, b: any) => a.id - b.id)
-
         .map((item: any, index: number) => {
           // 네이버 상품인지 일반 상품인지 확인
           if (item.naverProduct) {
@@ -683,103 +645,31 @@ const pathname = usePathname()
       } else {
         throw new Error("장바구니에서 삭제에 실패했습니다.")
       }
-    } catch (error: any) {
+      await fetchCartItems()
+      toast.success("장바구니에서 상품을 삭제했습니다", { duration: 5000 })
+    } catch (error) {
       console.error("장바구니 삭제 오류:", error)
-      toast.error("장바구니에서 삭제에 실패했습니다")
+      toast.error("장바구니에서 삭제에 실패했습니다", { duration: 5000 })
     }
   }
 
-  // 수량 업데이트
-  const onUpdateQuantity = async (cartId: number, quantity: number) => {
+  const handleUpdateCartQuantity = async (cartId: number, quantity: number) => {
     try {
-      const accessToken = localStorage.getItem("accessToken")
-      if (!accessToken) {
-        toast.error("로그인이 필요합니다")
-        return
-      }
-
-      const response = await axios.put(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}?quantity=${quantity}`, null, {
-        headers: { "Access_Token": accessToken }
-      })
-      
-      if (response.status === 200) {
-        await fetchCartItems()
-        toast.success("장바구니 수량을 업데이트했습니다")
-      } else {
+      const response = await axios.put(`http://localhost:8080/api/carts/${cartId}?quantity=${quantity}`)
+      if (response.status !== 200) {
         throw new Error("수량 업데이트에 실패했습니다.")
       }
-    } catch (error: any) {
+      await fetchCartItems()
+      toast.success("장바구니 수량을 업데이트했습니다", { duration: 5000 })
+    } catch (error) {
       console.error("수량 업데이트 오류:", error)
-      toast.error("수량 업데이트에 실패했습니다")
+      toast.error("수량 업데이트에 실패했습니다", { duration: 5000 })
     }
   }
 
-  // 전체 구매
-  const onPurchaseAll = async (items: CartItem[]) => {
-    try {
-      const accessToken = localStorage.getItem("accessToken")
-      if (!accessToken) {
-        toast.error("로그인이 필요합니다")
-        return
-      }
-
-      // 각 상품을 개별적으로 주문
-      for (const item of items) {
-        const orderData = {
-          accountId: currentUser?.id || 1,
-          productId: item.product?.id || item.id,
-          quantity: item.quantity,
-        }
-
-        await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
-          headers: { "Access_Token": accessToken }
-        })
-      }
-
-      // 장바구니 비우기
-      for (const item of items) {
-        await onRemoveFromCart(item.id)
-      }
-
-      toast.success("전체 구매가 완료되었습니다")
-      router.push("/my")
-    } catch (error: any) {
-      console.error("전체 구매 오류:", error)
-      toast.error("전체 구매에 실패했습니다")
-    }
-  }
-
-  // 개별 구매
-  const onPurchaseSingle = async (item: CartItem) => {
-    try {
-      const accessToken = localStorage.getItem("accessToken")
-      if (!accessToken) {
-        toast.error("로그인이 필요합니다")
-        return
-      }
-
-      const orderData = {
-        accountId: currentUser?.id || 1,
-        productId: item.product?.id || item.id,
-        quantity: item.quantity,
-      }
-
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
-        headers: { "Access_Token": accessToken }
-      })
-
-      if (response.status === 200) {
-        await onRemoveFromCart(item.id)
-        toast.success("개별 구매가 완료되었습니다")
-        router.push("/my")
-      } else {
-        throw new Error("개별 구매에 실패했습니다.")
-      }
-    } catch (error: any) {
-      console.error("개별 구매 오류:", error)
-      toast.error("개별 구매에 실패했습니다")
-    }
-  }
+  useEffect(() => {
+    if (isLoggedIn) fetchCartItems()
+  }, [isLoggedIn])
 
   const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
     try {
@@ -799,7 +689,6 @@ const pathname = usePathname()
       throw error
     }
   }
-
 
   const purchaseAllFromCart = async () => {
     if (!isLoggedIn || !currentUser) {
@@ -1030,7 +919,6 @@ const pathname = usePathname()
       registrationDate: getCurrentKSTDate(),
       registeredBy: currentUser?.email || "admin",
       petType: productData.petType || "all",
-
     }
     setProducts((prev) => [...prev, newProduct])
     toast.success("새로운 상품이 등록되었습니다", { duration: 5000 })
@@ -1143,13 +1031,31 @@ const pathname = usePathname()
 
     switch (currentPage) {
       case "adoption":
+        if (selectedPet) {
+          return (
+            <AdoptionDetailPage
+              pet={selectedPet}
+              onBack={() => setSelectedPet(null)}
+              onAdopt={(petId, inquiryData) => {
+                const newInquiry: AdoptionInquiry = {
+                  id: adoptionInquiries.length + 1,
+                  petId,
+                  petName: selectedPet.name,
+                  ...inquiryData,
+                  status: "대기중",
+                  date: getCurrentKSTDate(),
+                }
+                setAdoptionInquiries((prev) => [...prev, newInquiry])
+                toast.success("입양 문의가 등록되었습니다", { duration: 5000 })
+              }}
+              isLoggedIn={isLoggedIn}
+            />
+          )
+        }
         return (
           <AdoptionPage
             pets={pets}
-            onViewPet={(pet) => {
-              // window.location.href를 사용하여 상세페이지로 이동
-              window.location.href = `/adoption/${pet.id}`;
-            }}
+            onViewPet={setSelectedPet}
             onClose={() => router.push("/")}
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
@@ -1181,7 +1087,6 @@ const pathname = usePathname()
             setCurrentPage={setCurrentPageWithCartRefresh}
           />
         )
-
 
       case "product-detail":
         if (selectedNaverProduct) {
@@ -1239,10 +1144,6 @@ const pathname = usePathname()
             products={products}
           />
         )
-
-      case "external":
-        // 외부 페이지는 렌더링하지 않음
-        return null;
 
       case "insurance":
         if (selectedInsurance) {
@@ -1430,7 +1331,7 @@ const pathname = usePathname()
           />
         )
 
-      case "my":
+      case "myPage":
         return (
           <MyPage
             currentUser={currentUser}
@@ -1588,8 +1489,7 @@ const pathname = usePathname()
                               toast.error("장바구니를 이용하려면 로그인이 필요합니다", { duration: 5000 })
                               router.push("/")
                             } else {
-                              router.push("/store/cart");
-                             
+                              router.push("/cart")
                             }
                           }}
                           className="text-center space-y-2 w-full"

@@ -68,7 +68,7 @@ export default function CommunityPage({
   };
 
   const handleViewPost = (post: CommunityPost) => {
-    window.location.href = `/community/${post.id}`;
+    router.push(`/community/${post.id}`);
   };
 
   return (
