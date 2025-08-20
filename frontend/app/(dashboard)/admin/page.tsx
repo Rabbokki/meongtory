@@ -107,7 +107,7 @@ interface Comment {
 interface Order {
   orderId: number
   userId: number
-  totalPrice: number
+  amount: number
   paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED"
   orderedAt: string
   id?: number
@@ -388,7 +388,7 @@ export default function AdminPage({
             return {
               orderId: order.id || order.orderId, // 백엔드에서는 id 필드 사용
               userId: order.accountId || order.userId,
-              totalPrice: order.amount || order.totalPrice, // 백엔드에서는 amount 필드 사용
+              amount: order.amount, // 백엔드에서는 amount 필드 사용
               paymentStatus: 'COMPLETED', // 결제 완료된 주문만 표시하므로 항상 COMPLETED
               orderedAt: order.createdAt || order.orderedAt,
               orderItems: [{
@@ -1940,7 +1940,7 @@ export default function AdminPage({
                           
                           <div className="space-y-2 mb-4">
                             <p className="text-sm text-gray-600">사용자 ID: {order.userId}</p>
-                            <p className="text-sm text-gray-600">총 금액: {(order.totalPrice || 0).toLocaleString()}원</p>
+                            <p className="text-sm text-gray-600">총 금액: {(order.amount || 0).toLocaleString()}원</p>
                             <p className="text-sm text-gray-600">
                               주문일: {order.orderedAt ? 
                                 (() => {
