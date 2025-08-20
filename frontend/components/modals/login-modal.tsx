@@ -88,10 +88,7 @@ export default function LoginModal({
     try {
       // 로그인 요청
       const response = await axios.post(
-
-        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/login`,
-
- 
+        `${getApiBaseUrl()}/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
