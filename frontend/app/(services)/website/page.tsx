@@ -660,6 +660,9 @@ const pathname = usePathname()
 
 
 
+
+
+
   // 장바구니에서 상품 제거
   const onRemoveFromCart = async (cartId: number) => {
     try {
@@ -852,7 +855,7 @@ const pathname = usePathname()
       if (response.status !== 200) {
         throw new Error("개별 구매에 실패했습니다.")
       }
-              await onRemoveFromCart(cartItem.id)
+      await handleRemoveFromCart(cartItem.id)
       await fetchUserOrders()
       toast.success("개별 구매가 완료되었습니다", { duration: 5000 })
       router.push("/my")
@@ -1377,7 +1380,7 @@ const pathname = usePathname()
         return (
           <CartPage
             cartItems={cart}
-            onRemoveFromCart={onRemoveFromCart}
+            onRemoveFromCart={handleRemoveFromCart}
             onNavigateToStore={() => router.push("/store")}
             onPurchaseAll={purchaseAllFromCart}
             onPurchaseSingle={purchaseSingleItem}
