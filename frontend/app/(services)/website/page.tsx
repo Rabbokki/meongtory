@@ -46,31 +46,13 @@ import { getCurrentKSTDate } from "@/lib/utils"
 
 // Types
 import type { Pet } from "@/types/pets"
-import type { Product, WishlistItem, CartItem } from "@/types/store"
+import type { Product, WishlistItem, CartItem, NaverProduct } from "@/types/store"
 import type { Insurance } from "@/types/insurance"
 
-interface NaverProduct {
-  id: number
-  productId: string
-  title: string
-  description: string
-  price: number
-  imageUrl: string
-  mallName: string
-  productUrl: string
-  brand: string
-  maker: string
-  category1: string
-  category2: string
-  category3: string
-  category4: string
-  reviewCount: number
-  rating: number
-  searchCount: number
-  createdAt: string
-  updatedAt: string
-  relatedProductId?: number
-  link?: string
+// Product 타입 확장 (brand, image 속성 추가)
+interface ExtendedProduct extends Product {
+  brand?: string
+  image?: string
 }
 
 interface DiaryEntry {
@@ -117,75 +99,7 @@ interface AdoptionInquiry {
   date: string
 }
 
-interface Pet {
-  id: number
-  name: string
-  breed: string
-  age: string
-  gender: string
-  size: string
-  personality: string[]
-  healthStatus: string
-  description: string
-  images: string[]
-  location: string
-  contact: string
-  adoptionFee: number
-  isNeutered: boolean
-  isVaccinated: boolean
-  dateRegistered: string
-  adoptionStatus: string
-  ownerEmail?: string
-}
 
-interface Product {
-  id: number
-  productId: number
-  name: string
-  brand: string
-  price: number
-  image: string
-  category: string
-  description: string
-  tags: string[]
-  stock: number
-  petType: string
-  registrationDate: string
-  registeredBy: string
-}
-
-interface WishlistItem {
-  id: number
-  name: string
-  price: number
-  image: string
-}
-
-interface CartItem {
-  id: number
-  name: string
-  brand: string
-  price: number
-  image: string
-  category: string
-  quantity: number
-  order: number
-  product?: Product
-}
-
-interface Insurance {
-  id: number
-  company: string
-  planName: string
-  monthlyPremium: number
-  coverage: string[]
-  deductible: number
-  maxPayout: number
-  ageLimit: string
-  description: string
-  rating: number
-  isPopular: boolean
-}
 
 interface Comment {
   id: number
@@ -778,7 +692,7 @@ const pathname = usePathname()
     }
   }
 
-  const createOrder = async (orderData: { userId: number; totalPrice: number }) => {
+  const createOrder = async (orderData: { userId: number; amount: number }) => {
     try {
       const response = await axios.post("http://localhost:8080/api/orders", orderData, {
         headers: { "Content-Type": "application/json" },
@@ -834,7 +748,7 @@ const pathname = usePathname()
       if (accessToken) headers["access_token"] = accessToken
       const orderData = {
         userId: currentUser.id,
-        totalPrice: cartItem.price * cartItem.quantity,
+        amount: cartItem.price * cartItem.quantity,
         orderItems: [
           {
             productId: cartItem.product?.productId || cartItem.id,
@@ -874,9 +788,9 @@ const pathname = usePathname()
         if (order.orderItems && order.orderItems.length > 0) {
           return order.orderItems.map((item: any) => ({
             id: item.id || order.orderId,
-            productId: item.productId || 0,
+                            productId: item.id || 0,
             productName: item.productName || `주문 #${order.orderId}`,
-            price: item.price || order.totalPrice,
+                          price: item.price || order.amount,
             quantity: item.quantity || 1,
             orderDate: order.orderedAt || new Date().toISOString(),
             status: order.paymentStatus === "COMPLETED" ? "completed" : order.paymentStatus === "PENDING" ? "pending" : "cancelled",
@@ -888,7 +802,7 @@ const pathname = usePathname()
               id: order.orderId,
               productId: 0,
               productName: `주문 #${order.orderId}`,
-              price: order.totalPrice,
+              price: order.amount,
               quantity: 1,
               orderDate: order.orderedAt || new Date().toISOString(),
               status: order.paymentStatus === "COMPLETED" ? "completed" : order.paymentStatus === "PENDING" ? "pending" : "cancelled",
@@ -995,15 +909,13 @@ const pathname = usePathname()
       }
       const convertedProducts: Product[] = backendProducts.map((product: any) => ({
         id: product.id || product.productId || 0,
-        productId: product.id || product.productId || 0,
         name: product.name || '상품명 없음',
         description: product.description || '',
         price: product.price || 0,
-        image: product.imageUrl || product.image || "/placeholder.svg?height=300&width=300",
-        category: product.category || "기타",
-        tags: product.tags || [],
+        imageUrl: product.imageUrl || product.image || "/placeholder.svg?height=300&width=300",
+        category: (product.category as '의류' | '장난감' | '건강관리' | '용품' | '간식' | '사료') || '용품',
+        targetAnimal: (product.targetAnimal as 'ALL' | 'DOG' | 'CAT') || 'ALL',
         stock: product.stock || 0,
-        petType: product.targetAnimal?.toLowerCase() || product.petType || "all",
         registrationDate: product.registrationDate || new Date().toISOString().split("T")[0],
         registeredBy: product.registeredBy || "admin",
       }))
@@ -1035,13 +947,26 @@ const pathname = usePathname()
   }
 
   const handleViewProduct = (product: Product | NaverProduct) => {
-    if ('productUrl' in product && product.productUrl) {
-      setSelectedNaverProduct(product)
+    console.log("handleViewProduct called with:", product)
+    console.log("Product keys:", Object.keys(product))
+    console.log("Product type check:", {
+      hasProductUrl: 'productUrl' in product,
+      hasMallName: 'mallName' in product,
+      hasTitle: 'title' in product,
+      hasName: 'name' in product
+    })
+    
+    // 네이버 상품인지 확인 (productUrl, mallName, 또는 title 속성 존재 여부로 판단)
+    if ('productUrl' in product || 'mallName' in product || 'title' in product) {
+      console.log("네이버 상품으로 인식됨:", product)
+      setSelectedNaverProduct(product as NaverProduct)
       setCurrentPage("product-detail")
       return
     }
     
+    // 일반 상품인지 확인
     if ('id' in product && product.id) {
+      console.log("일반 상품으로 인식됨:", product)
       setSelectedProductId(Number(product.id))
       setCurrentPage("product-detail")
     }
@@ -1145,7 +1070,7 @@ const pathname = usePathname()
             pets={pets}
             onViewPet={(pet) => {
               // window.location.href를 사용하여 상세페이지로 이동
-              window.location.href = `/adoption/${pet.id}`;
+              window.location.href = `/adoption/${pet.petId}`;
             }}
             onClose={() => router.push("/")}
             isAdmin={isAdmin}
@@ -1185,7 +1110,7 @@ const pathname = usePathname()
           return (
             <StoreProductDetailPage
               productId={0}
-              naverProduct={selectedNaverProduct}
+              propNaverProduct={selectedNaverProduct}
               onBack={() => {
                 setSelectedNaverProduct(null)
                 setCurrentPage("store")
