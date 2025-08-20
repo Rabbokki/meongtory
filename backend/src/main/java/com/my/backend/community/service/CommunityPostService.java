@@ -20,10 +20,12 @@ public class CommunityPostService {
     private final CommunityPostRepository postRepository;
     private final S3Service s3Service;
 
+    // 게시글 전체 조회 (최신순)
     public List<CommunityPost> getAllPosts() {
-        return postRepository.findAll();
+        return postRepository.findAllByOrderByCreatedAtDesc();
     }
 
+    // 게시글 상세 조회 ( 조회 수 증가 포함)
     public CommunityPost getPostById(Long id) {
         CommunityPost post = postRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
@@ -31,6 +33,7 @@ public class CommunityPostService {
         return postRepository.save(post);
     }
 
+    // 게시글 생성
     public CommunityPostDto createPost(CommunityPostDto dto, List<MultipartFile> imgs, Account account) throws IOException {
         List<String> imageUrls = new ArrayList<>();
         if (imgs != null && !imgs.isEmpty()) {
@@ -44,8 +47,8 @@ public class CommunityPostService {
         CommunityPost post = CommunityPost.builder()
                 .title(dto.getTitle())
                 .content(dto.getContent())
-                .author(account.getName())          // 화면 표시용 이름
-                .ownerEmail(account.getEmail())     // ✅ 수정/삭제 권한 확인용 이메일
+                .author(account.getName())
+                .ownerEmail(account.getEmail())
                 .category(dto.getCategory())
                 .boardType(dto.getBoardType())
                 .tags(dto.getTags())
@@ -62,7 +65,7 @@ public class CommunityPostService {
                 .title(post.getTitle())
                 .content(post.getContent())
                 .author(post.getAuthor())
-                .ownerEmail(post.getOwnerEmail())   // ✅ 프론트로 내려줌
+                .ownerEmail(post.getOwnerEmail())
                 .category(post.getCategory())
                 .boardType(post.getBoardType())
                 .tags(post.getTags())
@@ -74,13 +77,25 @@ public class CommunityPostService {
                 .updatedAt(post.getUpdatedAt())
                 .build();
     }
-
-
+    // 게시글 수정
     public CommunityPost updatePost(Long id, CommunityPostDto dto, List<MultipartFile> imgs) throws IOException {
         CommunityPost post = getPostById(id);
 
-        // 이미지 업로드
+        // 기존 이미지 리스트 불러오기
         List<String> imageUrls = post.getImages() != null ? new ArrayList<>(post.getImages()) : new ArrayList<>();
+
+        // 삭제할 이미지 처리
+        if (dto.getImagesToDelete() != null && !dto.getImagesToDelete().isEmpty()) {
+            for (String fileName : dto.getImagesToDelete()) {
+                // S3에서 삭제
+                s3Service.deleteFile(fileName);
+
+                // DB에서 해당 파일 제거
+                imageUrls.removeIf(url -> url.contains(fileName));
+            }
+        }
+
+        // 새 이미지 업로드
         if (imgs != null && !imgs.isEmpty()) {
             for (MultipartFile file : imgs) {
                 String uploadedUrl = s3Service.uploadFile(file);
@@ -88,6 +103,7 @@ public class CommunityPostService {
             }
         }
 
+        // 게시글 기본 필드 수정
         post.setTitle(dto.getTitle());
         post.setContent(dto.getContent());
         post.setCategory(dto.getCategory());
@@ -97,22 +113,21 @@ public class CommunityPostService {
         return postRepository.save(post);
     }
 
-    // CommunityPostService.java
+    // 게시글 삭제
     public void deletePost(Long id) {
         CommunityPost post = postRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
 
-        // 게시글 이미지가 있으면 S3에서 삭제
         if (post.getImages() != null && !post.getImages().isEmpty()) {
             for (String imageUrl : post.getImages()) {
                 s3Service.deleteFile(imageUrl);
             }
         }
 
-        // DB에서 게시글 삭제
         postRepository.deleteById(id);
     }
 
-
-
+    public CommunityPost save(CommunityPost post) {
+        return postRepository.save(post);
+    }
 }

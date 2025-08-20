@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -33,14 +32,43 @@ export default function LoginModal({
     !!localStorage.getItem("accessToken")
   );
   const [userEmail, setUserEmail] = useState("");
+  const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+
+  // 토큰 갱신 함수
+  const refreshAccessToken = async () => {
+    try {
+      const refreshToken = localStorage.getItem("refreshToken");
+      if (!refreshToken) {
+        console.error("리프레시 토큰이 없습니다.");
+        return null;
+      }
+      const response = await axios.post(
+        `${API_BASE_URL}/api/accounts/refresh`,
+        { refreshToken },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      const { accessToken } = response.data.data;
+      localStorage.setItem("accessToken", accessToken);
+      console.log("토큰 갱신 성공");
+      return accessToken;
+    } catch (err) {
+      console.error("토큰 갱신 실패:", err);
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("nickname");
+      localStorage.removeItem("email");
+      localStorage.removeItem("role");
+      return null;
+    }
+  };
 
   // 페이지 로드 시 localStorage에서 토큰 확인 및 사용자 정보 조회
   useEffect(() => {
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
       axios
-        .get(`${getApiBaseUrl()}/accounts/me`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
+        .get(`${API_BASE_URL}/api/accounts/me`, {
+          headers: { Access_Token: accessToken }, // Authorization 대신 Access_Token 사용
         })
         .then((response) => {
           const { email, name, role } = response.data.data;
@@ -58,15 +86,47 @@ export default function LoginModal({
             onLoginSuccess();
           }
         })
-        .catch(() => {
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          setIsLoggedIn(false);
-          setUserEmail("");
-          toast.error("토큰이 유효하지 않습니다");
+        .catch(async (err) => {
+          if (err.response?.status === 401) {
+            const newToken = await refreshAccessToken();
+            if (newToken) {
+              try {
+                const retryResponse = await axios.get(`${API_BASE_URL}/api/accounts/me`, {
+                  headers: { Access_Token: newToken },
+                });
+                const { email, name, role } = retryResponse.data.data;
+                setUserEmail(email);
+                setIsLoggedIn(true);
+                localStorage.setItem("nickname", name || "");
+                localStorage.setItem("email", email || "");
+                localStorage.setItem("role", role || "USER");
+                toast.success("로그인 유지됨");
+                if (onLoginSuccess) {
+                  onLoginSuccess();
+                }
+              } catch (retryErr) {
+                console.error("사용자 정보 재로드 실패:", retryErr);
+                localStorage.removeItem("accessToken");
+                localStorage.removeItem("refreshToken");
+                setIsLoggedIn(false);
+                setUserEmail("");
+                toast.error("토큰이 유효하지 않습니다. 다시 로그인해주세요.");
+              }
+            } else {
+              setIsLoggedIn(false);
+              setUserEmail("");
+              toast.error("토큰이 유효하지 않습니다. 다시 로그인해주세요.");
+            }
+          } else {
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("refreshToken");
+            setIsLoggedIn(false);
+            setUserEmail("");
+            toast.error("토큰이 유효하지 않습니다");
+          }
         });
     }
-  }, []);
+  }, [onLoginSuccess]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,7 +148,7 @@ export default function LoginModal({
     try {
       // 로그인 요청
       const response = await axios.post(
-        `${getApiBaseUrl()}/accounts/login`,
+        `${API_BASE_URL}/api/accounts/login`, // 오타 수정 (BAKCEND -> BACKEND)
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
@@ -99,14 +159,14 @@ export default function LoginModal({
       // 🔑 토큰 저장
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
-      
+
       // 토큰 저장 확인
-      console.log("=== 로그인 모달에서 토큰 저장 ===")
-      console.log("저장된 Access Token:", accessToken ? "존재함" : "없음")
-      console.log("저장된 Refresh Token:", refreshToken ? "존재함" : "없음")
-      console.log("Access Token 길이:", accessToken?.length)
-      console.log("localStorage에서 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨")
-      
+      console.log("=== 로그인 모달에서 토큰 저장 ===");
+      console.log("저장된 Access Token:", accessToken ? "존재함" : "없음");
+      console.log("저장된 Refresh Token:", refreshToken ? "존재함" : "없음");
+      console.log("Access Token 길이:", accessToken?.length);
+      console.log("localStorage에서 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
+
       setUserEmail(email);
       setIsLoggedIn(true);
       toast.success("로그인 성공");
@@ -219,21 +279,21 @@ export default function LoginModal({
           <div className="space-y-3">
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/google`)}
+              onClick={() => (window.location.href = `${API_BASE_URL}/oauth2/authorization/google`)}
               className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             >
               Google로 로그인
             </Button>
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/kakao`)}
+              onClick={() => (window.location.href = `${API_BASE_URL}/oauth2/authorization/kakao`)}
               className="w-full bg-yellow-400 text-black hover:bg-yellow-500"
             >
               카카오로 로그인
             </Button>
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/naver`)}
+              onClick={() => (window.location.href = `${API_BASE_URL}/oauth2/authorization/naver`)}
               className="w-full bg-green-500 text-white hover:bg-green-600"
             >
               네이버로 로그인

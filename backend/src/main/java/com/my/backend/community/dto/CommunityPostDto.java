@@ -25,4 +25,5 @@ public class CommunityPostDto {
     private List<String> images;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private List<String> imagesToDelete;
 }
