@@ -440,19 +440,19 @@ export default function AdminPage({
     fetchAdoptionRequests();
   }, []);
 
-  // if (!isAdmin) {
-  //   return (
-  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-  //       <Card className="p-8 text-center">
-  //         <CardContent>
-  //           <h2 className="text-2xl font-bold text-red-600 mb-4">접근 권한이 없습니다</h2>
-  //           <p className="text-gray-600 mb-4">관리자만 접근할 수 있는 페이지입니다.</p>
-  //           <Button onClick={onClose}>홈으로 돌아가기</Button>
-  //         </CardContent>
-  //       </Card>
-  //     </div>
-  //   )
-  // }
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="p-8 text-center">
+          <CardContent>
+            <h2 className="text-2xl font-bold text-red-600 mb-4">접근 권한이 없습니다</h2>
+            <p className="text-gray-600 mb-4">관리자만 접근할 수 있는 페이지입니다.</p>
+            <Button onClick={onClose}>홈으로 돌아가기</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   const getStatusColor = (status: string) => {
     switch (status) {
