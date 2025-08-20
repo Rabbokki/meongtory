@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -25,27 +25,95 @@ interface CommunityPost {
 }
 
 interface CommunityPageProps {
-  posts: CommunityPost[];
   isLoggedIn: boolean;
   onShowLogin: () => void;
-  onUpdatePosts: (posts: CommunityPost[]) => void;
+  onUpdatePosts?: (posts: CommunityPost[]) => void; // Optional prop
 }
 
 export default function CommunityPage({
-  posts,
   isLoggedIn,
   onShowLogin,
   onUpdatePosts,
 }: CommunityPageProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [posts, setPosts] = useState<CommunityPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    console.log("Environment variable NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
+    console.log("onUpdatePosts is function:", typeof onUpdatePosts === "function");
+    
+    if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
+      setError("Backend URL is not defined in environment variables");
+      setLoading(false);
+      return;
+    }
+
+    const fetchPosts = async () => {
+      try {
+        console.log("Fetching posts from:", `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts`);
+        setLoading(true);
+
+        const token = localStorage.getItem("accessToken");
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts`, {
+          method: "GET",
+          headers,
+        });
+
+        console.log("Response status:", response.status);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Fetched posts:", data);
+
+        const mappedPosts = data.map((post: any) => ({
+          id: post.id,
+          title: post.title || "제목 없음",
+          content: post.content || "",
+          author: post.author || "익명",
+          date: post.createdAt ? new Date(post.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
+          category: post.category || "",
+          boardType: post.boardType || "자유게시판",
+          views: post.views || 0,
+          likes: post.likes || 0,
+          comments: post.comments || 0,
+          tags: post.tags || [],
+          images: post.images || [],
+        }));
+
+        setPosts(mappedPosts);
+        // onUpdatePosts가 함수인 경우에만 호출
+        if (typeof onUpdatePosts === "function") {
+          onUpdatePosts(mappedPosts);
+        }
+      } catch (err: any) {
+        console.error("Failed to fetch posts:", err);
+        setError(err.message || "Failed to fetch posts");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPosts();
+  }, []); // onUpdatePosts 제거하여 불필요한 재호출 방지
 
   const filteredPosts = posts?.filter((post) => {
     const matchesSearch =
-      post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      post.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      post.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      post.tags.some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+      (post.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (post.content || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (post.author || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (post.tags || []).some((tag) => tag.toLowerCase().includes(searchTerm.toLowerCase()));
     return matchesSearch;
   });
 
@@ -55,8 +123,34 @@ export default function CommunityPage({
 
   const popularPosts = posts?.sort((a, b) => b.views - a.views).slice(0, 5) || [];
 
-  const handleLike = (postId: number) => {
-    onUpdatePosts(posts?.map((post) => (post.id === postId ? { ...post, likes: post.likes + 1 } : post)) || []);
+  const handleLike = async (postId: number) => {
+    try {
+      const token = localStorage.getItem("accessToken");
+      const headers: HeadersInit = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}/like`, {
+        method: "PUT",
+        headers,
+      });
+
+      if (response.ok) {
+        const updatedPosts = posts.map((post) => (post.id === postId ? { ...post, likes: post.likes + 1 } : post));
+        setPosts(updatedPosts);
+        if (typeof onUpdatePosts === "function") {
+          onUpdatePosts(updatedPosts);
+        }
+      } else {
+        throw new Error("Failed to like post");
+      }
+    } catch (err) {
+      console.error("Failed to like post:", err);
+      setError("Failed to like post");
+    }
   };
 
   const handleEdit = (post: CommunityPost) => {
@@ -67,13 +161,39 @@ export default function CommunityPage({
     router.push(`/community/${post.id}?edit=true`);
   };
 
-  const handleDelete = (postId: number) => {
+  const handleDelete = async (postId: number) => {
     if (!isLoggedIn) {
       onShowLogin();
       return;
     }
     if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
-      onUpdatePosts(posts?.filter((post) => post.id !== postId) || []);
+      try {
+        const token = localStorage.getItem("accessToken");
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}`, {
+          method: "DELETE",
+          headers,
+        });
+
+        if (response.ok) {
+          const updatedPosts = posts.filter((post) => post.id !== postId);
+          setPosts(updatedPosts);
+          if (typeof onUpdatePosts === "function") {
+            onUpdatePosts(updatedPosts);
+          }
+        } else {
+          throw new Error("Failed to delete post");
+        }
+      } catch (err) {
+        console.error("Failed to delete post:", err);
+        setError("Failed to delete post");
+      }
     }
   };
 
@@ -88,6 +208,14 @@ export default function CommunityPage({
   const handleViewPost = (post: CommunityPost) => {
     router.push(`/community/${post.id}`);
   };
+
+  if (loading) {
+    return <div className="min-h-screen bg-gray-50 py-8">로딩 중...</div>;
+  }
+
+  if (error) {
+    return <div className="min-h-screen bg-gray-50 py-8">에러: {error}</div>;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">

@@ -44,8 +44,8 @@ public class CommunityPostService {
         CommunityPost post = CommunityPost.builder()
                 .title(dto.getTitle())
                 .content(dto.getContent())
-                .author(account.getName())          // 화면 표시용 이름
-                .ownerEmail(account.getEmail())     // ✅ 수정/삭제 권한 확인용 이메일
+                .author(account.getName())
+                .ownerEmail(account.getEmail())
                 .category(dto.getCategory())
                 .boardType(dto.getBoardType())
                 .tags(dto.getTags())
@@ -62,7 +62,7 @@ public class CommunityPostService {
                 .title(post.getTitle())
                 .content(post.getContent())
                 .author(post.getAuthor())
-                .ownerEmail(post.getOwnerEmail())   // ✅ 프론트로 내려줌
+                .ownerEmail(post.getOwnerEmail())
                 .category(post.getCategory())
                 .boardType(post.getBoardType())
                 .tags(post.getTags())
@@ -75,11 +75,9 @@ public class CommunityPostService {
                 .build();
     }
 
-
     public CommunityPost updatePost(Long id, CommunityPostDto dto, List<MultipartFile> imgs) throws IOException {
         CommunityPost post = getPostById(id);
 
-        // 이미지 업로드
         List<String> imageUrls = post.getImages() != null ? new ArrayList<>(post.getImages()) : new ArrayList<>();
         if (imgs != null && !imgs.isEmpty()) {
             for (MultipartFile file : imgs) {
@@ -97,22 +95,20 @@ public class CommunityPostService {
         return postRepository.save(post);
     }
 
-    // CommunityPostService.java
     public void deletePost(Long id) {
         CommunityPost post = postRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
 
-        // 게시글 이미지가 있으면 S3에서 삭제
         if (post.getImages() != null && !post.getImages().isEmpty()) {
             for (String imageUrl : post.getImages()) {
                 s3Service.deleteFile(imageUrl);
             }
         }
 
-        // DB에서 게시글 삭제
         postRepository.deleteById(id);
     }
 
-
-
+    public CommunityPost save(CommunityPost post) {
+        return postRepository.save(post);
+    }
 }
