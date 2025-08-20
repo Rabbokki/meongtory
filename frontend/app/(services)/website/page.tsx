@@ -255,9 +255,15 @@ export default function PetServiceWebsite() {
     checkLoginStatus();
   }, []);
   */
-      }
-    }, 3000);
-    return () => clearTimeout(timeout);
+
+  // 로딩 상태 관리
+  useEffect(() => {
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        setIsLoading(false);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
   }, [isLoading]);
 
   // OAuth 콜백 처리

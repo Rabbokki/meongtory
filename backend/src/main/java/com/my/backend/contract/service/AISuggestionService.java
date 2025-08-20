@@ -86,17 +86,22 @@ public class AISuggestionService {
             requestBody.put("templateSections", requestDto.getTemplateSections()); // 템플릿의 실제 조항들
             requestBody.put("customSections", requestDto.getCustomSections()); // 추가할 커스텀 조항들
             requestBody.put("removedSections", requestDto.getRemovedSections());
-            requestBody.put("petInfo", requestDto.getPetInfo() != null ? Map.of(
-                "name", requestDto.getPetInfo().getName(),
-                "breed", requestDto.getPetInfo().getBreed(),
-                "age", requestDto.getPetInfo().getAge(),
-                "healthStatus", requestDto.getPetInfo().getHealthStatus()
-            ) : new HashMap<>());
-            requestBody.put("userInfo", requestDto.getUserInfo() != null ? Map.of(
-                "name", requestDto.getUserInfo().getName(),
-                "phone", requestDto.getUserInfo().getPhone(),
-                "email", requestDto.getUserInfo().getEmail()
-            ) : new HashMap<>());
+            Map<String, Object> petInfoMap = new HashMap<>();
+            if (requestDto.getPetInfo() != null) {
+                petInfoMap.put("name", requestDto.getPetInfo().getName() != null ? requestDto.getPetInfo().getName() : "");
+                petInfoMap.put("breed", requestDto.getPetInfo().getBreed() != null ? requestDto.getPetInfo().getBreed() : "");
+                petInfoMap.put("age", requestDto.getPetInfo().getAge() != null ? requestDto.getPetInfo().getAge() : 0);
+                petInfoMap.put("healthStatus", requestDto.getPetInfo().getHealthStatus() != null ? requestDto.getPetInfo().getHealthStatus() : "");
+            }
+            requestBody.put("petInfo", petInfoMap);
+            
+            Map<String, Object> userInfoMap = new HashMap<>();
+            if (requestDto.getUserInfo() != null) {
+                userInfoMap.put("name", requestDto.getUserInfo().getName() != null ? requestDto.getUserInfo().getName() : "");
+                userInfoMap.put("phone", requestDto.getUserInfo().getPhone() != null ? requestDto.getUserInfo().getPhone() : "");
+                userInfoMap.put("email", requestDto.getUserInfo().getEmail() != null ? requestDto.getUserInfo().getEmail() : "");
+            }
+            requestBody.put("userInfo", userInfoMap);
             requestBody.put("additionalInfo", requestDto.getAdditionalInfo());
             
             System.out.println("=== AI 서비스 요청 데이터 ===");
