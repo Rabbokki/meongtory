@@ -8,6 +8,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Heart, Eye, Plus, Search, Edit, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import axios from "axios";
+
+export const dynamic = "force-dynamic";
 
 interface CommunityPost {
   id: number;
@@ -22,16 +25,17 @@ interface CommunityPost {
   comments: number;
   tags: string[];
   images?: string[];
+  ownerEmail: string;
 }
 
 interface CommunityPageProps {
-  isLoggedIn: boolean;
-  onShowLogin: () => void;
-  onUpdatePosts?: (posts: CommunityPost[]) => void; // Optional prop
+  isLoggedIn?: boolean;
+  onShowLogin?: () => void; // 모달 열기 prop 추가
+  onUpdatePosts?: (posts: CommunityPost[]) => void;
 }
 
 export default function CommunityPage({
-  isLoggedIn,
+  isLoggedIn: propIsLoggedIn,
   onShowLogin,
   onUpdatePosts,
 }: CommunityPageProps) {
@@ -39,12 +43,20 @@ export default function CommunityPage({
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const router = useRouter();
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const token = localStorage.getItem("accessToken");
+      setIsLoggedIn(!!token);
+      console.log("isLoggedIn set from localStorage:", !!token);
+    }
+
     console.log("Environment variable NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
     console.log("onUpdatePosts is function:", typeof onUpdatePosts === "function");
-    
+    console.log("isLoggedIn:", isLoggedIn, "propIsLoggedIn:", propIsLoggedIn);
+
     if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
       setError("Backend URL is not defined in environment variables");
       setLoading(false);
@@ -56,7 +68,7 @@ export default function CommunityPage({
         console.log("Fetching posts from:", `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts`);
         setLoading(true);
 
-        const token = localStorage.getItem("accessToken");
+        const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
         const headers: HeadersInit = {
           "Content-Type": "application/json",
         };
@@ -90,10 +102,10 @@ export default function CommunityPage({
           comments: post.comments || 0,
           tags: post.tags || [],
           images: post.images || [],
+          ownerEmail: post.ownerEmail || "",
         }));
 
         setPosts(mappedPosts);
-        // onUpdatePosts가 함수인 경우에만 호출
         if (typeof onUpdatePosts === "function") {
           onUpdatePosts(mappedPosts);
         }
@@ -106,7 +118,7 @@ export default function CommunityPage({
     };
 
     fetchPosts();
-  }, []); // onUpdatePosts 제거하여 불필요한 재호출 방지
+  }, []);
 
   const filteredPosts = posts?.filter((post) => {
     const matchesSearch =
@@ -125,7 +137,7 @@ export default function CommunityPage({
 
   const handleLike = async (postId: number) => {
     try {
-      const token = localStorage.getItem("accessToken");
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
       const headers: HeadersInit = {
         "Content-Type": "application/json",
       };
@@ -155,7 +167,11 @@ export default function CommunityPage({
 
   const handleEdit = (post: CommunityPost) => {
     if (!isLoggedIn) {
-      onShowLogin();
+      if (onShowLogin) {
+        onShowLogin();
+      } else {
+        router.push("/community");
+      }
       return;
     }
     router.push(`/community/${post.id}?edit=true`);
@@ -163,17 +179,19 @@ export default function CommunityPage({
 
   const handleDelete = async (postId: number) => {
     if (!isLoggedIn) {
-      onShowLogin();
+      if (onShowLogin) {
+        onShowLogin();
+      } else {
+        router.push("/community");
+      }
       return;
     }
     if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
       try {
-        const token = localStorage.getItem("accessToken");
-        const headers: HeadersInit = {
-          "Content-Type": "application/json",
-        };
+        const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+        const headers: HeadersInit = {};
         if (token) {
-          headers["Authorization"] = `Bearer ${token}`;
+           headers["Access_Token"] = token;
         }
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}`, {
@@ -187,6 +205,7 @@ export default function CommunityPage({
           if (typeof onUpdatePosts === "function") {
             onUpdatePosts(updatedPosts);
           }
+          router.push("/community");
         } else {
           throw new Error("Failed to delete post");
         }
@@ -198,10 +217,18 @@ export default function CommunityPage({
   };
 
   const handleNavigateToWrite = () => {
+    console.log("handleNavigateToWrite called, isLoggedIn:", isLoggedIn);
     if (!isLoggedIn) {
-      onShowLogin();
+      console.log("Not logged in, calling onShowLogin");
+      if (onShowLogin) {
+        onShowLogin();
+      } else {
+        console.warn("onShowLogin prop이 정의되지 않음, /community로 이동");
+        router.push("/community");
+      }
       return;
     }
+    console.log("Navigating to /community/write");
     router.push("/community/write");
   };
 

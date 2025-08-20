@@ -68,8 +68,8 @@ public class WebSecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
-        httpSecurity
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
@@ -78,7 +78,6 @@ public class WebSecurityConfig {
                                 "/api/accounts/login",
                                 "/api/accounts/refresh",
                                 "/api/verifyAmount",
-                                "/api/accounts/me",
                                 "/login/**",
                                 "/oauth2/**",
                                 "/file/**",
@@ -89,14 +88,16 @@ public class WebSecurityConfig {
                                 "/api/orders/**",
                                 "/api/diary/**",
                                 "/api/ai/**",
-                                "/api/community/**",
+                                "/api/community/posts", // 게시글 목록은 비인증 접근 허용
                                 "/api/carts/**",
                                 "/error",
                                 "/actuator/**"
                         ).permitAll()
+                        .requestMatchers("/api/accounts/me").authenticated() // 인증 필요
                         .requestMatchers("/api/orders/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/travel-plans/**", "/chat").authenticated()
-                        .anyRequest().authenticated())
+                        .requestMatchers("/api/travel-plans/**", "/chat", "/api/community/posts/create").authenticated()
+                        .anyRequest().authenticated()
+                )
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
                             log.error("Authentication error for URI {}: {}", request.getRequestURI(), authException.getMessage());
@@ -117,6 +118,6 @@ public class WebSecurityConfig {
                             response.getWriter().write("{\"error\": \"OAuth2 authentication failed\", \"message\": \"" + exception.getMessage() + "\"}");
                         }));
 
-        return httpSecurity.build();
+        return http.build();
     }
 }
