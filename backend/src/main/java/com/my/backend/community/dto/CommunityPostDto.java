@@ -15,6 +15,7 @@ public class CommunityPostDto {
     private String title;
     private String content;
     private String author;
+    private String ownerEmail;
     private String category;
     private String boardType;
     private int views;

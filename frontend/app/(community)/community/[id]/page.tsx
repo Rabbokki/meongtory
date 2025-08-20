@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getApiBaseUrl } from "@/lib/utils/apiBaseUrl";
 import { Edit, Trash2, X, ChevronLeft, Check } from "lucide-react";
+import { useRouter, useSearchParams, useParams } from "next/navigation";
 
 interface CommunityPost {
   id: number;
@@ -21,14 +22,12 @@ interface CommunityPost {
   comments: number;
   tags: string[];
   images?: string[];
-  ownerEmail?: string;
+  ownerEmail: string;
 }
 
 interface CommunityDetailPageProps {
-  post: CommunityPost;
+  post?: CommunityPost | null;
   onBack: () => void;
-  isLoggedIn: boolean;
-  onShowLogin: () => void;
   onUpdatePost: (updatedPost: CommunityPost) => void;
   onDeletePost: (postId: number) => void;
   currentUserEmail?: string;
@@ -36,36 +35,105 @@ interface CommunityDetailPageProps {
 }
 
 export default function CommunityDetailPage({
-  post,
+  post: initialPost,
   onBack,
-  isLoggedIn,
-  onShowLogin,
   onUpdatePost,
   onDeletePost,
-  currentUserEmail,
-  currentUserRole,
+  currentUserEmail: propUserEmail,
+  currentUserRole: propUserRole,
 }: CommunityDetailPageProps) {
   const API_BASE_URL = getApiBaseUrl();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const params = useParams();
+  const isEditingFromQuery = searchParams.get("edit") === "true";
+  const postId = params.id as string;
 
-  const [isEditing, setIsEditing] = useState(false);
+  const [post, setPost] = useState<CommunityPost | null>(initialPost || null);
+  const [isLoading, setIsLoading] = useState(!initialPost);
+  const [isEditing, setIsEditing] = useState(isEditingFromQuery);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedContent, setEditedContent] = useState("");
   const [editedImages, setEditedImages] = useState<File[]>([]);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | undefined>(propUserEmail);
+  const [currentUserRole, setCurrentUserRole] = useState<string | undefined>(propUserRole);
 
-  // post 값이 변경되면 폼에 채움
+  // 사용자 정보 가져오기
   useEffect(() => {
-    if (post) {
-      setEditedTitle(post.title);
-      setEditedContent(post.content);
-      setPreviewImages(post.images || []);
+    const fetchUserInfo = async () => {
+      try {
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+          console.log("No access token found");
+          setCurrentUserEmail(undefined);
+          setCurrentUserRole(undefined);
+          return;
+        }
+        const res = await fetch(`${API_BASE_URL}/api/accounts/me`, {
+          headers: { Access_Token: token },
+        });
+        if (!res.ok) throw new Error(`사용자 정보 로드 실패 (${res.status})`);
+        const response = await res.json();
+        console.log("Fetched User Data:", response);
+        if (response.status === "success" && response.data) {
+          setCurrentUserEmail(response.data.email);
+          setCurrentUserRole(response.data.role);
+        } else {
+          throw new Error("Invalid response format");
+        }
+      } catch (err: any) {
+        console.error("사용자 정보 로드 에러:", err.message);
+        setCurrentUserEmail(undefined);
+        setCurrentUserRole(undefined);
+      }
+    };
+
+    if (!propUserEmail && !propUserRole) {
+      fetchUserInfo();
     }
-  }, [post]);
+  }, [propUserEmail, propUserRole]);
+
+  // 게시글 데이터 가져오기
+  useEffect(() => {
+    if (!initialPost && postId) {
+      const fetchPost = async () => {
+        try {
+          setIsLoading(true);
+          setError(null);
+          const res = await fetch(`${API_BASE_URL}/api/community/posts/${postId}`, {
+            headers: getAuthHeaders(),
+          });
+          console.log("API Response Status:", res.status);
+          if (!res.ok) throw new Error(`게시글 로드 실패 (${res.status})`);
+          const data: CommunityPost = await res.json();
+          console.log("Fetched Post:", data);
+          setPost(data);
+          setEditedTitle(data.title);
+          setEditedContent(data.content);
+          setPreviewImages(data.images || []);
+        } catch (err: any) {
+          console.error("게시글 로드 에러:", err.message);
+          setError(err.message || "게시글을 불러오는 중 오류가 발생했습니다.");
+          setPost(null);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchPost();
+    } else if (initialPost) {
+      setEditedTitle(initialPost.title);
+      setEditedContent(initialPost.content);
+      setPreviewImages(initialPost.images || []);
+    }
+  }, [initialPost, postId]);
 
   const getAuthHeaders = (): HeadersInit => {
     const token = localStorage.getItem("accessToken");
+    console.log("Access Token:", token);
     return token ? { Access_Token: token } : {};
   };
 
@@ -81,7 +149,6 @@ export default function CommunityDetailPage({
   const handleRemoveImage = (index: number) => {
     const removedImage = previewImages[index];
     if (removedImage.startsWith("http")) {
-      // S3 URL → 파일명 추출 로직 필요
       const fileName = removedImage.split("/").pop() || "";
       setImagesToDelete((prev) => [...prev, fileName]);
     }
@@ -90,6 +157,10 @@ export default function CommunityDetailPage({
   };
 
   const handleEditSave = async () => {
+    if (!post) {
+      alert("게시글 데이터가 없습니다.");
+      return;
+    }
     try {
       const formData = new FormData();
       const dto = {
@@ -99,6 +170,7 @@ export default function CommunityDetailPage({
         boardType: post.boardType,
         tags: post.tags,
         imagesToDelete,
+        ownerEmail: post.ownerEmail,
       };
       formData.append("dto", new Blob([JSON.stringify(dto)], { type: "application/json" }));
 
@@ -114,20 +186,27 @@ export default function CommunityDetailPage({
 
       if (!res.ok) throw new Error(`게시글 수정 실패 (${res.status})`);
 
+      const updatedPost = await res.json();
       onUpdatePost({
         ...post,
-        title: editedTitle,
-        content: editedContent,
-        images: previewImages,
+        title: updatedPost.title,
+        content: updatedPost.content,
+        images: updatedPost.images || [],
       });
       setIsEditing(false);
       setImagesToDelete([]);
-    } catch (err) {
-      console.error(err);
+      router.push(`/community/${post.id}`); // 수정 후 쿼리 파라미터 제거
+    } catch (err: any) {
+      console.error("게시글 수정 에러:", err.message);
+      alert("게시글 수정 중 오류가 발생했습니다: " + err.message);
     }
   };
 
   const handleDelete = async () => {
+    if (!post) {
+      alert("게시글 데이터가 없습니다.");
+      return;
+    }
     try {
       const res = await fetch(`${API_BASE_URL}/api/community/posts/${post.id}`, {
         method: "DELETE",
@@ -138,32 +217,65 @@ export default function CommunityDetailPage({
 
       onDeletePost(post.id);
       onBack();
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("게시글 삭제 에러:", err.message);
+      alert("게시글 삭제 중 오류가 발생했습니다: " + err.message);
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        <p>게시글을 불러오는 중...</p>
+      </div>
+    );
+  }
+
+  if (!post || error) {
+    return (
+      <div className="p-4 text-center text-gray-500">
+        <p>{error || "게시글을 불러올 수 없습니다."}</p>
+        <Button variant="outline" onClick={onBack} className="mt-4">
+          <ChevronLeft className="h-4 w-4 mr-2" /> 뒤로가기
+        </Button>
+      </div>
+    );
+  }
+
+  const canEditOrDelete =
+    currentUserEmail &&
+    post.ownerEmail &&
+    (currentUserEmail === post.ownerEmail || currentUserRole === "ADMIN");
+
   return (
     <div className="p-4">
-      {/* 헤더 */}
       <div className="flex items-center justify-between mb-4">
         <Button variant="outline" onClick={onBack}>
           <ChevronLeft className="h-4 w-4 mr-2" /> 뒤로가기
         </Button>
 
-        {(currentUserEmail === post.ownerEmail || currentUserRole === "ADMIN") && (
+        {canEditOrDelete && (
           <div className="flex gap-2">
-            <Button variant="outline" size="icon" onClick={() => setIsEditing(true)}>
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button variant="destructive" size="icon" onClick={() => setShowDeleteConfirm(true)}>
+            {!isEditing && (
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => router.push(`/community/${post.id}?edit=true`)}
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            )}
+            <Button
+              variant="destructive"
+              size="icon"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         )}
       </div>
 
-      {/* 수정 모드 */}
       {isEditing ? (
         <div className="space-y-4">
           <Input value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)} />
@@ -205,14 +317,20 @@ export default function CommunityDetailPage({
           {post.images && post.images.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-4">
               {post.images.map((src, idx) => (
-                <Image key={idx} src={src} alt={`post-img-${idx}`} width={200} height={150} className="rounded" />
+                <Image
+                  key={idx}
+                  src={src}
+                  alt={`post-img-${idx}`}
+                  width={200}
+                  height={150}
+                  className="rounded"
+                />
               ))}
             </div>
           )}
         </div>
       )}
 
-      {/* 삭제 확인 모달 */}
       {showDeleteConfirm && (
         <div className="mt-4 p-4 border rounded bg-red-50">
           <p>정말로 삭제하시겠습니까?</p>

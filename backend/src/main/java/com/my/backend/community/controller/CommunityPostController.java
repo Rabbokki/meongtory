@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/community/posts")
@@ -27,13 +28,43 @@ public class CommunityPostController {
     private final CommunityPostService postService;
 
     @GetMapping
-    public List<CommunityPost> getAllPosts() {
-        return postService.getAllPosts();
+    public List<CommunityPostDto> getAllPosts() {
+        return postService.getAllPosts().stream().map(post -> CommunityPostDto.builder()
+                .id(post.getId())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .author(post.getAuthor())
+                .ownerEmail(post.getOwnerEmail())
+                .category(post.getCategory())
+                .boardType(post.getBoardType())
+                .views(post.getViews())
+                .likes(post.getLikes())
+                .comments(post.getComments())
+                .tags(post.getTags())
+                .images(post.getImages())
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .build()).collect(Collectors.toList());
     }
-
     @GetMapping("/{id}")
-    public CommunityPost getPostById(@PathVariable Long id) {
-        return postService.getPostById(id);
+    public CommunityPostDto getPostById(@PathVariable Long id) {
+        CommunityPost post = postService.getPostById(id);
+        return CommunityPostDto.builder()
+                .id(post.getId())
+                .title(post.getTitle())
+                .content(post.getContent())
+                .author(post.getAuthor())
+                .ownerEmail(post.getOwnerEmail())
+                .category(post.getCategory())
+                .boardType(post.getBoardType())
+                .views(post.getViews())
+                .likes(post.getLikes())
+                .comments(post.getComments())
+                .tags(post.getTags())
+                .images(post.getImages())
+                .createdAt(post.getCreatedAt())
+                .updatedAt(post.getUpdatedAt())
+                .build();
     }
 
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -68,7 +99,18 @@ public class CommunityPostController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "로그인이 필요합니다."));
         }
+
+        Account account = userDetails.getAccount();
         try {
+            CommunityPost existingPost = postService.getPostById(id);
+
+            // ✅ 권한 확인 (작성자 본인 또는 ADMIN만 가능)
+            if (!existingPost.getOwnerEmail().equals(account.getEmail()) &&
+                    !"ADMIN".equals(account.getRole())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "수정 권한이 없습니다."));
+            }
+
             CommunityPost updatedPost = postService.updatePost(id, dto, imgs);
             return ResponseEntity.ok(updatedPost);
         } catch (Exception e) {
@@ -79,7 +121,27 @@ public class CommunityPostController {
 
 
     @DeleteMapping("/{id}")
-    public void deletePost(@PathVariable Long id) {
+    public ResponseEntity<?> deletePost(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        if (userDetails == null || userDetails.getAccount() == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "로그인이 필요합니다."));
+        }
+
+        Account account = userDetails.getAccount();
+        CommunityPost post = postService.getPostById(id);
+
+        // ✅ 권한 확인
+        if (!post.getOwnerEmail().equals(account.getEmail()) &&
+                !"ADMIN".equals(account.getRole())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "삭제 권한이 없습니다."));
+        }
+
         postService.deletePost(id);
+        return ResponseEntity.ok(Map.of("message", "삭제 완료"));
     }
+
 }

@@ -71,6 +71,7 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/accounts/register", "/api/accounts/login", "/api/accounts/me", "/login/**", "/oauth2/**", "/file/**", "/test", "/ws/**", "/post/**").permitAll()
                         .requestMatchers("/api/products/**").permitAll()
+                        .requestMatchers("/api/community/**").permitAll()
                         .requestMatchers("/api/carts/**").permitAll()
                         .requestMatchers("/api/diary/**").permitAll()
                         .requestMatchers("/api/ai/**").permitAll()

@@ -44,7 +44,8 @@ public class CommunityPostService {
         CommunityPost post = CommunityPost.builder()
                 .title(dto.getTitle())
                 .content(dto.getContent())
-                .author(account.getName())
+                .author(account.getName())          // 화면 표시용 이름
+                .ownerEmail(account.getEmail())     // ✅ 수정/삭제 권한 확인용 이메일
                 .category(dto.getCategory())
                 .boardType(dto.getBoardType())
                 .tags(dto.getTags())
@@ -61,6 +62,7 @@ public class CommunityPostService {
                 .title(post.getTitle())
                 .content(post.getContent())
                 .author(post.getAuthor())
+                .ownerEmail(post.getOwnerEmail())   // ✅ 프론트로 내려줌
                 .category(post.getCategory())
                 .boardType(post.getBoardType())
                 .tags(post.getTags())

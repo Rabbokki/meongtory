@@ -24,16 +24,14 @@ public class CommunityPost {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    private String author;
+    private String author;      // 닉네임 or 이름
+    private String ownerEmail;  // ✅ 작성자 이메일 (로그인 계정)
 
     private String category;
-
     private String boardType; // "Q&A" or "자유게시판"
 
     private int views;
-
     private int likes;
-
     private int comments;
 
     @ElementCollection
@@ -60,3 +58,4 @@ public class CommunityPost {
         this.updatedAt = LocalDateTime.now();
     }
 }
+
