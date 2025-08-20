@@ -55,6 +55,12 @@ public class Order {
     @JsonIgnore
     private Product product;
 
+    // 네이버 상품 정보 (네이버 상품 결제용)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "naver_product_id", nullable = true)
+    @JsonIgnore
+    private NaverProduct naverProduct;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     @Builder.Default
     @JsonIgnore

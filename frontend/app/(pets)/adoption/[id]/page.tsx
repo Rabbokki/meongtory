@@ -1,13 +1,15 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Heart, Share2, MapPin, Calendar, Weight, Stethoscope, User } from "lucide-react"
+import { ArrowLeft, Heart, Share2, Calendar, Weight, Stethoscope, User } from "lucide-react"
 import AdoptionRequestModal from "@/components/modals/adoption-request-modal"
 import { adoptionRequestApi } from "@/lib/api"
+import { useRouter } from "next/navigation"
+import axios from "axios"
 
 import type { Pet } from "@/types/pets"
 
@@ -19,21 +21,61 @@ interface FormField {
   placeholder: string
 }
 
-interface AdoptionDetailPageProps {
-  pet: Pet
-  onBack: () => void
-  isLoggedIn: boolean
-  onShowLogin: () => void
+interface PageProps {
+  params: {
+    id: string
+  }
 }
 
-export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogin }: AdoptionDetailPageProps) {
+export default function AdoptionDetailPage({ params }: PageProps) {
+  const router = useRouter()
+  const [pet, setPet] = useState<Pet | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [showFullStory, setShowFullStory] = useState(false)
   const [showAdoptionRequestModal, setShowAdoptionRequestModal] = useState(false)
   const [customFields, setCustomFields] = useState<FormField[]>([])
 
+  // 로그인 상태 확인
+  useEffect(() => {
+    const token = localStorage.getItem('accessToken')
+    setIsLoggedIn(!!token)
+  }, [])
+
+  // 펫 데이터 가져오기
+  useEffect(() => {
+    const fetchPetData = async () => {
+      try {
+        setLoading(true)
+        const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/pets/${params.id}`)
+        console.log('펫 데이터 응답:', response.data)
+        setPet(response.data)
+      } catch (error) {
+        console.error('펫 데이터를 가져오는데 실패했습니다:', error)
+        if (axios.isAxiosError(error)) {
+          console.error('상태 코드:', error.response?.status)
+          console.error('에러 메시지:', error.response?.data)
+        }
+        setError('펫 정보를 불러올 수 없습니다.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (params.id) {
+      fetchPetData()
+    }
+  }, [params.id])
+
+  const handleBack = () => {
+    router.back()
+  }
+
   const handleAdoptionRequest = () => {
     if (!isLoggedIn) {
-      onShowLogin()
+      // 로그인 모달을 여는 로직을 추가할 수 있습니다
+      alert('로그인이 필요합니다.')
       return
     }
     setShowAdoptionRequestModal(true)
@@ -71,8 +113,8 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
   const handleShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: `${pet.name} - 입양을 기다리고 있어요`,
-        text: `${pet.breed} ${pet.name}이(가) 새로운 가족을 찾고 있습니다.`,
+        title: `${pet?.name} - 입양을 기다리고 있어요`,
+        text: `${pet?.breed} ${pet?.name}이(가) 새로운 가족을 찾고 있습니다.`,
         url: window.location.href,
       })
     } else {
@@ -82,11 +124,34 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
     }
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p className="text-gray-600">펫 정보를 불러오는 중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error || !pet) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-20 flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">펫 정보를 찾을 수 없습니다</h2>
+          <p className="text-gray-600 mb-4">{error || '요청하신 펫 정보가 존재하지 않습니다.'}</p>
+          <Button onClick={handleBack}>이전 페이지로</Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
       <div className="container mx-auto px-4 py-8">
         {/* Back Button */}
-        <Button variant="ghost" onClick={onBack} className="mb-6">
+        <Button variant="ghost" onClick={handleBack} className="mb-6">
           <ArrowLeft className="w-4 h-4 mr-2" />
           입양 목록으로 돌아가기
         </Button>
@@ -96,14 +161,14 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
           <div className="space-y-4">
             <div className="relative">
               <Image
-                src={pet.images?.[0] || "/placeholder.svg?height=400&width=600&query=cute pet"}
+                src={pet.imageUrl || "/placeholder.svg?height=400&width=600&query=cute pet"}
                 alt={`${pet.breed}`}
                 width={600}
                 height={400}
                 className="w-full h-96 object-cover rounded-lg"
               />
               <Badge className="absolute top-4 left-4 bg-yellow-400 text-black hover:bg-yellow-500">
-                {pet.adoptionStatus === "available" ? "보호중" : pet.adoptionStatus === "pending" ? "입양대기" : "입양완료"}
+                {pet.adopted ? "입양완료" : "보호중"}
               </Badge>
             </div>
 
@@ -154,11 +219,11 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center">
                     <Weight className="w-4 h-4 mr-2" />
-                    크기
+                    체중
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-lg font-semibold">{pet.size}</p>
+                  <p className="text-lg font-semibold">{pet.weight ? `${pet.weight}kg` : '미등록'}</p>
                 </CardContent>
               </Card>
 
@@ -166,11 +231,11 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center">
                     <Stethoscope className="w-4 h-4 mr-2" />
-                    건강상태
+                    의료정보
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-lg font-semibold">{pet.healthStatus}</p>
+                  <p className="text-lg font-semibold">{pet.medicalHistory || '미등록'}</p>
                 </CardContent>
               </Card>
 
@@ -183,7 +248,7 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-wrap gap-1">
-                    {pet.personality.split(', ').map((trait, index) => (
+                    {pet.personality?.split(', ').map((trait, index) => (
                       <Badge key={index} variant="secondary" className="text-xs">
                         {trait.trim()}
                       </Badge>
@@ -223,14 +288,14 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
               <CardContent className="space-y-2">
                 <div className="flex justify-between">
                   <span>중성화</span>
-                  <Badge variant={pet.isNeutered ? "default" : "secondary"}>
-                    {pet.isNeutered ? "완료" : "미완료"}
+                  <Badge variant={pet.neutered ? "default" : "secondary"}>
+                    {pet.neutered ? "완료" : "미완료"}
                   </Badge>
                 </div>
                 <div className="flex justify-between">
                   <span>예방접종</span>
-                  <Badge variant={pet.isVaccinated ? "default" : "secondary"}>
-                    {pet.isVaccinated ? "완료" : "미완료"}
+                  <Badge variant={pet.vaccinated ? "default" : "secondary"}>
+                    {pet.vaccinated ? "완료" : "미완료"}
                   </Badge>
                 </div>
               </CardContent>

@@ -4,6 +4,7 @@ import com.my.backend.store.dto.CartOrderRequestDto;
 import com.my.backend.store.dto.OrderRequestDto;
 import com.my.backend.store.dto.OrderResponseDto;
 import com.my.backend.store.dto.PaymentOrderRequest;
+import com.my.backend.store.dto.NaverProductOrderRequest;
 import com.my.backend.store.entity.OrderStatus;
 import com.my.backend.store.service.OrderService;
 import com.my.backend.global.security.user.UserDetailsImpl;
@@ -52,6 +53,41 @@ public class OrderController {
             return ResponseEntity.ok().body("Order created for payment");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Failed to create order: " + e.getMessage());
+        }
+    }
+
+    // 네이버 상품 주문 생성
+    @PostMapping("/naver-product")
+    public ResponseEntity<OrderResponseDto> createNaverProductOrder(@RequestBody NaverProductOrderRequest request) {
+        System.out.println("=== OrderController.createNaverProductOrder ===");
+        System.out.println("받은 요청 데이터: " + request);
+        System.out.println("AccountId: " + request.getAccountId());
+        System.out.println("NaverProductId: " + request.getNaverProductId());
+        System.out.println("Quantity: " + request.getQuantity());
+        
+        try {
+            // 요청 데이터 검증
+            if (request.getAccountId() == null) {
+                throw new IllegalArgumentException("AccountId는 필수입니다.");
+            }
+            if (request.getNaverProductId() == null) {
+                throw new IllegalArgumentException("NaverProductId는 필수입니다.");
+            }
+            if (request.getQuantity() <= 0) {
+                throw new IllegalArgumentException("Quantity는 0보다 커야 합니다.");
+            }
+            
+            OrderResponseDto responseDto = orderService.createNaverProductOrder(
+                request.getAccountId(), 
+                request.getNaverProductId(), 
+                request.getQuantity()
+            );
+            System.out.println("네이버 상품 주문 생성 성공: " + responseDto.getId());
+            return ResponseEntity.ok(responseDto);
+        } catch (Exception e) {
+            System.out.println("네이버 상품 주문 생성 실패: " + e.getMessage());
+            e.printStackTrace();
+            throw e;
         }
     }
 

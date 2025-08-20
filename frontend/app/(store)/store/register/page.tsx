@@ -24,7 +24,7 @@ interface Product {
   stock: number
   registrationDate: string
   registeredBy: string
-  petType: "dog" | "cat" | "all"
+  petType: "all"
 }
 
 interface StoreProductRegistrationPageProps {
@@ -174,19 +174,19 @@ function StoreProductRegistrationPageContent({
     }
   }
 
-  // if (!isAdmin) {
-  //   return (
-  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-  //       <Card className="w-full max-w-md">
-  //         <CardContent className="pt-6 text-center">
-  //           <h2 className="text-xl font-semibold mb-2">접근 권한이 없습니다</h2>
-  //           <p className="text-gray-600 mb-4">관리자만 상품을 등록할 수 있습니다.</p>
-  //           <Button onClick={onBack}>돌아가기</Button>
-  //         </CardContent>
-  //       </Card>
-  //     </div>
-  //   )
-  // }
+  if (isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6 text-center">
+            <h2 className="text-xl font-semibold mb-2">접근 권한이 없습니다</h2>
+            <p className="text-gray-600 mb-4">관리자만 상품을 등록할 수 있습니다.</p>
+            <Button onClick={onBack}>돌아가기</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -241,16 +241,9 @@ function StoreProductRegistrationPageContent({
               {/* Pet Type */}
               <div className="space-y-2">
                 <Label htmlFor="petType">대상 동물 *</Label>
-                <Select value={formData.petType} onValueChange={(value) => handleInputChange("petType", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="대상 동물을 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">강아지/고양이 (모두)</SelectItem>
-                    <SelectItem value="dog">강아지</SelectItem>
-                    <SelectItem value="cat">고양이</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="p-3 bg-gray-50 rounded-md border">
+                  <span className="text-sm text-gray-700">강아지/고양이 (모두)</span>
+                </div>
               </div>
 
               {/* Price and Stock */}

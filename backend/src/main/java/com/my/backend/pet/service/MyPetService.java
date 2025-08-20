@@ -70,7 +70,7 @@ public class MyPetService {
         myPetRepository.deleteById(myPetId);
     }
 
-    // 사용자의 모든 펫 조회
+    // 사용자의 모든 펫 조회 (DTO 반환)
     public MyPetListResponseDto getMyPets(Long ownerId) {
         List<MyPet> myPets = myPetRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId);
         Long totalCount = myPetRepository.countByOwnerId(ownerId);
@@ -84,6 +84,8 @@ public class MyPetService {
                 .totalCount(totalCount)
                 .build();
     }
+    
+
 
     // 특정 펫 조회
     public MyPetResponseDto getMyPet(Long myPetId, Long ownerId) {

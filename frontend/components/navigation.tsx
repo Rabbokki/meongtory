@@ -310,7 +310,13 @@ export default function Navigation() {
     <>
       <NavigationHeader
         currentPage={currentPage}
-        onNavigate={(page) => router.push(`/${page === "home" ? "" : page}`)}
+        onNavigate={(page) => {
+          if (page === "home") {
+            router.push("/");
+          } else {
+            router.push(`/${page}`);
+          }
+        }}
         isLoggedIn={isLoggedIn}
         isAdmin={isAdmin}
         onLogin={() => {

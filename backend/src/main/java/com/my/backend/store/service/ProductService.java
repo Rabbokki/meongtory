@@ -51,7 +51,7 @@ public class ProductService {
                     .stock(50L)
                     .imageUrl("/placeholder.svg?height=300&width=300")
                     .category(Category.사료)
-                    .targetAnimal(TargetAnimal.DOG)
+                    .targetAnimal(TargetAnimal.ALL)
                     .registrationDate(LocalDate.now())
                     .registeredBy("admin")
                     .build();
@@ -64,7 +64,7 @@ public class ProductService {
                     .stock(100L)
                     .imageUrl("/placeholder.svg?height=300&width=300")
                     .category(Category.장난감)
-                    .targetAnimal(TargetAnimal.CAT)
+                    .targetAnimal(TargetAnimal.ALL)
                     .registrationDate(LocalDate.now())
                     .registeredBy("admin")
                     .build();
@@ -222,5 +222,23 @@ public class ProductService {
                 .registrationDate(product.getRegistrationDate())
                 .registeredBy(product.getRegisteredBy())
                 .build();
+    }
+    
+    // StoreAI 관련 메서드들
+    public Product getProduct(Long id) {
+        return productRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("상품을 찾을 수 없습니다: " + id));
+    }
+    
+    public List<Product> findByCategoryAndTargetAnimal(Category category, TargetAnimal targetAnimal) {
+        return productRepository.findByCategoryAndTargetAnimal(category, targetAnimal);
+    }
+    
+    public List<Product> findByCategory(Category category) {
+        return productRepository.findByCategory(category);
+    }
+    
+    public List<Product> findByNameContaining(String keyword) {
+        return productRepository.findByNameContaining(keyword);
     }
 }
