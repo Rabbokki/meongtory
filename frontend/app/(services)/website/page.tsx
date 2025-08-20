@@ -167,14 +167,12 @@ export default function PetServiceWebsite() {
 
   // 로딩 타임아웃
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (isLoading) {
-        console.log("로딩 타임아웃, 강제 해제");
+    if (isLoading) {
+      const timeout = setTimeout(() => {
         setIsLoading(false);
-        toast.error("서버 응답이 느립니다. 다시 시도해주세요.", { duration: 5000 });
-      }
-    }, 3000);
-    return () => clearTimeout(timeout);
+      }, 3000);
+      return () => clearTimeout(timeout);
+    }
   }, [isLoading]);
 
   // 로그인 상태 확인 (layout.tsx로 이동했으므로 주석 처리)
@@ -255,10 +253,6 @@ export default function PetServiceWebsite() {
     checkLoginStatus();
   }, []);
   */
-      }
-    }, 3000);
-    return () => clearTimeout(timeout);
-  }, [isLoading]);
 
   // OAuth 콜백 처리
   useEffect(() => {
