@@ -59,6 +59,7 @@ axios.interceptors.response.use(
 
 interface Product {
   id: number
+  productId?: string  // 네이버 상품의 경우 원본 productId
   name: string
   price: number
   imageUrl: string
@@ -372,24 +373,23 @@ export default function StoreProductDetailPage({
 
         let rawData: any;
         
-        // productId가 문자열인지 숫자인지 확인
-        const isNumeric = !isNaN(Number(productId));
-        const numericProductId = Number(productId);
-        
-        if (isNumeric && numericProductId > 1000000) {
-          // 네이버 상품인 경우 (100만 이상이면 네이버 상품으로 간주)
-          console.log('네이버 상품 조회 시도 (숫자):', productId);
+        // URL의 productId로 상품 조회 (백엔드에서 자동으로 구분)
+        console.log('상품 조회 시도:', productId);
+        try {
+          // 먼저 네이버 상품으로 조회 시도
           const naverResponse = await productApi.getNaverProduct(String(productId));
-          rawData = naverResponse.data; // ResponseDto 구조에서 data 추출
-        } else if (isNumeric && numericProductId <= 1000000) {
-          // 일반 상품인 경우
-          console.log('일반 상품 조회 시도:', productId);
-          rawData = await productApi.getProduct(numericProductId);
-        } else {
-          // 문자열인 경우 네이버 상품으로 처리
-          console.log('네이버 상품 조회 시도 (문자열):', productId);
-          const naverResponse = await productApi.getNaverProduct(String(productId));
-          rawData = naverResponse.data; // ResponseDto 구조에서 data 추출
+          rawData = naverResponse.data;
+          console.log('네이버 상품으로 조회 성공');
+        } catch (naverError) {
+          console.log('네이버 상품 조회 실패, 일반 상품으로 조회 시도');
+          // 네이버 상품이 아니면 일반 상품으로 조회
+          const numericProductId = Number(productId);
+          if (!isNaN(numericProductId)) {
+            rawData = await productApi.getProduct(numericProductId);
+            console.log('일반 상품으로 조회 성공');
+          } else {
+            throw new Error('유효하지 않은 상품 ID입니다.');
+          }
         }
         
         console.log('상품 상세 데이터:', rawData);
@@ -397,8 +397,8 @@ export default function StoreProductDetailPage({
                  // 백엔드 응답을 프론트엔드 형식으로 변환
          const data: Product = {
            ...rawData,
-           id: rawData.id || rawData.productId || 0,  // id를 우선 사용
-           productId: rawData.id || rawData.productId || 0,  // 호환성을 위해 productId도 설정
+           id: rawData.id || 0,  // DB의 자동 생성 ID
+           productId: rawData.productId || String(productId),  // 네이버의 원본 productId
            name: (rawData.name || rawData.title || '상품명 없음').replace(/<[^>]*>/g, ''),
            price: typeof rawData.price === 'number' ? rawData.price : 0,
            imageUrl: rawData.image || rawData.imageUrl || '/placeholder.svg',
@@ -460,20 +460,62 @@ export default function StoreProductDetailPage({
           return
         }
 
-        console.log('장바구니 추가 요청:', {
-          url: `${API_BASE_URL}/carts?productId=${product.id}&quantity=${quantity}`,
-          productId: product.id,
-          quantity: quantity,
-          product: product
-        })
+        // 백엔드 응답에서 네이버 상품 여부 확인
+        const isNaverProduct = product.productId && product.registeredBy === '네이버';
+        let response: any;
         
-        // 장바구니 추가 API 호출 (수량 포함)
-        const response = await axios.post(`${API_BASE_URL}/carts?productId=${product.id}&quantity=${quantity}`, null, {
-          headers: {
-            "Access_Token": token,
-            "Refresh_Token": localStorage.getItem('refreshToken') || ''
+        if (isNaverProduct) {
+          // 네이버 상품인 경우 네이버 상품용 API 호출
+          console.log('네이버 상품 장바구니 추가 요청:', {
+            url: `${API_BASE_URL}/naver-shopping/cart/add`,
+            productId: product.productId,
+            quantity: quantity,
+            product: product
+          })
+          
+          const naverProductData = {
+            productId: product.productId,
+            title: product.name,
+            description: product.description,
+            price: product.price,
+            imageUrl: product.imageUrl,
+            mallName: '네이버 쇼핑',
+            productUrl: '',
+            brand: product.brand || '',
+            maker: '',
+            category1: product.category,
+            category2: '',
+            category3: '',
+            category4: '',
+            reviewCount: 0,
+            rating: 0.0,
+            searchCount: 0
           }
-        })
+          
+          response = await axios.post(`${API_BASE_URL}/naver-shopping/cart/add`, naverProductData, {
+            params: { quantity },
+            headers: {
+              "Access_Token": token,
+              "Refresh_Token": localStorage.getItem('refreshToken') || '',
+              "Content-Type": "application/json"
+            }
+          })
+        } else {
+          // 일반 상품인 경우 일반 상품용 API 호출
+          console.log('일반 상품 장바구니 추가 요청:', {
+            url: `${API_BASE_URL}/carts?productId=${product.id}&quantity=${quantity}`,
+            productId: product.id,
+            quantity: quantity,
+            product: product
+          })
+          
+          response = await axios.post(`${API_BASE_URL}/carts?productId=${product.id}&quantity=${quantity}`, null, {
+            headers: {
+              "Access_Token": token,
+              "Refresh_Token": localStorage.getItem('refreshToken') || ''
+            }
+          })
+        }
 
         console.log('장바구니 추가 응답:', response.data)
         

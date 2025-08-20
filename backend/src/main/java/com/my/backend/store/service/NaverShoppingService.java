@@ -280,7 +280,7 @@ public class NaverShoppingService {
 
     private NaverProduct createNaverProductFromItem(NaverShoppingItemDto item) {
         return NaverProduct.builder()
-                .productId(item.getProductId())
+                .productId(item.getProductId())  // 네이버의 원본 productId 저장
                 .title(item.getTitle())
                 .description(item.getTitle()) // 네이버 API에서는 별도 description이 없으므로 title 사용
                 .price(parsePrice(item.getLprice()))

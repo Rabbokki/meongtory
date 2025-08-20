@@ -20,7 +20,7 @@ public class NaverProduct {
     @Column(name = "naver_product_id")
     private Long id;
 
-    // 네이버 쇼핑 API에서 제공하는 고유 ID
+    // 네이버 쇼핑 API에서 제공하는 고유 ID (중복 방지를 위한 인덱스)
     @Column(unique = true, nullable = false)
     private String productId;
 

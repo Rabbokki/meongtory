@@ -408,14 +408,31 @@ const pathname = usePathname()
         const quantity = (product as any).selectedQuantity || 1
         console.log("네이버 상품 추가할 수량:", quantity)
 
-        // 네이버 상품을 백엔드 cart에 추가
-        const url = `http://localhost:8080/api/carts?productId=${product.id}&quantity=${quantity}`
-        const response = await axios.post(url, null, {
+        // 네이버 상품을 백엔드 cart에 추가 (올바른 API 사용)
+        const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/naver-shopping/cart/add`, {
+          productId: (product as any).productId || product.id,
+          title: product.name,
+          description: product.description || product.name,
+          price: product.price,
+          imageUrl: product.imageUrl,
+          mallName: (product as any).mallName || '',
+          productUrl: (product as any).productUrl || '',
+          brand: (product as any).brand || '',
+          maker: (product as any).maker || '',
+          category1: (product as any).category1 || product.category || '',
+          category2: (product as any).category2 || '',
+          category3: (product as any).category3 || '',
+          category4: (product as any).category4 || '',
+          reviewCount: (product as any).reviewCount || 0,
+          rating: (product as any).rating || 0.0,
+          searchCount: (product as any).searchCount || 0
+        }, {
+          params: { quantity },
           headers: { 
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": `${accessToken}`,
+            "Authorization": accessToken,
             "Access_Token": accessToken,
-            "Refresh_Token": localStorage.getItem('refreshToken') || ''
+            "Refresh_Token": localStorage.getItem('refreshToken') || '',
+            "Content-Type": "application/json"
           },
           timeout: 5000
         })
