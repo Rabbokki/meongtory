@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Heart, Share2, Calendar, Weight, Stethoscope, User } from "lucide-react"
 import AdoptionRequestModal from "@/components/modals/adoption-request-modal"
-import { adoptionRequestApi } from "@/lib/api"
+import { getBackendUrl, adoptionRequestApi } from "@/lib/api"
 import { useRouter } from "next/navigation"
 import axios from "axios"
 
@@ -48,7 +48,7 @@ export default function AdoptionDetailPage({ params }: PageProps) {
     const fetchPetData = async () => {
       try {
         setLoading(true)
-        const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/pets/${params.id}`)
+        const response = await axios.get(`${getBackendUrl()}/api/pets/${params.id}`)
         console.log('펫 데이터 응답:', response.data)
         setPet(response.data)
       } catch (error) {

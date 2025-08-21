@@ -8,11 +8,7 @@ import axios from 'axios';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
 import { getBackendUrl } from '@/lib/api';
 
-
-const API_BASE_URL = `${getBackendUrl()}/api`;
-const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ;
-console.log("CLIENT_KEY:", CLIENT_KEY);
-
+const CLIENT_KEY = process.env.TOSS_CLIENT_KEY ;
 
 interface PaymentItem {
   id: number;
@@ -83,7 +79,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
 
         console.log('네이버 상품 주문 생성 요청:', orderData);
         
-        response = await axios.post(`${API_BASE_URL}/orders/naver-product`, orderData, {
+        response = await axios.post(`${getBackendUrl()}/api/orders/naver-product`, orderData, {
           headers: {
             'Access_Token': accessToken
           }
@@ -98,7 +94,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
 
         console.log('일반 상품 주문 생성 요청:', orderData);
         
-        response = await axios.post(`${API_BASE_URL}/orders`, orderData, {
+        response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
           headers: {
             'Access_Token': accessToken
           }
@@ -141,7 +137,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
         throw new Error('로그인이 필요합니다.');
       }
 
-      const response = await axios.get(`${API_BASE_URL}/accounts/me`, {
+      const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
         headers: {
           'Access_Token': accessToken
         }
@@ -188,7 +184,6 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
     // SDK 로드 및 초기화 (공식 패키지 방식)
     (async () => {
       try {
-        console.log("Using clientKey:", CLIENT_KEY);
         if (!CLIENT_KEY || CLIENT_KEY.trim().length === 0) {
           console.error('환경변수 NEXT_PUBLIC_TOSS_CLIENT_KEY 가 설정되지 않았습니다. .env.local 에 테스트 클라이언트 키를 설정하고 dev 서버를 재시작하세요.');
           return;

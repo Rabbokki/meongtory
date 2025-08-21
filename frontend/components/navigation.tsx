@@ -11,6 +11,7 @@ import Image from "next/image";
 import LoginModal from "@/components/modals/login-modal";
 import SignupModal from "@/components/modals/signup-modal";
 import PasswordRecoveryModal from "@/components/modals/password-recovery-modal";
+import { getBackendUrl } from "@/lib/api";
 
 // NavigationHeader 컴포넌트 정의
 interface NavigationHeaderProps {
@@ -133,8 +134,7 @@ const refreshAccessToken = async () => {
       console.error("리프레시 토큰이 없습니다.");
       return null;
     }
-    const response = await axios.post(
-      "http://localhost:8080/api/accounts/refresh",
+    const response = await axios.post(`${getBackendUrl()}/api/accounts/refresh`,
       { refreshToken },
       { headers: { "Content-Type": "application/json" } }
     );
@@ -196,7 +196,7 @@ export default function Navigation() {
         return;
       }
       try {
-        const response = await axios.get("http://localhost:8080/api/accounts/me", {
+        const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
           headers: { "Access_Token": accessToken },
           timeout: 5000,
         });
@@ -222,7 +222,7 @@ export default function Navigation() {
           accessToken = await refreshAccessToken();
           if (accessToken) {
             try {
-              const response = await axios.get("http://localhost:8080/api/accounts/me", {
+              const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
                 headers: { "Access_Token": accessToken },
                 timeout: 5000,
               });
@@ -266,9 +266,7 @@ export default function Navigation() {
     try {
       const accessToken = localStorage.getItem("accessToken");
       if (accessToken) {
-        await axios.post(
-          "http://localhost:8080/api/accounts/logout",
-          {},
+        await axios.post(`${getBackendUrl()}/api/accounts/logout`,
           { headers: { "Content-Type": "application/json", "Access_Token": accessToken } }
         );
       }
@@ -288,8 +286,7 @@ export default function Navigation() {
   // 회원가입 핸들러
   const handleSignup = async (userData: any) => {
     try {
-      const response = await axios.post(
-        "http://localhost:8080/api/accounts/register",
+      const response = await axios.post(`${getBackendUrl()}/api/accounts/register`,
         userData,
         { headers: { "Content-Type": "application/json" } }
       );
@@ -339,7 +336,7 @@ export default function Navigation() {
             try {
               const accessToken = localStorage.getItem("accessToken");
               if (accessToken) {
-                const response = await axios.get("http://localhost:8080/api/accounts/me", {
+                const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
                   headers: { "Access_Token": accessToken },
                 });
                 const { id, email, name, role } = response.data.data;

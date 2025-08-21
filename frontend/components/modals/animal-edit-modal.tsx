@@ -10,9 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { X, Upload, Loader2, Sparkles } from "lucide-react"
-import { petApi, s3Api, handleApiError } from "@/lib/api"
+import { getBackendUrl, petApi, s3Api } from "@/lib/api"
 import axios from "axios"
-import { getBackendUrl } from "@/lib/api"
 
 import type { Pet } from "@/types/pets"
 
@@ -103,8 +102,7 @@ export default function AnimalEditModal({
 
     setIsGeneratingStory(true)
     try {
-      const backendUrl = getBackendUrl()
-      const response = await axios.post(`${backendUrl}/api/story/generate-background-story`, {
+      const response = await axios.post(`${getBackendUrl()}/api/story/generate-background-story`, {
         petName: editAnimal.name,
         breed: editAnimal.breed,
         age: editAnimal.age,

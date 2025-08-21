@@ -9,8 +9,6 @@ import { CheckCircle, Home, Receipt } from "lucide-react";
 import axios from 'axios';
 import { getBackendUrl } from '@/lib/api';
 
-const API_BASE_URL = `${getBackendUrl()}/api`;
-
 interface PaymentInfo {
   paymentKey: string;
   orderId: string;
@@ -51,8 +49,7 @@ function PaymentSuccessContent() {
           throw new Error('인증 토큰이 없습니다.');
         }
 
-        const response = await axios.post(
-          `${API_BASE_URL}/confirm`,
+        const response = await axios.post(`${getBackendUrl()}/api/confirm`,
           {
             paymentKey,
             orderId,

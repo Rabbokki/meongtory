@@ -43,6 +43,7 @@ import PetNamingService from "../naming/page"
 import axios from "axios"
 import { Toaster, toast } from "react-hot-toast"
 import { getCurrentKSTDate } from "@/lib/utils"
+import { getBackendUrl } from "@/lib/api";
 
 // Types
 import type { Pet } from "@/types/pets"
@@ -228,7 +229,7 @@ const pathname = usePathname()
       localStorage.setItem("refreshToken", refreshToken)
       const fetchUserInfo = async () => {
         try {
-          const response = await axios.get("http://localhost:8080/api/accounts/me")
+          const response = await axios.get(`${getBackendUrl()}/api/accounts/me`)
           const userData = response.data?.data
           if (!userData) throw new Error("사용자 데이터가 없습니다")
           const { id, email, name, role } = userData
@@ -266,8 +267,7 @@ const pathname = usePathname()
   const handleLogin = async (email: string, password: string) => {
     try {
       console.log("로그인 시도:", { email })
-      const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/login`,
+      const response = await axios.post(`${getBackendUrl()}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       )
@@ -343,8 +343,7 @@ const pathname = usePathname()
     try {
       const accessToken = localStorage.getItem("accessToken")
       if (accessToken) {
-        await axios.post(
-          `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/logout`,
+        await axios.post(`${getBackendUrl()}/api/accounts/logout`,
           {},
           {
             headers: {
@@ -409,8 +408,7 @@ const pathname = usePathname()
         console.log("네이버 상품 추가할 수량:", quantity)
 
         // 네이버 상품을 백엔드 cart에 추가
-        const url = `http://localhost:8080/api/carts?productId=${product.id}&quantity=${quantity}`
-        const response = await axios.post(url, null, {
+        const response = await axios.post(`${getBackendUrl()}/api/carts?productId=${product.id}&quantity=${quantity}`, null, {
           headers: { 
             "Content-Type": "application/x-www-form-urlencoded",
             "Authorization": `${accessToken}`,
@@ -463,9 +461,7 @@ const pathname = usePathname()
       }
 
       // 장바구니 추가 API (수량 포함)
-      const url = `http://localhost:8080/api/carts?productId=${product.productId}&quantity=${quantity}`
-
-      const response = await axios.post(url, null, {
+      const response = await axios.post(`${getBackendUrl()}/api/carts?productId=${product.productId}&quantity=${quantity}`, null, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         timeout: 5000,
       })
@@ -493,7 +489,7 @@ const pathname = usePathname()
         console.log("Access token이 없습니다.")
         return
       }
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts`, {
+      const response = await axios.get(`${getBackendUrl()}/api/carts`, {
         headers: { "Access_Token": accessToken },
         timeout: 5000,
       })
@@ -584,7 +580,8 @@ const pathname = usePathname()
         return
       }
 
-      const response = await axios.delete(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}`, {
+      const response = await axios.delete(`${getBackendUrl()}/api/carts/${cartId}`, 
+      {
         headers: { "Access_Token": accessToken }
       })
       
@@ -609,7 +606,7 @@ const pathname = usePathname()
         return
       }
 
-      const response = await axios.put(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}?quantity=${quantity}`, null, {
+      const response = await axios.put(`${getBackendUrl()}/api/carts/${cartId}?quantity=${quantity}`, null, {
         headers: { "Access_Token": accessToken }
       })
       
@@ -642,7 +639,7 @@ const pathname = usePathname()
           quantity: item.quantity,
         }
 
-        await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
+        await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
           headers: { "Access_Token": accessToken }
         })
       }
@@ -675,7 +672,7 @@ const pathname = usePathname()
         quantity: item.quantity,
       }
 
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
+      const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers: { "Access_Token": accessToken }
       })
 
@@ -694,7 +691,7 @@ const pathname = usePathname()
 
   const createOrder = async (orderData: { userId: number; amount: number }) => {
     try {
-      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
+      const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers: { "Content-Type": "application/json" },
       })
       if (response.status !== 200) {
@@ -718,7 +715,7 @@ const pathname = usePathname()
       return
     }
     try {
-      const response = await axios.post(`http://localhost:8080/api/orders/purchase-all/${currentUser.id}`)
+      const response = await axios.post(`${getBackendUrl()}/api/orders/purchase-all/${currentUser.id}`)
       if (response.status !== 200) {
         throw new Error("전체 구매에 실패했습니다.")
       }
@@ -759,7 +756,7 @@ const pathname = usePathname()
           },
         ],
       }
-      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
+      const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers,
         timeout: 10000,
       })
@@ -779,7 +776,7 @@ const pathname = usePathname()
   const fetchUserOrders = useCallback(async () => {
     if (!isLoggedIn || !currentUser) return
     try {
-      const response = await axios.get(`http://localhost:8080/api/orders/user/${currentUser.id}`)
+      const response = await axios.get(`${getBackendUrl()}/api/orders/user/${currentUser.id}`)
       if (response.status !== 200) {
         throw new Error("주문 조회에 실패했습니다.")
       }
@@ -825,7 +822,7 @@ const pathname = usePathname()
 
   const deleteOrder = async (orderId: number) => {
     try {
-      const response = await axios.delete(`http://localhost:8080/api/orders/${orderId}`)
+      const response = await axios.delete(`${getBackendUrl()}/api/orders/${orderId}`)
       if (response.status !== 200) {
         throw new Error("주문 삭제에 실패했습니다.")
       }
@@ -839,7 +836,7 @@ const pathname = usePathname()
 
   const updatePaymentStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
     try {
-      const response = await axios.put(`http://localhost:8080/api/orders/${orderId}/status?status=${status}`)
+      const response = await axios.put(`${getBackendUrl()}/api/orders/${orderId}/status?status=${status}`)
       if (response.status !== 200) {
         throw new Error("결제 상태 업데이트에 실패했습니다.")
       }
@@ -889,7 +886,7 @@ const pathname = usePathname()
         console.log('인증 토큰 없음 - 익명 접근')
       }
       
-      const response = await axios.get('http://localhost:8080/api/products', {
+      const response = await axios.get(`${getBackendUrl()}/api/products`, {
         timeout: 10000,
         headers: headers
       })
@@ -1038,7 +1035,7 @@ const pathname = usePathname()
           },
         ],
       }
-      const response = await axios.post("http://localhost:8080/api/orders", orderData, {
+      const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers,
         timeout: 10000,
       })

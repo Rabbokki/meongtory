@@ -12,11 +12,10 @@ import { Search, Plus, FileText, Sparkles, Upload, X, Loader2 } from "lucide-rea
 import { format } from "date-fns"
 import { ko } from "date-fns/locale"
 import { ArrowLeft } from "lucide-react"
-import { petApi, s3Api, Pet as ApiPet, handleApiError } from "@/lib/api"
+import { getBackendUrl, petApi, s3Api, Pet as ApiPet, handleApiError } from "@/lib/api"
 import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import axios from "axios"
 import { useToast } from "@/hooks/use-toast"
-import { getBackendUrl } from "@/lib/api"
 
 interface AnimalRecord {
   id: string
@@ -229,10 +228,7 @@ export default function AnimalRegistrationPage({ isAdmin, currentUserId, onAddPe
 
     try {
       const backendUrl = getBackendUrl()
-      const response = await axios.post(
-
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/story/generate-background-story`, 
-
+      const response = await axios.post(`${getBackendUrl()}/api/story/generate-background-story`, 
         {
         petName: newAnimal.name,
         breed: newAnimal.breed,

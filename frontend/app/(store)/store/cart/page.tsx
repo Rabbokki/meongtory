@@ -7,6 +7,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios"
 import PaymentPage from "../../payment/PaymentPage"
+import { getBackendUrl } from "@/lib/api";
 
 interface CartItem {
   id: number
@@ -52,7 +53,7 @@ export default function CartPage() {
         return
       }
 
-      const response = await axios.get(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts`, {
+      const response = await axios.get(`${getBackendUrl()}/api/carts`, {
         headers: { "Access_Token": token },
         timeout: 5000,
       })
@@ -106,7 +107,8 @@ export default function CartPage() {
         return
       }
 
-      const response = await axios.delete(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}`, {
+      const response = await axios.delete(`${getBackendUrl()}/api/carts/${cartId}`, 
+      {
         headers: { "Access_Token": accessToken }
       })
       
@@ -131,7 +133,7 @@ export default function CartPage() {
         return
       }
 
-      const response = await axios.put(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/carts/${cartId}?quantity=${quantity}`, null, {
+      const response = await axios.put(`${getBackendUrl()}/api/carts/${cartId}?quantity=${quantity}`, null, {
         headers: { "Access_Token": accessToken }
       })
       
@@ -163,7 +165,7 @@ export default function CartPage() {
           quantity: item.quantity,
         }
 
-        await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
+        await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
           headers: { "Access_Token": accessToken }
         })
       }
@@ -196,7 +198,7 @@ export default function CartPage() {
         quantity: item.quantity,
       }
 
-      const response = await axios.post(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/orders`, orderData, {
+      const response = await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
         headers: { "Access_Token": accessToken }
       })
 

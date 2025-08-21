@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { format } from "date-fns"
 import { formatToKST } from "@/lib/utils"
-import { adoptionRequestApi, userApi } from "@/lib/api"
+import { getBackendUrl, adoptionRequestApi, userApi } from "@/lib/api"
 import { myPetApi, MyPetRequestDto, MyPetResponseDto } from "@/lib/mypet"
 import { Edit, X, Plus, Trash2, Camera } from "lucide-react"
 import axios from "axios"
@@ -104,7 +104,7 @@ export default function MyPage() {
       const token = localStorage.getItem('accessToken')
       
       // 먼저 현재 사용자 정보를 가져와서 accountId를 얻습니다
-      const userResponse = await axios.get('http://localhost:8080/api/accounts/me', {
+      const userResponse = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
         headers: {
           "Access_Token": token,
           "Refresh_Token": localStorage.getItem('refreshToken') || ''
@@ -121,7 +121,7 @@ export default function MyPage() {
       }
       
       // 사용자별 주문 조회 API 호출
-      const response = await axios.get(`http://localhost:8080/api/orders/user/${accountId}`, {
+      const response = await axios.get(`${getBackendUrl()}/api/orders/user/${accountId}`, {
         headers: {
           "Access_Token": token,
           "Refresh_Token": localStorage.getItem('refreshToken') || ''
@@ -245,11 +245,7 @@ export default function MyPage() {
     }
   }, [handleOrderStatusUpdate])
 
-  console.log("userInfo 상태:", userInfo)
-  console.log("userInfo가 null인지 확인:", userInfo === null)
-  
   if (!userInfo) {
-    console.log("userInfo가 null이므로 로그인 필요 메시지 표시")
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="p-8 text-center">

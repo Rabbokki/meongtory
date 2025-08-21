@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
+import { getBackendUrl } from "@/lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -39,7 +39,7 @@ export default function LoginModal({
     const accessToken = localStorage.getItem("accessToken");
     if (accessToken) {
       axios
-        .get(`${getApiBaseUrl()}/accounts/me`, {
+        .get(`${getBackendUrl()}/api/accounts/me`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         })
         .then((response) => {
@@ -87,11 +87,7 @@ export default function LoginModal({
 
     try {
       // 로그인 요청
-      const response = await axios.post(
-
-        `${process.env.NEXT_PUBLIC_BAKCEND_URL}/api/accounts/login`,
-
- 
+      const response = await axios.post(`${getBackendUrl()}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );

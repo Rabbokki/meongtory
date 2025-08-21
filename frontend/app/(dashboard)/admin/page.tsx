@@ -29,10 +29,9 @@ import type { Pet as PetsTypePet } from "@/types/pets"
 import ProductsTab from "@/components/admin/ProductsTab"
 import PetsTab from "@/components/admin/PetsTab"
 import type { AdminPet } from "@/types/admin"
-import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
+import { getBackendUrl, petApi, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
 import axios from "axios"
-import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "@/lib/utils"
-import { getBackendUrl } from "@/lib/api"
+import { formatToKST, getCurrentKSTDate } from "@/lib/utils"
 
 interface Product {
   id: number
@@ -373,7 +372,7 @@ export default function AdminPage({
         };
         
         console.log('요청 헤더:', headers);
-        const response = await axios.get('http://localhost:8080/api/orders/admin/all', { headers });
+        const response = await axios.get(`${getBackendUrl()}/api/orders/admin/all`, { headers });
         console.log('주문 API 응답:', response);
         
         const data: any[] = response.data;
@@ -786,7 +785,7 @@ export default function AdminPage({
                            status === 'PENDING' ? 'CREATED' : 
                            status === 'CANCELLED' ? 'CANCELED' : 'CREATED';
       
-      const response = await axios.patch(`http://localhost:8080/api/orders/${orderId}/status?status=${backendStatus}`);
+      const response = await axios.patch(`${getBackendUrl()}/api/orders/${orderId}/status?status=${backendStatus}`);
       console.log('업데이트된 주문:', response.data);
       
       // 현재 주문 목록에서 해당 주문만 업데이트

@@ -13,7 +13,7 @@ import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-reac
 import { createDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/diary"
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
-import { getApiBaseUrl, getBackendUrl } from "@/lib/api";
+import { getBackendUrl } from "@/lib/api";
 
 interface GrowthDiaryWritePageProps {
   onBack: () => void;

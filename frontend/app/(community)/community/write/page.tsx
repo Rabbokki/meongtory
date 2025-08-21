@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft, ImageIcon, X } from "lucide-react";
-import { getApiBaseUrl } from "../../../../lib/utils/apiBaseUrl";
+import { getBackendUrl } from "@/lib/api";
 
 interface CommunityPost {
   id: number;
@@ -43,7 +43,6 @@ export default function CommunityWritePage({
   const [error, setError] = useState("");
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const router = useRouter();
-  const API_BASE_URL = getApiBaseUrl();
 
   // 로그인 사용자 이메일 로드
   useEffect(() => {
@@ -55,7 +54,7 @@ export default function CommunityWritePage({
           setCurrentUserEmail("");
           return;
         }
-        const res = await fetch(`${API_BASE_URL}/api/accounts/me`, {
+        const res = await fetch(`${getBackendUrl()}/api/accounts/me`, {
           headers: { Access_Token: token },
         });
         if (!res.ok) throw new Error(`사용자 정보 로드 실패 (${res.status})`);
@@ -139,7 +138,7 @@ export default function CommunityWritePage({
         formData.append("postImg", file);
       });
 
-      const res = await fetch(`${API_BASE_URL}/api/community/posts/create`, {
+      const res = await fetch(`${getBackendUrl()}/api/community/posts/create`, {
         method: "POST",
         headers: { Access_Token: token },
         body: formData,
