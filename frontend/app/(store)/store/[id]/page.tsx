@@ -8,10 +8,8 @@ import { ArrowLeft, Sparkles, PawPrint } from "lucide-react"
 import Image from "next/image"
 import axios from "axios"
 import { useRouter } from "next/navigation"
-import { getBackendUrl } from '@/lib/api'
 import { ProductRecommendationCard } from "@/components/ui/product-recommendation-card"
-
-const API_BASE_URL = `${getBackendUrl()}/api`
+import { getBackendUrl } from '@/lib/api'
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(
@@ -37,7 +35,7 @@ axios.interceptors.response.use(
       const refreshToken = localStorage.getItem('refreshToken');
       if (refreshToken) {
         try {
-          const response = await axios.post(`${API_BASE_URL}/accounts/refresh`, {
+          const response = await axios.post(`${getBackendUrl()}/api/accounts/refresh`, {
             refreshToken: refreshToken
           });
           const newAccessToken = response.data.accessToken;
@@ -155,10 +153,10 @@ export default function StoreProductDetailPage({
     // 특정 상품 조회
     getProduct: async (productId: number): Promise<any> => {
       try {
-        console.log('상품 조회 요청:', `${API_BASE_URL}/products/${productId}`);
+        console.log('상품 조회 요청:', `${getBackendUrl()}/api/products/${productId}`);
         console.log('요청할 productId:', productId, '타입:', typeof productId);
         
-        const response = await axios.get(`${API_BASE_URL}/products/${productId}`);
+        const response = await axios.get(`${getBackendUrl()}/api/products/${productId}`);
         console.log('상품 조회 성공:', response.data);
         return response.data;
       } catch (error) {
@@ -179,10 +177,10 @@ export default function StoreProductDetailPage({
     // 네이버 상품 조회
     getNaverProduct: async (productId: string): Promise<any> => {
       try {
-        console.log('네이버 상품 조회 요청:', `${API_BASE_URL}/naver-shopping/products/${productId}`);
+        console.log('네이버 상품 조회 요청:', `${getBackendUrl()}/api/naver-shopping/products/${productId}`);
         console.log('요청할 productId:', productId, '타입:', typeof productId);
         
-        const response = await axios.get(`${API_BASE_URL}/naver-shopping/products/${productId}`);
+        const response = await axios.get(`${getBackendUrl()}/api/naver-shopping/products/${productId}`);
         console.log('네이버 상품 조회 성공:', response.data);
         return response.data;
       } catch (error) {
@@ -207,7 +205,7 @@ export default function StoreProductDetailPage({
       const token = localStorage.getItem('accessToken')
       if (!token) return
 
-      const response = await axios.get(`${API_BASE_URL}/mypet`, {
+      const response = await axios.get(`${getBackendUrl()}/api/mypet`, {
         headers: {
           "Access_Token": token,
           "Refresh_Token": localStorage.getItem('refreshToken') || ''
@@ -286,7 +284,7 @@ export default function StoreProductDetailPage({
     setOrdersLoading(true)
     try {
       const token = localStorage.getItem('accessToken')
-      const response = await axios.get(`${API_BASE_URL}/orders`, {
+      const response = await axios.get(`${getBackendUrl()}/api/orders`, {
         headers: {
           "Access_Token": token,
           "Refresh_Token": localStorage.getItem('refreshToken') || ''
@@ -306,7 +304,7 @@ export default function StoreProductDetailPage({
       try {
         const token = localStorage.getItem('accessToken')
         if (token) {
-          const response = await axios.get(`${API_BASE_URL}/accounts/me`, {
+          const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
             headers: {
               "Access_Token": token,
               "Refresh_Token": localStorage.getItem('refreshToken') || ''
@@ -467,7 +465,7 @@ export default function StoreProductDetailPage({
         if (isNaverProduct) {
           // 네이버 상품인 경우 네이버 상품용 API 호출
           console.log('네이버 상품 장바구니 추가 요청:', {
-            url: `${API_BASE_URL}/naver-shopping/cart/add`,
+            url: `${getBackendUrl()}/api/naver-shopping/cart/add`,
             productId: product.productId,
             quantity: quantity,
             product: product
@@ -492,7 +490,7 @@ export default function StoreProductDetailPage({
             searchCount: 0
           }
           
-          response = await axios.post(`${API_BASE_URL}/naver-shopping/cart/add`, naverProductData, {
+          response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, naverProductData, {
             params: { quantity },
             headers: {
               "Access_Token": token,
@@ -503,13 +501,13 @@ export default function StoreProductDetailPage({
         } else {
           // 일반 상품인 경우 일반 상품용 API 호출
           console.log('일반 상품 장바구니 추가 요청:', {
-            url: `${API_BASE_URL}/carts?productId=${product.id}&quantity=${quantity}`,
+            url: `${getBackendUrl()}/api/carts?productId=${product.id}&quantity=${quantity}`,
             productId: product.id,
             quantity: quantity,
             product: product
           })
           
-          response = await axios.post(`${API_BASE_URL}/carts?productId=${product.id}&quantity=${quantity}`, null, {
+          response = await axios.post(`${getBackendUrl()}/api/carts?productId=${product.id}&quantity=${quantity}`, null, {
             headers: {
               "Access_Token": token,
               "Refresh_Token": localStorage.getItem('refreshToken') || ''
@@ -602,12 +600,12 @@ export default function StoreProductDetailPage({
          }
 
          console.log('추천 상품 장바구니 추가 요청:', {
-           url: `${API_BASE_URL}/carts?productId=${productId}&quantity=1`,
+           url: `${getBackendUrl()}/api/carts?productId=${productId}&quantity=1`,
            productId: productId,
            quantity: 1
          })
 
-         const response = await axios.post(`${API_BASE_URL}/carts?productId=${productId}&quantity=1`, null, {
+         const response = await axios.post(`${getBackendUrl()}/api/carts?productId=${productId}&quantity=1`, null, {
            headers: {
              "Access_Token": token,
              "Refresh_Token": localStorage.getItem('refreshToken') || ''

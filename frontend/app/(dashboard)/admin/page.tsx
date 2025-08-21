@@ -30,10 +30,9 @@ import ProductsTab from "@/components/admin/ProductsTab"
 import PetsTab from "@/components/admin/PetsTab"
 import AdoptionRequestsTab from "@/components/admin/AdoptionRequestsTab"
 import OrdersTab from "@/components/admin/OrdersTab"
-import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
+import { getBackendUrl, petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
 import axios from "axios"
-import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "@/lib/utils"
-import { getBackendUrl } from "@/lib/api"
+import { formatToKST, getCurrentKSTDate } from "@/lib/utils"
 
 interface Product {
   id: number
@@ -267,7 +266,6 @@ export default function AdminPage({
  useEffect(() => {
   const fetchProducts = async () => {
     try {
-      console.log('Fetching products from:', getBackendUrl() + '/api/products');
       const accessToken = localStorage.getItem("accessToken");
       console.log('Access Token:', accessToken ? 'Found' : 'Not found');
 
@@ -343,14 +341,11 @@ export default function AdminPage({
   fetchProducts();
 }, []);
 
-
-
   // 입양 신청 목록을 백엔드에서 가져오기
   useEffect(() => {
     const fetchAdoptionRequests = async () => {
       try {
         const response = await adoptionRequestApi.getAdoptionRequests();
-        console.log('입양신청 데이터:', response);
         setAdoptionRequests(response);
       } catch (error) {
         console.error("Error fetching adoption requests:", error);
@@ -446,7 +441,6 @@ export default function AdminPage({
               const fileName = imageUrl.split('/').pop()
               if (fileName) {
                 await s3Api.deleteFile(fileName)
-                console.log(`S3에서 이미지 삭제 완료: ${fileName}`)
               }
             } catch (error) {
               console.error("S3 이미지 삭제 실패:", error)
@@ -541,7 +535,6 @@ export default function AdminPage({
 
   // ProductsTab(AdminProduct) -> AdminPage(Product) 어댑터
   const handleEditProductFromTab = (adminProduct: any) => {
-    console.log('handleEditProductFromTab called with:', adminProduct);
     
     // productId를 안전하게 추출
     const productId = adminProduct.id || adminProduct.productId || 0;
@@ -565,7 +558,6 @@ export default function AdminPage({
       registeredBy: adminProduct.registeredBy || "admin",
     }
     
-    console.log('Adapted product:', adaptedProduct);
     handleEditProduct(adaptedProduct)
   }
 
@@ -582,9 +574,7 @@ export default function AdminPage({
   }
   if (window.confirm('정말로 이 상품을 삭제하시겠습니까?')) {
     try {
-      console.log('상품 삭제 요청:', productId);
       await productApi.deleteProduct(productId);
-      console.log('삭제 완료');
       setProducts(prev => prev.filter(p => p.id !== productId));
       alert('상품이 성공적으로 삭제되었습니다.');
     } catch (error) {
@@ -596,10 +586,6 @@ export default function AdminPage({
     }
   }
 };
-
-
-
-
 
   const fetchContractTemplates = async () => {
     try {
@@ -691,9 +677,6 @@ export default function AdminPage({
         },
       })
 
-      console.log("AI 서비스 응답:", response.data) // 디버깅용
-      console.log("AI 서비스 응답 구조:", JSON.stringify(response.data, null, 2)) // 디버깅용
-
       // 생성된 계약서를 백엔드에 저장
       const contractData = {
         templateId: selectedTemplate,
@@ -761,25 +744,19 @@ export default function AdminPage({
 
   const handleViewContract = async (pet: Pet) => {
     try {
-      console.log("찾는 동물:", pet.name) // 디버깅용
-      console.log("생성된 계약서 목록:", generatedContracts) // 디버깅용
-      
       // 해당 동물의 생성된 계약서 찾기
       const petContract = generatedContracts.find(contract => {
         // 계약서의 petInfo에서 동물 이름 확인
         try {
           const petInfo = JSON.parse(contract.petInfo || '{}')
-          console.log("계약서 petInfo:", petInfo) // 디버깅용
           return petInfo.name === pet.name
         } catch {
           // JSON 파싱 실패 시 다른 방법으로 확인
-          console.log("JSON 파싱 실패, content에서 검색") // 디버깅용
           return contract.content && contract.content.includes(pet.name)
         }
       })
 
       if (petContract) {
-        console.log("찾은 계약서:", petContract) // 디버깅용
         setSelectedPetForContract(pet)
         setGeneratedContract(petContract.content)
         setShowContractViewModal(true)
