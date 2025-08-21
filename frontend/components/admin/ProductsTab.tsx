@@ -199,15 +199,37 @@ export default function ProductsTab({
         "강아지 간식",
         "고양이 간식",
         "강아지 장난감",
-        "고양이 장난감"
+        "고양이 장난감",
+        "강아지 용품",
+        "고양이 용품",
+        "강아지 의류",
+        "고양이 의류",
+        "강아지 옷",
+        "고양이 옷",
+        "강아지 코트",
+        "고양이 코트",
+        "강아지 신발",
+        "고양이 신발",
+        "강아지 건강관리",
+        "고양이 건강관리",
+        "강아지 영양제",
+        "고양이 영양제",
+        "강아지 비타민",
+        "고양이 비타민",
+        "강아지 건강식품",
+        "고양이 건강식품"
       ]
+      
+      console.log('관리자 - 검색할 키워드 목록:', searchTerms);
+      console.log('관리자 - 총 검색어 개수:', searchTerms.length);
       
       let totalSaved = 0
       
       // 각 검색어로 상품 가져오기
-      for (const term of searchTerms) {
+      for (let i = 0; i < searchTerms.length; i++) {
+        const term = searchTerms[i];
         try {
-          console.log(`${term} 검색 중...`)
+          console.log(`[${i + 1}/${searchTerms.length}] ${term} 검색 중...`)
           
           // 네이버 쇼핑 API 호출
           const searchResponse = await axios.post(`${getBackendUrl()}/api/naver-shopping/search`, {
