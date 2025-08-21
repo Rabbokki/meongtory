@@ -28,7 +28,7 @@ interface CommunityPost {
 interface CommunityDetailPageProps {
   post?: CommunityPost | null;
   onBack: () => void;
-  onUpdatePost: (updatedPost: CommunityPost) => void;
+  onUpdatePost?: (updatedPost: CommunityPost) => void;
   onDeletePost: (postId: number) => void;
   currentUserEmail?: string;
   currentUserRole?: string;
@@ -169,7 +169,6 @@ export default function CommunityDetailPage({
         boardType: post.boardType,
         tags: post.tags,
         imagesToDelete,
-        ownerEmail: post.ownerEmail,
       };
       formData.append("dto", new Blob([JSON.stringify(dto)], { type: "application/json" }));
 
@@ -186,12 +185,15 @@ export default function CommunityDetailPage({
       if (!res.ok) throw new Error(`게시글 수정 실패 (${res.status})`);
 
       const updatedPost = await res.json();
-      onUpdatePost({
+      setPost({
         ...post,
         title: updatedPost.title,
         content: updatedPost.content,
         images: updatedPost.images || [],
       });
+      if (onUpdatePost) {
+        onUpdatePost(updatedPost);
+      }
       setIsEditing(false);
       setImagesToDelete([]);
       router.push(`/community/${post.id}`); // 수정 후 쿼리 파라미터 제거
@@ -207,15 +209,20 @@ export default function CommunityDetailPage({
       return;
     }
     try {
+      const token = localStorage.getItem("accessToken");
+      const headers: HeadersInit = {};
+      if (token) {
+        headers["Access_Token"] = token;
+      }
       const res = await fetch(`${getBackendUrl()}/api/community/posts/${post.id}`, {
         method: "DELETE",
-        headers: getAuthHeaders(),
+        headers,
       });
 
       if (!res.ok) throw new Error(`게시글 삭제 실패 (${res.status})`);
 
-      onDeletePost(post.id);
-      onBack();
+      alert("게시글이 삭제되었습니다.");
+      router.push("/community"); // ✅ 삭제 후 목록으로 이동
     } catch (err: any) {
       console.error("게시글 삭제 에러:", err.message);
       alert("게시글 삭제 중 오류가 발생했습니다: " + err.message);

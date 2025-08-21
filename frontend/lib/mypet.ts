@@ -50,16 +50,14 @@ export const myPetApi = {
 
   // 펫 삭제
   deleteMyPet: async (myPetId: number): Promise<void> => {
-    await axios.delete(`${getBackendUrl()}/api/mypet/${myPetId}`, 
-    {
+    await axios.delete(`${getBackendUrl()}/api/mypet/${myPetId}`, {
       withCredentials: true
     });
   },
 
   // 사용자의 모든 펫 조회
   getMyPets: async (): Promise<MyPetListResponseDto> => {
-    const response = await axios.get(`${getBackendUrl()}/api/mypet`, 
-    {
+    const response = await axios.get(`${getBackendUrl()}/api/mypet`, {
       withCredentials: true
     });
     return response.data.data;

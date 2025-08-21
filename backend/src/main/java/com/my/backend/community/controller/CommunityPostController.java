@@ -7,6 +7,8 @@ import com.my.backend.community.service.CommunityPostService;
 import com.my.backend.global.security.user.UserDetailsImpl;
 import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,11 +27,15 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CommunityPostController {
 
+    private static final Logger logger = LoggerFactory.getLogger(CommunityPostController.class);
     private final CommunityPostService postService;
 
     @GetMapping
     public List<CommunityPostDto> getAllPosts() {
-        return postService.getAllPosts().stream().map(post -> CommunityPostDto.builder()
+        logger.info("Fetching all community posts");
+        List<CommunityPost> posts = postService.getAllPosts();
+        logger.info("Retrieved {} posts", posts.size());
+        return posts.stream().map(post -> CommunityPostDto.builder()
                 .id(post.getId())
                 .title(post.getTitle())
                 .content(post.getContent())
@@ -46,8 +52,10 @@ public class CommunityPostController {
                 .updatedAt(post.getUpdatedAt())
                 .build()).collect(Collectors.toList());
     }
+
     @GetMapping("/{id}")
     public CommunityPostDto getPostById(@PathVariable Long id) {
+        logger.info("Fetching post with id: {}", id);
         CommunityPost post = postService.getPostById(id);
         return CommunityPostDto.builder()
                 .id(post.getId())
@@ -73,6 +81,7 @@ public class CommunityPostController {
             @RequestPart(value = "dto") CommunityPostDto dto,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
+        logger.info("Creating new post by user: {}", userDetails != null ? userDetails.getUsername() : "anonymous");
         if (userDetails == null || userDetails.getAccount() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "로그인이 필요합니다."));
@@ -83,6 +92,7 @@ public class CommunityPostController {
             CommunityPostDto response = postService.createPost(dto, imgs, account);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
+            logger.error("Error creating post: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "게시물 생성 중 오류 발생: " + e.getMessage()));
         }
@@ -95,6 +105,7 @@ public class CommunityPostController {
             @RequestPart(value = "dto") CommunityPostDto dto,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
+        logger.info("Updating post with id: {}", id);
         if (userDetails == null || userDetails.getAccount() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "로그인이 필요합니다."));
@@ -104,7 +115,6 @@ public class CommunityPostController {
         try {
             CommunityPost existingPost = postService.getPostById(id);
 
-            // ✅ 권한 확인 (작성자 본인 또는 ADMIN만 가능)
             if (!existingPost.getOwnerEmail().equals(account.getEmail()) &&
                     !"ADMIN".equals(account.getRole())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -114,17 +124,33 @@ public class CommunityPostController {
             CommunityPost updatedPost = postService.updatePost(id, dto, imgs);
             return ResponseEntity.ok(updatedPost);
         } catch (Exception e) {
+            logger.error("Error updating post: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", e.getMessage()));
         }
     }
 
+    @PutMapping("/{id}/like")
+    public ResponseEntity<?> likePost(@PathVariable Long id, @AuthenticationPrincipal UserDetailsImpl userDetails) {
+        logger.info("Liking post with id: {}", id);
+        try {
+            CommunityPost post = postService.getPostById(id);
+            post.setLikes(post.getLikes() + 1);
+            postService.save(post);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            logger.error("Error liking post: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "좋아요 처리 중 오류 발생: " + e.getMessage()));
+        }
+    }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deletePost(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
+        logger.info("Deleting post with id: {}", id);
         if (userDetails == null || userDetails.getAccount() == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "로그인이 필요합니다."));
@@ -133,7 +159,6 @@ public class CommunityPostController {
         Account account = userDetails.getAccount();
         CommunityPost post = postService.getPostById(id);
 
-        // ✅ 권한 확인
         if (!post.getOwnerEmail().equals(account.getEmail()) &&
                 !"ADMIN".equals(account.getRole())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -143,5 +168,4 @@ public class CommunityPostController {
         postService.deletePost(id);
         return ResponseEntity.ok(Map.of("message", "삭제 완료"));
     }
-
 }

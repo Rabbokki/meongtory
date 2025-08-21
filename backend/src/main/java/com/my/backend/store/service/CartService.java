@@ -61,27 +61,20 @@ public class CartService {
  * 사용자별 장바구니 전체 조회 (DTO 리스트)
  */
 public List<CartDto> getCartDtoByAccountId(Long accountId) {
-    System.out.println("=== CartService.getCartDtoByAccountId ===");
-    System.out.println("조회할 사용자 ID: " + accountId);
+
 
     if (accountId == null) {
-        System.out.println("ERROR: accountId가 null입니다.");
         throw new IllegalArgumentException("사용자 ID가 필요합니다.");
     }
 
     List<Cart> carts = cartRepository.findByAccount_IdWithProduct(accountId);
-    System.out.println("조회된 장바구니 항목 수: " + carts.size());
 
     for (Cart cart : carts) {
-        System.out.println("장바구니 항목 ID: " + cart.getId() + ", 소유자 ID: " + cart.getAccount().getId());
     }
 
     List<CartDto> result = carts.stream()
             .map(this::toDto)
             .toList();
-
-    System.out.println("반환할 DTO 수: " + result.size());
-    System.out.println("================================");
 
     return result;
 }
@@ -128,7 +121,6 @@ public Cart addToCart(Long accountId, Long productId, int quantity) {
         // 기존 항목이 있으면 수량 증가
         existingCart.setQuantity(existingCart.getQuantity() + requestedQuantity);
         Cart saved = cartRepository.save(existingCart);
-        System.out.println("기존 장바구니 항목 수량 증가: " + saved.getQuantity());
         return saved;
     } else {
         // 새 항목 생성
@@ -139,7 +131,6 @@ public Cart addToCart(Long accountId, Long productId, int quantity) {
                 .build();
         
         Cart saved = cartRepository.save(newCart);
-        System.out.println("새 장바구니 항목 생성: " + saved.getId());
         return saved;
     }
 }
@@ -175,13 +166,8 @@ public Cart updateCartQuantity(Long cartId, int quantity) {
  * 네이버 상품을 장바구니에 추가
  */
 public Cart addNaverProductToCart(Long accountId, Long naverProductId, int quantity) {
-    System.out.println("=== CartService.addNaverProductToCart ===");
-    System.out.println("사용자 ID: " + accountId);
-    System.out.println("네이버 상품 ID: " + naverProductId);
-    System.out.println("수량: " + quantity);
 
     if (accountId == null) {
-        System.out.println("ERROR: accountId가 null입니다.");
         throw new IllegalArgumentException("사용자 ID가 필요합니다.");
     }
 
@@ -190,43 +176,35 @@ public Cart addNaverProductToCart(Long accountId, Long naverProductId, int quant
 
     System.out.println("찾은 사용자: " + account.getEmail() + " (ID: " + account.getId() + ")");
 
-    // 네이버 상품 조회 (productId로 조회)
-    System.out.println("네이버 상품 조회 시도 - productId: " + naverProductId + " (타입: " + naverProductId.getClass().getSimpleName() + ")");
+    // 네이버 상품 조회 (id로 조회 - 이제 id가 네이버의 원본 productId)
+    System.out.println("네이버 상품 조회 시도 - id: " + naverProductId + " (타입: " + naverProductId.getClass().getSimpleName() + ")");
     
-    Optional<NaverProduct> naverProductOpt = naverProductRepository.findByProductId(String.valueOf(naverProductId));
+    Optional<NaverProduct> naverProductOpt = naverProductRepository.findById(naverProductId);
     System.out.println("DB 조회 결과: " + (naverProductOpt.isPresent() ? "찾음" : "없음"));
     
     NaverProduct naverProduct = naverProductOpt.orElseGet(() -> {
         // DB에 없으면 네이버 API로 상품 정보를 가져와서 저장
-        System.out.println("네이버 상품이 DB에 없습니다. API로 정보를 가져와서 저장합니다: " + naverProductId);
         try {
             return createNaverProductFromApi(naverProductId);
         } catch (Exception e) {
-            System.out.println("네이버 API로 상품 정보 가져오기 실패: " + e.getMessage());
             throw new IllegalArgumentException("해당 네이버 상품을 찾을 수 없습니다. 상품 ID: " + naverProductId);
         }
     });
     
-    System.out.println("최종 네이버 상품 정보: ID=" + naverProduct.getId() + ", ProductId=" + naverProduct.getProductId());
 
     // 기존 장바구니 항목 확인
-    System.out.println("기존 장바구니 항목 확인 - accountId: " + accountId + ", naverProductId: " + naverProduct.getId());
     Cart existingCart = cartRepository.findByAccount_IdAndNaverProduct_Id(accountId, naverProduct.getId()).orElse(null);
-    System.out.println("기존 장바구니 항목: " + (existingCart != null ? "있음 (ID: " + existingCart.getId() + ")" : "없음"));
     
     int requestedQuantity = (quantity > 0) ? quantity : 1;
-    System.out.println("요청 수량: " + requestedQuantity);
     
     if (existingCart != null) {
         // 기존 항목이 있으면 수량 증가
         int oldQuantity = existingCart.getQuantity();
         existingCart.setQuantity(existingCart.getQuantity() + requestedQuantity);
         Cart saved = cartRepository.save(existingCart);
-        System.out.println("기존 네이버 상품 장바구니 항목 수량 증가: " + oldQuantity + " -> " + saved.getQuantity());
         return saved;
     } else {
         // 새 항목 생성
-        System.out.println("새 네이버 상품 장바구니 항목 생성 시도...");
         Cart newCart = Cart.builder()
                 .account(account)
                 .naverProduct(naverProduct)
@@ -234,7 +212,6 @@ public Cart addNaverProductToCart(Long accountId, Long naverProductId, int quant
                 .build();
         
         Cart saved = cartRepository.save(newCart);
-        System.out.println("새 네이버 상품 장바구니 항목 생성 성공: ID=" + saved.getId() + ", 수량=" + saved.getQuantity());
         return saved;
     }
 }
@@ -273,25 +250,26 @@ public CartDto toDto(Cart cart) {
             if (naverResponse != null && naverResponse.getItems() != null && !naverResponse.getItems().isEmpty()) {
                 var item = naverResponse.getItems().get(0);
                 
-                // 네이버 상품 생성
-                NaverProduct naverProduct = NaverProduct.builder()
-                    .productId(item.getProductId())
-                    .title(item.getTitle())
-                    .description(item.getTitle())
-                    .price(parsePrice(item.getLprice()))
-                    .imageUrl(item.getImage())
-                    .mallName(item.getMallName())
-                    .productUrl(item.getLink())
-                    .brand(item.getBrand() != null ? item.getBrand() : "")
-                    .maker(item.getMaker() != null ? item.getMaker() : "")
-                    .category1(item.getCategory1() != null ? item.getCategory1() : "")
-                    .category2(item.getCategory2() != null ? item.getCategory2() : "")
-                    .category3(item.getCategory3() != null ? item.getCategory3() : "")
-                    .category4(item.getCategory4() != null ? item.getCategory4() : "")
-                    .reviewCount(parseInteger(item.getReviewCount()))
-                    .rating(parseDouble(item.getRating()))
-                    .searchCount(parseInteger(item.getSearchCount()))
-                    .build();
+                                 // 네이버 상품 생성 (id에 네이버의 원본 productId 사용)
+                 NaverProduct naverProduct = NaverProduct.builder()
+                     // id는 자동 생성되므로 설정하지 않음
+                     .productId(item.getProductId())
+                     .title(item.getTitle())
+                     .description(item.getTitle())
+                     .price(parsePrice(item.getLprice()))
+                     .imageUrl(item.getImage())
+                     .mallName(item.getMallName())
+                     .productUrl(item.getLink())
+                     .brand(item.getBrand() != null ? item.getBrand() : "")
+                     .maker(item.getMaker() != null ? item.getMaker() : "")
+                     .category1(item.getCategory1() != null ? item.getCategory1() : "")
+                     .category2(item.getCategory2() != null ? item.getCategory2() : "")
+                     .category3(item.getCategory3() != null ? item.getCategory3() : "")
+                     .category4(item.getCategory4() != null ? item.getCategory4() : "")
+                     .reviewCount(parseInteger(item.getReviewCount()))
+                     .rating(parseDouble(item.getRating()))
+                     .searchCount(parseInteger(item.getSearchCount()))
+                     .build();
                 
                 return naverProductRepository.save(naverProduct);
             } else {

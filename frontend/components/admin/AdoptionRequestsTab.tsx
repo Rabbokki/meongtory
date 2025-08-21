@@ -4,30 +4,26 @@ import React, { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Users, Phone, Mail, CheckCircle, XCircle, AlertCircle } from "lucide-react"
-import { AdoptionRequestsTabProps, AdoptionRequest } from "@/types/admin"
-import { adoptionRequestApi } from "@/lib/api"
+import { Users, Phone, Mail, CheckCircle, XCircle, AlertCircle, Heart } from "lucide-react"
+import { AdoptionRequest } from "@/types/admin"
+import { adoptionRequestApi, petApi } from "@/lib/api"
+import { formatToKST, getCurrentKSTDate } from "@/lib/utils"
+
+interface AdoptionRequestsTabProps {
+  onShowContractModal: (request: AdoptionRequest) => void
+  onRefreshPets?: () => void
+}
 
 export default function AdoptionRequestsTab({
   onShowContractModal,
+  onRefreshPets,
 }: AdoptionRequestsTabProps) {
   const [adoptionRequests, setAdoptionRequests] = useState<AdoptionRequest[]>([])
+  const [filteredRequests, setFilteredRequests] = useState<AdoptionRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-
-  // KST 날짜 포맷팅
-  const formatToKST = (dateString: string) => {
-    const date = new Date(dateString)
-    const kstOffset = 9 * 60 // KST는 UTC+9
-    const kstTime = new Date(date.getTime() + kstOffset * 60 * 1000)
-    return kstTime.toLocaleString('ko-KR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState<string>("ALL")
 
   // 입양신청 데이터 페칭
   const fetchAdoptionRequests = async () => {
@@ -36,7 +32,6 @@ export default function AdoptionRequestsTab({
       setError(null)
       
       const response = await adoptionRequestApi.getAdoptionRequests()
-      console.log('Adoption requests response:', response)
       
       // response가 배열인지 확인
       if (!response || !Array.isArray(response)) {
@@ -55,21 +50,44 @@ export default function AdoptionRequestsTab({
   }
 
   // 입양신청 상태 업데이트
-  const updateAdoptionRequestStatus = async (requestId: number, status: "PENDING" | "CONTACTED" | "APPROVED" | "REJECTED") => {
+  const handleUpdateAdoptionRequestStatus = async (requestId: number, status: "PENDING" | "CONTACTED" | "APPROVED" | "REJECTED") => {
     try {
-      await adoptionRequestApi.updateAdoptionRequestStatus(requestId, status)
+      const response = await adoptionRequestApi.updateAdoptionRequestStatus(requestId, status);
       
-      // 프론트엔드 상태 업데이트
+      // 현재 입양 신청 목록에서 해당 신청만 업데이트
       setAdoptionRequests(prev => prev.map(request => 
         request.id === requestId 
-          ? { ...request, status }
+          ? { ...request, status: status }
           : request
-      ))
+      ));
       
-      return true
+      // 입양신청 승인 시 해당 펫의 상태도 업데이트
+      if (status === "APPROVED") {
+        const approvedRequest = adoptionRequests.find(request => request.id === requestId);
+        if (approvedRequest) {
+          try {
+            // 펫의 adopted 상태를 true로 업데이트
+            await petApi.updateAdoptionStatus(approvedRequest.petId, true);
+          } catch (error) {
+            console.error('펫 상태 업데이트 실패:', error);
+          }
+        }
+      }
+      
+      // 입양신청 상태 변경 후 펫 목록도 업데이트
+      if (onRefreshPets) {
+        setTimeout(() => {
+          onRefreshPets()
+        }, 100)
+      }
+      
+      const statusMessage = status === 'APPROVED' ? '승인 (MyPet에 자동 등록되었습니다)' : 
+                           status === 'REJECTED' ? '거절' : 
+                           status === 'CONTACTED' ? '연락완료' : '대기중'
+      alert(`입양 신청 상태가 ${statusMessage}로 변경되었습니다.`);
     } catch (error) {
-      console.error('입양신청 상태 업데이트 오류:', error)
-      throw new Error('입양신청 상태 업데이트에 실패했습니다.')
+      console.error('입양 신청 상태 업데이트 오류:', error);
+      alert('입양 신청 상태 업데이트에 실패했습니다.');
     }
   }
 
@@ -93,38 +111,121 @@ export default function AdoptionRequestsTab({
     }
   }
 
-  const handleUpdateStatus = async (requestId: number, newStatus: string) => {
-    try {
-      await updateAdoptionRequestStatus(requestId, newStatus as "PENDING" | "CONTACTED" | "APPROVED" | "REJECTED")
-      const statusText = newStatus === "CONTACTED" ? "연락완료" : 
-                        newStatus === "APPROVED" ? "승인" : "거절"
-      alert(`입양신청이 ${statusText}로 변경되었습니다.`)
-    } catch (error) {
-      console.error('입양신청 상태 업데이트 오류:', error)
-      alert('입양신청 상태 업데이트에 실패했습니다.')
-    }
+  // 긴급 신청 여부 확인 (24시간 이상 대기)
+  const isUrgent = (createdAt: string) => {
+    const created = new Date(createdAt)
+    const now = new Date()
+    const diffHours = (now.getTime() - created.getTime()) / (1000 * 60 * 60)
+    return diffHours > 24
   }
 
-  // 로딩 상태
+  // 처리율 계산
+  const getProcessingRate = () => {
+    if (!adoptionRequests || adoptionRequests.length === 0) return 0
+    const processed = (adoptionRequests ?? []).filter(request => 
+      request.status === "APPROVED" || request.status === "REJECTED" || request.status === "CONTACTED"
+    ).length
+    return Math.round((processed / (adoptionRequests ?? []).length) * 100)
+  }
+
+  // 필터링 및 검색 함수
+  const filterRequests = () => {
+    let filtered = adoptionRequests
+
+    // 상태별 필터링
+    if (statusFilter !== "ALL") {
+      filtered = filtered.filter(request => request.status === statusFilter)
+    }
+
+    // 검색어 필터링
+    if (searchTerm) {
+      filtered = filtered.filter(request => 
+        request.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        request.petName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        request.petBreed.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        request.contactNumber.includes(searchTerm) ||
+        request.email.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+
+    // 정렬
+    filtered.sort((a, b) => {
+      if (a.status === "PENDING" && b.status !== "PENDING") return -1
+      if (a.status !== "PENDING" && b.status === "PENDING") return 1
+      if (a.status === "PENDING" && b.status === "PENDING") {
+        const aUrgent = isUrgent(a.createdAt)
+        const bUrgent = isUrgent(b.createdAt)
+        if (aUrgent && !bUrgent) return -1
+        if (!aUrgent && bUrgent) return 1
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
+
+    setFilteredRequests(filtered)
+  }
+
+  // 필터링 실행
+  useEffect(() => {
+    filterRequests()
+  }, [adoptionRequests, searchTerm, statusFilter])
+
+  // CSV 내보내기 함수
+  const exportToCSV = () => {
+    const headers = [
+      "신청ID", "펫명", "품종", "신청자명", "연락처", "이메일", 
+      "상태", "신청일", "메시지", "회원ID"
+    ]
+    
+    const csvData = filteredRequests.map(request => [
+      request.id,
+      request.petName,
+      request.petBreed,
+      request.applicantName,
+      request.contactNumber,
+      request.email,
+      request.status === "PENDING" ? "대기중" : 
+      request.status === "CONTACTED" ? "연락완료" : 
+      request.status === "APPROVED" ? "승인" : "거절",
+      request.createdAt ? formatToKST(request.createdAt) : "날짜 없음",
+      request.message,
+      request.userId
+    ])
+    
+    const csvContent = [
+      headers.join(","),
+      ...csvData.map(row => row.map(cell => `"${cell}"`).join(","))
+    ].join("\n")
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+    const link = document.createElement("a")
+    const url = URL.createObjectURL(blob)
+    link.setAttribute("href", url)
+    link.setAttribute("download", `입양신청_${getCurrentKSTDate()}.csv`)
+    link.style.visibility = "hidden"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex items-center justify-center py-8">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-sm text-gray-600">입양신청 데이터를 불러오는 중...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-400 mx-auto mb-4"></div>
+          <p>입양신청 데이터를 불러오는 중...</p>
         </div>
       </div>
     )
   }
 
-  // 에러 상태
   if (error) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <AlertCircle className="h-8 w-8 text-red-500 mx-auto mb-2" />
-          <p className="text-sm text-red-600">{error}</p>
-        </div>
+      <div className="text-center py-8">
+        <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+        <p className="text-red-600">데이터를 불러오는 중 오류가 발생했습니다.</p>
+        <Button onClick={fetchAdoptionRequests} className="mt-4">
+          다시 시도
+        </Button>
       </div>
     )
   }
@@ -133,22 +234,99 @@ export default function AdoptionRequestsTab({
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">입양신청 관리</h2>
 
+      {/* 검색 및 필터 */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="신청자명, 펫명, 품종, 연락처로 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
+        >
+          <option value="ALL">전체 상태</option>
+          <option value="PENDING">대기중</option>
+          <option value="CONTACTED">연락완료</option>
+          <option value="APPROVED">승인</option>
+          <option value="REJECTED">거절</option>
+        </select>
+        <Button 
+          onClick={exportToCSV}
+          className="bg-green-600 hover:bg-green-700 text-white"
+        >
+          CSV 내보내기
+        </Button>
+      </div>
+
+      {/* 통계 요약 */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
+          <Card key="pending">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-yellow-600">
+                {filteredRequests.filter(r => r.status === "PENDING").length}
+              </div>
+              <p className="text-xs text-gray-600">대기중</p>
+            </CardContent>
+          </Card>
+          <Card key="contacted">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-blue-600">
+                {filteredRequests.filter(r => r.status === "CONTACTED").length}
+              </div>
+              <p className="text-xs text-gray-600">연락완료</p>
+            </CardContent>
+          </Card>
+          <Card key="approved">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-green-600">
+                {filteredRequests.filter(r => r.status === "APPROVED").length}
+              </div>
+              <p className="text-xs text-gray-600">승인</p>
+            </CardContent>
+          </Card>
+          <Card key="rejected">
+            <CardContent className="p-4">
+              <div className="text-2xl font-bold text-red-600">
+                {filteredRequests.filter(r => r.status === "REJECTED").length}
+              </div>
+              <p className="text-xs text-gray-600">거절</p>
+            </CardContent>
+          </Card>
+        </div>
+        <div className="text-sm text-gray-600 ml-4">
+          총 {(filteredRequests ?? []).length}건 (전체 {(adoptionRequests ?? []).length}건)
+        </div>
+      </div>
+
       <div className="grid gap-4">
-        {adoptionRequests && adoptionRequests.length > 0 ? (
-          adoptionRequests.map((request, index) => (
-            <Card key={request.id || `adoption-request-${index}`}>
+        {(filteredRequests ?? []).length > 0 ? (
+          filteredRequests.map((request, index) => (
+            <Card key={request.id || `request-${index}`}>
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-3">
                       <h3 className="font-semibold">{request.petName} ({request.petBreed}) 입양신청</h3>
-                      <Badge className={getStatusColor(request.status)}>
-                        {request.status === "PENDING" ? "대기중" : 
-                         request.status === "CONTACTED" ? "연락완료" :
-                         request.status === "APPROVED" ? "승인" : "거절"}
-                      </Badge>
+                      <div className="flex items-center space-x-2">
+                        <Badge className={getStatusColor(request.status)}>
+                          {request.status === "PENDING" ? "대기중" : 
+                           request.status === "CONTACTED" ? "연락완료" : 
+                           request.status === "APPROVED" ? "승인" : "거절"}
+                        </Badge>
+                        {request.status === "PENDING" && isUrgent(request.createdAt) && (
+                          <Badge className="bg-red-100 text-red-800 animate-pulse">
+                            긴급
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center space-x-2">
                         <Users className="h-4 w-4 text-gray-500" />
@@ -163,29 +341,26 @@ export default function AdoptionRequestsTab({
                         <span className="text-sm">이메일: {request.email}</span>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-sm text-gray-500">사용자 ID: {request.userId}</span>
+                        <Users className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm">회원 ID: {request.userId}</span>
                       </div>
                     </div>
-                    
-                    <div className="mb-4">
-                      <h4 className="font-medium text-sm mb-2">입양 동기 및 메시지:</h4>
-                      <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
-                        {request.message}
-                      </p>
-                    </div>
-                    
-                    <div className="flex items-center space-x-4 text-xs text-gray-500">
-                      <span>신청일: {request.createdAt ? formatToKST(request.createdAt) : "날짜 없음"}</span>
-                      <span>수정일: {request.updatedAt ? formatToKST(request.updatedAt) : "날짜 없음"}</span>
-                    </div>
+                    <p className="text-sm text-gray-600 mb-4">{request.message}</p>
+                    <p className="text-xs text-gray-500">
+                      신청일: {request.createdAt ? formatToKST(request.createdAt) : "날짜 없음"}
+                      {request.status === "PENDING" && request.createdAt && (
+                        <span className="ml-2 text-red-600">
+                          ({Math.floor((new Date().getTime() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60))}시간 경과)
+                        </span>
+                      )}
+                    </p>
                   </div>
-                  
                   <div className="flex flex-col space-y-2 ml-4">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleUpdateStatus(request.id, "CONTACTED")}
-                      disabled={request.status === "CONTACTED" || request.status === "APPROVED" || request.status === "REJECTED"}
+                      onClick={() => handleUpdateAdoptionRequestStatus(request.id, "CONTACTED")}
+                      disabled={request.status === "CONTACTED"}
                     >
                       <Phone className="h-4 w-4 mr-1" />
                       연락완료
@@ -193,8 +368,8 @@ export default function AdoptionRequestsTab({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleUpdateStatus(request.id, "APPROVED")}
-                      disabled={request.status === "APPROVED" || request.status === "REJECTED"}
+                      onClick={() => handleUpdateAdoptionRequestStatus(request.id, "APPROVED")}
+                      disabled={request.status === "APPROVED"}
                     >
                       <CheckCircle className="h-4 w-4 mr-1" />
                       승인
@@ -202,21 +377,45 @@ export default function AdoptionRequestsTab({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleUpdateStatus(request.id, "REJECTED")}
-                      disabled={request.status === "APPROVED" || request.status === "REJECTED"}
+                      onClick={() => handleUpdateAdoptionRequestStatus(request.id, "REJECTED")}
+                      disabled={request.status === "REJECTED"}
                     >
                       <XCircle className="h-4 w-4 mr-1" />
                       거절
                     </Button>
+                    {request.status === "APPROVED" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onShowContractModal(request)}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
+                      >
+                        AI 계약서 생성
+                      </Button>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))
         ) : (
-          <div className="text-center py-8">
-            <p>입양신청이 없습니다.</p>
-          </div>
+          <Card className="p-6 text-center text-gray-500">
+            <div className="space-y-4">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
+                <Heart className="w-8 h-8 text-gray-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {(adoptionRequests ?? []).length === 0 ? "입양신청이 없습니다" : "검색 결과가 없습니다"}
+                </h3>
+                <p className="text-gray-500">
+                  {(adoptionRequests ?? []).length === 0 
+                    ? "아직 입양신청이 접수되지 않았습니다." 
+                    : "검색 조건을 변경해보세요."}
+                </p>
+              </div>
+            </div>
+          </Card>
         )}
       </div>
     </div>

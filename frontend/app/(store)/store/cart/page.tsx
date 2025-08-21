@@ -2,7 +2,7 @@
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Trash2, ShoppingCart, ArrowLeft } from "lucide-react"
+import { Trash2, ArrowLeft } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios"
@@ -29,7 +29,6 @@ interface CartItem {
     stock: number
     imageUrl: string
     category: string
-    targetAnimal: string
     registrationDate: string
     registeredBy: string
   }
@@ -47,49 +46,160 @@ export default function CartPage() {
     try {
       setLoading(true)
       const token = localStorage.getItem("accessToken")
-      if (!token) {
-        console.log("토큰이 없어서 장바구니를 불러올 수 없습니다.")
-        setCartItems([])
-        return
+      
+      let cartData: any[] = []
+      
+      if (token) {
+        try {
+          const response = await axios.get(`${getBackendUrl()}/api/carts`, {
+            headers: { "Access_Token": token },
+            timeout: 5000,
+          })
+
+          if (response.status === 200) {
+            cartData = response.data
+          }
+        } catch (error) {
+          console.log("백엔드 장바구니 조회 실패, 로컬 스토리지만 사용")
+        }
       }
 
-      const response = await axios.get(`${getBackendUrl()}/api/carts`, {
-        headers: { "Access_Token": token },
-        timeout: 5000,
-      })
+      // 로컬 스토리지의 네이버 상품 가져오기
+      const naverCartData = JSON.parse(localStorage.getItem('naverCart') || '[]')
+      const naverItems = naverCartData.map((item: any, index: number) => ({
+        id: `naver-${index}`,
+        productId: item.id,
+        quantity: item.quantity,
+        isNaverProduct: true,
+        naverProductInfo: {
+          title: item.name,
+          price: item.price,
+          imageUrl: item.imageUrl,
+          mallName: item.mallName,
+          brand: item.brand,
+          maker: item.maker,
+          category1: item.category
+        }
+      }))
 
-      if (response.status !== 200) {
-        throw new Error("장바구니 조회에 실패했습니다.")
-      }
+             // 백엔드 데이터 구조 분석
+       console.log("=== 백엔드 데이터 분석 ===");
+       console.log("전체 cartData:", cartData);
+       console.log("cartData 길이:", cartData.length);
+       
+       cartData.forEach((item, index) => {
+         console.log(`항목 ${index}:`, {
+           id: item.id,
+           product: item.product ? '있음' : '없음',
+           naverProduct: item.naverProduct ? '있음' : '없음',
+           quantity: item.quantity
+         });
+       });
 
-      const cartData = response.data
-      const items: CartItem[] = cartData
-        .sort((a: any, b: any) => a.id - b.id)
-        .map((item: any, index: number) => ({
-          id: item.id,
-          name: item.product.name,
-          brand: "브랜드 없음",
-          price: item.product.price,
-          image: item.product.imageUrl || "/placeholder.svg",
-          category: item.product.category,
+      // 백엔드에서 가져온 네이버 상품 처리
+      const backendNaverItems = cartData
+        .filter((item: any) => item.naverProduct)
+        .map((item: any) => ({
+          id: `backend-naver-${item.id}`,
+          productId: item.naverProduct.id,
           quantity: item.quantity,
-          order: index,
-          product: {
-            id: item.product.id,
-            name: item.product.name,
-            description: item.product.description,
-            price: item.product.price,
-            stock: item.product.stock,
-            imageUrl: item.product.imageUrl,
-            category: item.product.category,
-            targetAnimal: item.product.targetAnimal,
-            registrationDate: item.product.registrationDate,
-            registeredBy: item.product.registeredBy,
-          },
-        }))
+          isNaverProduct: true,
+          naverProductInfo: {
+            title: item.naverProduct.title || '네이버 상품',
+            price: item.naverProduct.price || 0,
+            imageUrl: item.naverProduct.imageUrl || "/placeholder.svg",
+            mallName: item.naverProduct.mallName || '',
+            brand: item.naverProduct.brand || "브랜드 없음",
+            maker: item.naverProduct.maker || '',
+            category1: item.naverProduct.category1 || "네이버 쇼핑"
+          }
+        }));
+
+      // 백엔드에서 가져온 일반 상품 처리
+      const backendRegularItems = cartData.filter((item: any) => item.product && !item.naverProduct);
+
+      console.log("=== 처리 결과 ===");
+      console.log("네이버 상품 개수:", backendNaverItems.length);
+      console.log("일반 상품 개수:", backendRegularItems.length);
+
+      // 백엔드 장바구니와 네이버 장바구니 합치기
+      const allCartData = [...backendRegularItems, ...backendNaverItems, ...naverItems]
+      
+      // 유효하지 않은 데이터 필터링
+      const validCartData = allCartData.filter((item: any) => {
+        if (item.isNaverProduct || (item.naverProductInfo && Object.keys(item.naverProductInfo).length > 0)) {
+          return true // 네이버 상품은 항상 유효
+        }
+        return item.product && item.product.name // 일반 상품은 product와 name이 있어야 유효
+      })
+      
+      const items: CartItem[] = validCartData
+        .sort((a: any, b: any) => a.id - b.id)
+        .map((item: any, index: number) => {
+          // 네이버 상품인지 확인
+          const isNaverProduct = item.isNaverProduct || (item.naverProductInfo && Object.keys(item.naverProductInfo).length > 0)
+          
+          if (isNaverProduct && item.naverProductInfo) {
+            // 네이버 상품 처리
+            return {
+              id: item.id,
+              name: item.naverProductInfo.title || item.naverProductInfo.name || '네이버 상품',
+              brand: item.naverProductInfo.brand || "브랜드 없음",
+              price: item.naverProductInfo.price,
+              image: item.naverProductInfo.imageUrl || "/placeholder.svg",
+              category: item.naverProductInfo.category1 || "네이버 쇼핑",
+              quantity: item.quantity,
+              order: index,
+              isNaverProduct: true,
+              product: {
+                id: item.productId || item.id,
+                name: item.naverProductInfo.title || item.naverProductInfo.name || '네이버 상품',
+                description: item.naverProductInfo.title || '',
+                price: item.naverProductInfo.price,
+                stock: 999,
+                imageUrl: item.naverProductInfo.imageUrl || "/placeholder.svg",
+                category: item.naverProductInfo.category1 || "네이버 쇼핑",
+                registrationDate: '',
+                registeredBy: '',
+              },
+            }
+          } else {
+            // 일반 상품 처리 - product가 null인 경우 더 안전하게 처리
+            const product = item.product || {}
+            const safeProduct = {
+              id: product.id || item.id || 0,
+              name: product.name || '상품명 없음',
+              description: product.description || '',
+              price: product.price || 0,
+              stock: product.stock || 0,
+              imageUrl: product.imageUrl || '/placeholder.svg',
+              category: product.category || '카테고리 없음',
+              registrationDate: product.registrationDate || '',
+              registeredBy: product.registeredBy || '',
+            }
+            
+            return {
+              id: item.id,
+              name: safeProduct.name,
+              brand: "브랜드 없음",
+              price: safeProduct.price,
+              image: safeProduct.imageUrl,
+              category: safeProduct.category,
+              quantity: item.quantity || 1,
+              order: index,
+              product: safeProduct,
+            }
+          }
+        })
 
       setCartItems(items)
       console.log("장바구니 설정 완료:", items.length, "개")
+      console.log("백엔드 장바구니 데이터:", cartData)
+      console.log("백엔드 네이버 상품:", backendNaverItems)
+      console.log("백엔드 일반 상품:", backendRegularItems)
+      console.log("로컬 네이버 상품:", naverItems)
+      console.log("유효한 장바구니 데이터:", validCartData)
+      console.log("최종 장바구니 아이템:", items)
     } catch (error: any) {
       console.error("장바구니 조회 오류:", error)
       setCartItems([])
@@ -99,8 +209,44 @@ export default function CartPage() {
   }
 
   // 장바구니에서 상품 제거
-  const onRemoveFromCart = async (cartId: number) => {
+  const onRemoveFromCart = async (cartId: number | string) => {
     try {
+      // 백엔드 네이버 상품인지 확인
+      if (typeof cartId === 'string' && cartId.startsWith('backend-naver-')) {
+        // 백엔드 네이버 상품은 백엔드에서 삭제
+        const actualCartId = cartId.replace('backend-naver-', '')
+        const accessToken = localStorage.getItem("accessToken")
+        if (!accessToken) {
+          alert("로그인이 필요합니다")
+          return
+        }
+
+        const response = await axios.delete(`${getBackendUrl()}/api/carts/${actualCartId}`, {
+          headers: { "Access_Token": accessToken }
+        })
+        
+        if (response.status === 200) {
+          await fetchCartItems()
+          alert("장바구니에서 상품을 삭제했습니다")
+        } else {
+          throw new Error("장바구니에서 삭제에 실패했습니다.")
+        }
+        return
+      }
+
+      // 로컬 네이버 상품인지 확인 (ID가 문자열로 시작하는 경우)
+      if (typeof cartId === 'string' && cartId.startsWith('naver-')) {
+        // 네이버 상품은 로컬 스토리지에서 삭제
+        const naverCartData = JSON.parse(localStorage.getItem('naverCart') || '[]')
+        const index = parseInt(cartId.replace('naver-', ''))
+        naverCartData.splice(index, 1)
+        localStorage.setItem('naverCart', JSON.stringify(naverCartData))
+        await fetchCartItems()
+        alert("장바구니에서 상품을 삭제했습니다")
+        return
+      }
+
+      // 일반 상품은 백엔드에서 삭제
       const accessToken = localStorage.getItem("accessToken")
       if (!accessToken) {
         alert("로그인이 필요합니다")
@@ -125,8 +271,42 @@ export default function CartPage() {
   }
 
   // 수량 업데이트
-  const onUpdateQuantity = async (cartId: number, quantity: number) => {
+  const onUpdateQuantity = async (cartId: number | string, quantity: number) => {
     try {
+      // 백엔드 네이버 상품인지 확인
+      if (typeof cartId === 'string' && cartId.startsWith('backend-naver-')) {
+        // 백엔드 네이버 상품은 백엔드에서 수량 업데이트
+        const actualCartId = cartId.replace('backend-naver-', '')
+        const accessToken = localStorage.getItem("accessToken")
+        if (!accessToken) {
+          alert("로그인이 필요합니다")
+          return
+        }
+
+        const response = await axios.put(`${getBackendUrl()}/api/carts/${actualCartId}?quantity=${quantity}`, null, {
+          headers: { "Access_Token": accessToken }
+        })
+        
+        if (response.status === 200) {
+          await fetchCartItems()
+        } else {
+          throw new Error("수량 업데이트에 실패했습니다.")
+        }
+        return
+      }
+
+      // 로컬 네이버 상품인지 확인 (ID가 문자열로 시작하는 경우)
+      if (typeof cartId === 'string' && cartId.startsWith('naver-')) {
+        // 네이버 상품은 로컬 스토리지에서 수량 업데이트
+        const naverCartData = JSON.parse(localStorage.getItem('naverCart') || '[]')
+        const index = parseInt(cartId.replace('naver-', ''))
+        naverCartData[index].quantity = quantity
+        localStorage.setItem('naverCart', JSON.stringify(naverCartData))
+        await fetchCartItems()
+        return
+      }
+
+      // 일반 상품은 백엔드에서 수량 업데이트
       const accessToken = localStorage.getItem("accessToken")
       if (!accessToken) {
         alert("로그인이 필요합니다")
@@ -218,6 +398,18 @@ export default function CartPage() {
   // 페이지 로드 시 장바구니 데이터 가져오기
   useEffect(() => {
     fetchCartItems()
+    
+    // 결제 완료 후 장바구니 새로고침을 위한 이벤트 리스너
+    const handleCartUpdate = () => {
+      console.log('장바구니 업데이트 이벤트 수신')
+      fetchCartItems()
+    }
+    
+    window.addEventListener('cartUpdated', handleCartUpdate)
+    
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartUpdate)
+    }
   }, [])
 
   // 디버깅: cartItems 배열 확인
@@ -304,7 +496,7 @@ export default function CartPage() {
         {!cartItems || cartItems.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ShoppingCart className="w-12 h-12 text-gray-400" />
+              <div className="w-12 h-12 text-gray-400" />
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">장바구니가 비어있습니다</h3>
             <p className="text-gray-600 mb-6">마음에 드는 상품을 장바구니에 담아보세요!</p>
@@ -325,9 +517,66 @@ export default function CartPage() {
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => {
+                  onClick={async () => {
                     if (window.confirm('장바구니의 모든 상품을 삭제하시겠습니까?')) {
-                      cartItems?.forEach(item => onRemoveFromCart(item.id))
+                      try {
+                        const accessToken = localStorage.getItem("accessToken")
+                        if (!accessToken) {
+                          alert("로그인이 필요합니다")
+                          return
+                        }
+
+                        // 백엔드 상품들 삭제
+                        const backendItems = cartItems?.filter(item => 
+                          typeof item.id === 'number' || 
+                          (typeof item.id === 'string' && (item.id as string).startsWith('backend-naver-'))
+                        ) || []
+
+                        // 백엔드 상품들 삭제
+                        for (const item of backendItems) {
+                          let cartId: string | number
+                          if (typeof item.id === 'string' && (item.id as string).startsWith('backend-naver-')) {
+                            cartId = (item.id as string).replace('backend-naver-', '')
+                          } else {
+                            cartId = item.id
+                          }
+                          
+                          await axios.delete(`${getBackendUrl()}/api/carts/${cartId}`, {
+                            headers: { "Access_Token": accessToken }
+                          })
+                        }
+
+                        // 로컬 네이버 상품들 삭제
+                        const localNaverItems = cartItems?.filter(item => 
+                          typeof item.id === 'string' && (item.id as string).startsWith('naver-')
+                        ) || []
+
+                        if (localNaverItems.length > 0) {
+                          const naverCartData = JSON.parse(localStorage.getItem('naverCart') || '[]')
+                          // 로컬 네이버 상품들을 역순으로 삭제 (인덱스 변화 방지)
+                          const indicesToRemove = localNaverItems
+                            .map(item => {
+                              const idStr = item.id.toString()
+                              return parseInt(idStr.replace('naver-', ''))
+                            })
+                            .sort((a, b) => b - a)
+                          
+                          indicesToRemove.forEach(index => {
+                            naverCartData.splice(index, 1)
+                          })
+                          
+                          localStorage.setItem('naverCart', JSON.stringify(naverCartData))
+                        }
+
+                        // 장바구니 새로고침
+                        await fetchCartItems()
+                        
+                        // 한 번만 알림 표시
+                        alert("장바구니의 모든 상품을 삭제했습니다")
+                      } catch (error: any) {
+                        console.error("전체 삭제 오류:", error)
+                        alert("전체 삭제에 실패했습니다")
+                      }
                     }
                   }}
                 >

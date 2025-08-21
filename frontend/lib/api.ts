@@ -71,29 +71,7 @@ axios.interceptors.response.use(
 );
 
 // API 응답 타입 정의
-export interface Pet {
-  petId: number;
-  name: string;
-  breed: string;
-  age: number;
-  gender: 'MALE' | 'FEMALE';
-  vaccinated: boolean;
-  description: string;
-  imageUrl: string;
-  adopted: boolean;
-  weight?: number;
-  location?: string;
-  microchipId?: string;
-  medicalHistory?: string;
-  vaccinations?: string;
-  notes?: string;
-  personality?: string;
-  rescueStory?: string;
-  aiBackgroundStory?: string;
-  status?: string;
-  type?: string;
-  neutered?: boolean;
-}
+import type { Pet } from "@/types/pets"
 
 // 펫 API 함수들
 export const petApi = {
@@ -136,7 +114,45 @@ export const petApi = {
       },
     });
     console.log('Create pet response:', response.data);
-    return response.data.data;
+    console.log('Create pet response.data:', response.data.data);
+    console.log('Create pet response.data type:', typeof response.data.data);
+    console.log('Create pet response.data keys:', response.data.data ? Object.keys(response.data.data) : 'null/undefined');
+    
+    // 백엔드 응답 구조 확인 및 적절한 데이터 반환
+    if (response.data.data) {
+      // response.data.data가 있는 경우
+      return response.data.data;
+    } else if (response.data.petId) {
+      // response.data에 직접 petId가 있는 경우
+      return response.data;
+    } else {
+      // 응답이 없거나 예상과 다른 경우 기본값 반환
+      console.warn('No data in response, returning default pet object');
+      return {
+        petId: 0,
+        name: petData.name,
+        breed: petData.breed,
+        age: petData.age,
+        gender: petData.gender,
+        vaccinated: petData.vaccinated,
+        description: petData.description,
+        imageUrl: petData.imageUrl,
+        adopted: petData.adopted,
+        weight: petData.weight,
+        location: petData.location,
+        microchipId: petData.microchipId,
+        medicalHistory: petData.medicalHistory,
+        vaccinations: petData.vaccinations,
+        notes: petData.notes,
+        specialNeeds: petData.specialNeeds,
+        personality: petData.personality,
+        rescueStory: petData.rescueStory,
+        aiBackgroundStory: petData.aiBackgroundStory,
+        status: petData.status,
+        type: petData.type,
+        neutered: petData.neutered,
+      };
+    }
   },
 
   updatePet: async (petId: number, petData: Partial<Pet>): Promise<Pet> => {
@@ -275,9 +291,26 @@ export const adoptionRequestApi = {
 export const productApi = {
   getProducts: async (): Promise<any[]> => {
     const response = await axios.get(`${getBackendUrl()}/api/products`);
-    console.log('Raw products response:', response.data);
-    // 응답이 배열이면 그대로 반환, 아니면 response.data.data 반환
-    return Array.isArray(response.data) ? response.data : response.data.data;
+    console.log('Raw products response:', response);
+    console.log('Response data:', response.data);
+    console.log('Response data type:', typeof response.data);
+    console.log('Response data keys:', Object.keys(response.data));
+    console.log('Response data.data:', response.data.data);
+    console.log('Response data.data type:', typeof response.data.data);
+    console.log('Response data.data isArray:', Array.isArray(response.data.data));
+    
+    // ResponseDto 형태로 응답이 오므로 response.data.data를 반환
+    if (!response.data || !response.data.success) {
+      throw new Error(response.data?.error?.message || "API 응답이 올바르지 않습니다.");
+    }
+    
+    const products = response.data.data || [];
+    if (!Array.isArray(products)) {
+      throw new Error("상품 데이터가 배열 형식이 아닙니다.");
+    }
+    
+    console.log('Final products to return:', products);
+    return products;
   },
 
   getProduct: async (productId: number): Promise<any> => {

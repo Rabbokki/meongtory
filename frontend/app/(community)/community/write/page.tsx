@@ -8,7 +8,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { ChevronLeft, ImageIcon, X } from "lucide-react";
+import axios from "axios";
 import { getBackendUrl } from "@/lib/api";
+import { toast } from "react-hot-toast";
+
+export const dynamic = "force-dynamic";
 
 interface CommunityPost {
   id: number;
@@ -23,18 +27,37 @@ interface CommunityPost {
   comments: number;
   tags: string[];
   images?: string[];
-  ownerEmail?: string;
+  ownerEmail: string;
 }
 
 interface CommunityWritePageProps {
-  onBack: () => void;
-  onSubmit: (postData: CommunityPost) => void;
+  onShowLogin?: () => void;
 }
 
-export default function CommunityWritePage({
-  onBack,
-  onSubmit,
-}: CommunityWritePageProps) {
+const refreshAccessToken = async () => {
+  try {
+    const refreshToken = localStorage.getItem("refreshToken");
+    if (!refreshToken) {
+      console.error("리프레시 토큰이 없습니다.");
+      return null;
+    }
+    const response = await axios.post(
+      `${getBackendUrl()}/api/accounts/refresh`,
+      { refreshToken },
+      { headers: { "Content-Type": "application/json" } }
+    );
+    const { accessToken } = response.data.data;
+    localStorage.setItem("accessToken", accessToken);
+    return accessToken;
+  } catch (err) {
+    console.error("토큰 갱신 실패:", err);
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    return null;
+  }
+};
+
+export default function CommunityWritePage({ onShowLogin }: CommunityWritePageProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const boardType: "Q&A" | "자유게시판" = "자유게시판";
@@ -44,45 +67,88 @@ export default function CommunityWritePage({
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const router = useRouter();
 
-  // 로그인 사용자 이메일 로드
   useEffect(() => {
     const fetchUserInfo = async () => {
       try {
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-          setError("로그인이 필요합니다.");
-          setCurrentUserEmail("");
+        if (typeof window === "undefined") {
+          setError("클라이언트 환경에서만 로그인 확인 가능");
           return;
         }
-        const res = await fetch(`${getBackendUrl()}/api/accounts/me`, {
-          headers: { Access_Token: token },
-        });
-        if (!res.ok) throw new Error(`사용자 정보 로드 실패 (${res.status})`);
-        const response = await res.json();
-        console.log("Fetched User Data:", response);
-        
-        // 응답 구조에 따라 email 추출
-        let email = "";
-        if (response.success && response.data) {
-          // 예상 구조: { success: true, data: { email: string, role: string } }
-          // 또는: { success: true, data: { user: { email: string, role: string } } }
-          email = response.data.email || response.data.user?.email || "";
-          if (!email) {
-            throw new Error("Email field not found in response data");
+        let token = localStorage.getItem("accessToken");
+        console.log("Access Token:", token ? "존재함" : "없음");
+        if (!token) {
+          setError("로그인이 필요합니다. 로그인 모달을 엽니다.");
+          if (onShowLogin) {
+            onShowLogin();
+          } else {
+            console.warn("onShowLogin prop이 정의되지 않음, /community로 이동");
+            router.push("/community");
           }
-          setCurrentUserEmail(email);
-        } else {
-          throw new Error("Invalid response format");
+          return;
         }
+        const res = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
+          headers: {
+            Access_Token: token, // Authorization -> Access_Token
+          },
+        });
+        if (!res.data.success) {
+          throw new Error(`사용자 정보 로드 실패 (${res.status})`);
+        }
+        const { email } = res.data.data;
+        if (!email) {
+          throw new Error("Email field not found in response data");
+        }
+        setCurrentUserEmail(email);
+        console.log("Fetched User Data:", res.data.data);
       } catch (err: any) {
-        console.error("사용자 정보 로드 에러:", err.message);
-        setError("사용자 정보를 불러오는 중 오류가 발생했습니다: " + err.message);
-        setCurrentUserEmail("");
+        console.error("사용자 정보 로드 에러:", err);
+        if (err.response?.status === 401) {
+          const newToken = await refreshAccessToken();
+          if (newToken) {
+            try {
+              const res = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
+                headers: {
+                  Access_Token: newToken,
+                },
+              });
+              if (!res.data.success) {
+                throw new Error(`사용자 정보 재로드 실패 (${res.status})`);
+              }
+              const { email } = res.data.data;
+              setCurrentUserEmail(email);
+              console.log("Fetched User Data after refresh:", res.data.data);
+            } catch (retryErr: any) {
+              console.error("재시도 실패:", retryErr);
+              localStorage.removeItem("accessToken");
+              localStorage.removeItem("refreshToken");
+              setError("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
+              if (onShowLogin) {
+                onShowLogin();
+              } else {
+                router.push("/community");
+              }
+            }
+          } else {
+            setError("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
+            if (onShowLogin) {
+              onShowLogin();
+            } else {
+              router.push("/community");
+            }
+          }
+        } else {
+          setError(`사용자 정보를 불러오는 중 오류가 발생했습니다: ${err.message}`);
+          if (onShowLogin) {
+            onShowLogin();
+          } else {
+            router.push("/community");
+          }
+        }
       }
     };
 
     fetchUserInfo();
-  }, []);
+  }, [router, onShowLogin]);
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -108,14 +174,24 @@ export default function CommunityWritePage({
     }
 
     if (!currentUserEmail) {
-      setError("로그인이 필요합니다.");
+      setError("로그인이 필요합니다. 로그인 모달을 엽니다.");
+      if (onShowLogin) {
+        onShowLogin();
+      } else {
+        router.push("/community");
+      }
       return;
     }
 
     try {
-      const token = localStorage.getItem("accessToken");
+      let token = localStorage.getItem("accessToken");
       if (!token) {
-        setError("로그인이 필요합니다.");
+        setError("로그인이 필요합니다. 로그인 모달을 엽니다.");
+        if (onShowLogin) {
+          onShowLogin();
+        } else {
+          router.push("/community");
+        }
         return;
       }
 
@@ -126,7 +202,6 @@ export default function CommunityWritePage({
         category: "일반",
         boardType,
         tags: [],
-        ownerEmail: currentUserEmail,
       };
 
       formData.append(
@@ -138,23 +213,16 @@ export default function CommunityWritePage({
         formData.append("postImg", file);
       });
 
-      const res = await fetch(`${getBackendUrl()}/api/community/posts/create`, {
-        method: "POST",
-        headers: { Access_Token: token },
-        body: formData,
+      const res = await axios.post(`${getBackendUrl()}/api/community/posts/create`, formData, {
+        headers: {
+          Access_Token: token, // Authorization -> Access_Token
+        },
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(
-          `게시글 작성 실패: ${errorData.error || res.statusText}`
-        );
-      }
+      const savedPost = res.data;
 
-      const savedPost = await res.json();
       console.log("Saved Post:", savedPost);
 
-      // CommunityPost 인터페이스에 맞게 데이터 변환
       const newPost: CommunityPost = {
         id: savedPost.id,
         title: savedPost.title,
@@ -171,16 +239,66 @@ export default function CommunityWritePage({
         ownerEmail: savedPost.ownerEmail || currentUserEmail,
       };
 
-      alert("게시글이 작성되었습니다.");
-      onSubmit(newPost);
+      toast.success("게시글이 작성되었습니다.");
       setTitle("");
       setContent("");
       setImages([]);
       setImageFiles([]);
       router.push("/community");
     } catch (err: any) {
-      console.error("게시글 작성 에러:", err.message);
-      setError(err.message || "게시글 작성 중 오류가 발생했습니다.");
+      console.error("게시글 작성 에러:", err);
+      if (err.response?.status === 401) {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          try {
+            const formData = new FormData();
+            const dto = {
+              title,
+              content,
+              category: "일반",
+              boardType,
+              tags: [],
+            };
+            formData.append(
+              "dto",
+              new Blob([JSON.stringify(dto)], { type: "application/json" })
+            );
+            imageFiles.forEach((file) => {
+              formData.append("postImg", file);
+            });
+            const res = await axios.post(`${getBackendUrl()}/api/community/posts/create`, formData, {
+              headers: {
+                Access_Token: newToken,
+              },
+            });
+            const savedPost = res.data;
+            console.log("Saved Post after refresh:", savedPost);
+            toast.success("게시글이 작성되었습니다.");
+            setTitle("");
+            setContent("");
+            setImages([]);
+            setImageFiles([]);
+            router.push("/community");
+          } catch (retryErr: any) {
+            console.error("재시도 실패:", retryErr);
+            setError("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
+            if (onShowLogin) {
+              onShowLogin();
+            } else {
+              router.push("/community");
+            }
+          }
+        } else {
+          setError("로그인 세션이 만료되었습니다. 다시 로그인해주세요.");
+          if (onShowLogin) {
+            onShowLogin();
+          } else {
+            router.push("/community");
+          }
+        }
+      } else {
+        setError(err.message || "게시글 작성 중 오류가 발생했습니다.");
+      }
     }
   };
 
@@ -207,7 +325,7 @@ export default function CommunityWritePage({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   required
-                  disabled={!currentUserEmail} // 로그인하지 않은 경우 비활성화
+                  disabled={!currentUserEmail}
                 />
               </div>
 
@@ -220,7 +338,7 @@ export default function CommunityWritePage({
                   onChange={(e) => setContent(e.target.value)}
                   rows={10}
                   required
-                  disabled={!currentUserEmail} // 로그인하지 않은 경우 비활성화
+                  disabled={!currentUserEmail}
                 />
               </div>
 
@@ -232,7 +350,7 @@ export default function CommunityWritePage({
                   multiple
                   accept="image/*"
                   onChange={handleImageUpload}
-                  disabled={!currentUserEmail} // 로그인하지 않은 경우 비활성화
+                  disabled={!currentUserEmail}
                 />
                 <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                   {images.map((imageSrc, index) => (
@@ -271,7 +389,7 @@ export default function CommunityWritePage({
               <Button
                 type="submit"
                 className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
-                disabled={!currentUserEmail} // 로그인하지 않은 경우 비활성화
+                disabled={!currentUserEmail}
               >
                 작성 완료
               </Button>

@@ -153,7 +153,7 @@ export default function AdoptionRequestModal({
     setIsSubmitting(true)
     try {
       await onSubmit({
-        petId: selectedPet.id,
+        petId: selectedPet.petId, // id -> petId로 수정
         ...formData
       })
       
