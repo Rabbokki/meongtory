@@ -512,6 +512,7 @@ public class StoreAiService {
             
             // 새 네이버 상품 생성
             NaverProduct naverProduct = NaverProduct.builder()
+                // id는 자동 생성되므로 설정하지 않음
                 .productId(item.getProductId())
                 .title(item.getTitle())
                 .description(item.getTitle())

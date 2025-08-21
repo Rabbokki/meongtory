@@ -28,10 +28,11 @@ import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import type { Pet } from "@/types/pets"
 import ProductsTab from "@/components/admin/ProductsTab"
 import PetsTab from "@/components/admin/PetsTab"
-import { petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
+import AdoptionRequestsTab from "@/components/admin/AdoptionRequestsTab"
+import OrdersTab from "@/components/admin/OrdersTab"
+import { getBackendUrl, petApi, handleApiError, s3Api, adoptionRequestApi, productApi } from "@/lib/api"
 import axios from "axios"
-import { formatToKST, formatToKSTWithTime, getCurrentKSTDate } from "@/lib/utils"
-import { getBackendUrl } from "@/lib/api"
+import { formatToKST, getCurrentKSTDate } from "@/lib/utils"
 
 interface Product {
   id: number
@@ -218,11 +219,9 @@ export default function AdminPage({
   const [showAISuggestion, setShowAISuggestion] = useState<string | null>(null)
   const [inquiriesLoading, setInquiriesLoading] = useState(false)
   const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+
   const [adoptionRequests, setAdoptionRequests] = useState<AdoptionRequest[]>([]);
-  const [filteredRequests, setFilteredRequests] = useState<AdoptionRequest[]>([]);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+
 
 
 
@@ -267,7 +266,6 @@ export default function AdminPage({
  useEffect(() => {
   const fetchProducts = async () => {
     try {
-      console.log('Fetching products from:', getBackendUrl() + '/api/products');
       const accessToken = localStorage.getItem("accessToken");
       console.log('Access Token:', accessToken ? 'Found' : 'Not found');
 
@@ -343,86 +341,11 @@ export default function AdminPage({
   fetchProducts();
 }, []);
 
-  // 주문 목록을 백엔드에서 가져오기
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        console.log('주문 데이터 가져오기 시작...');
-        
-        // 인증 토큰 가져오기
-        const accessToken = localStorage.getItem("accessToken");
-        const refreshToken = localStorage.getItem("refreshToken");
-        
-        if (!accessToken) {
-          console.error('인증 토큰이 없습니다.');
-          return;
-        }
-        
-        const headers = {
-          "Authorization": `${accessToken}`,
-          "Access_Token": accessToken,
-          "Refresh_Token": refreshToken || ''
-        };
-        
-        console.log('요청 헤더:', headers);
-        const response = await axios.get('http://localhost:8080/api/orders/admin/all', { headers });
-        console.log('주문 API 응답:', response);
-        
-        const data: any[] = response.data;
-        console.log('받은 주문 데이터:', data);
-        
-        // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료된 주문만)
-        const ordersWithItems: Order[] = data
-          .filter((order: any) => order.status === 'PAID') // 결제 완료된 주문만 필터링
-          .map((order: any) => {
-            console.log('변환 중인 주문 데이터:', order);
-            
-            return {
-              orderId: order.id || order.orderId, // 백엔드에서는 id 필드 사용
-              userId: order.accountId || order.userId,
-              amount: order.amount, // 백엔드에서는 amount 필드 사용
-              paymentStatus: 'COMPLETED', // 결제 완료된 주문만 표시하므로 항상 COMPLETED
-              orderedAt: order.createdAt || order.orderedAt,
-              orderItems: [{
-                id: order.id,
-                productId: order.productId,
-                productName: order.productName,
-                price: order.amount,
-                quantity: order.quantity,
-                orderDate: order.createdAt,
-                status: 'completed', // 결제 완료된 주문만 표시하므로 항상 completed
-                ImageUrl: order.imageUrl || "/placeholder.svg"
-              }]
-            };
-          });
-        
-        // 최신순으로 정렬 (orderedAt 기준 내림차순)
-        const sortedOrders = ordersWithItems.sort((a, b) => {
-          const dateA = new Date(a.orderedAt).getTime();
-          const dateB = new Date(b.orderedAt).getTime();
-          return dateB - dateA; // 내림차순 (최신순)
-        });
-        
-        console.log('변환된 주문 데이터:', sortedOrders);
-        setOrders(sortedOrders);
-      } catch (error) {
-        console.error("Error fetching orders:", error);
-        if (axios.isAxiosError(error)) {
-          console.error('Axios 오류:', error.response?.data);
-          console.error('상태 코드:', error.response?.status);
-        }
-      }
-    };
-
-    fetchOrders();
-  }, []);
-
   // 입양 신청 목록을 백엔드에서 가져오기
   useEffect(() => {
     const fetchAdoptionRequests = async () => {
       try {
         const response = await adoptionRequestApi.getAdoptionRequests();
-        console.log('입양신청 데이터:', response);
         setAdoptionRequests(response);
       } catch (error) {
         console.error("Error fetching adoption requests:", error);
@@ -432,19 +355,19 @@ export default function AdminPage({
     fetchAdoptionRequests();
   }, []);
 
-  if (isAdmin) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="p-8 text-center">
-          <CardContent>
-            <h2 className="text-2xl font-bold text-red-600 mb-4">접근 권한이 없습니다</h2>
-            <p className="text-gray-600 mb-4">관리자만 접근할 수 있는 페이지입니다.</p>
-            <Button onClick={onClose}>홈으로 돌아가기</Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  // if (!isAdmin) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+  //       <Card className="p-8 text-center">
+  //         <CardContent>
+  //           <h2 className="text-2xl font-bold text-red-600 mb-4">접근 권한이 없습니다</h2>
+  //           <p className="text-gray-600 mb-4">관리자만 접근할 수 있는 페이지입니다.</p>
+  //           <Button onClick={onClose}>홈으로 돌아가기</Button>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -461,101 +384,7 @@ export default function AdminPage({
     }
   }
 
-  // 긴급 신청 여부 확인 (24시간 이상 대기)
-  const isUrgent = (createdAt: string) => {
-    const created = new Date(createdAt)
-    const now = new Date()
-    const diffHours = (now.getTime() - created.getTime()) / (1000 * 60 * 60)
-    return diffHours > 24
-  }
 
-  // 처리율 계산
-  const getProcessingRate = () => {
-    if (!adoptionRequests || adoptionRequests.length === 0) return 0
-    const processed = (adoptionRequests ?? []).filter(request => 
-      request.status === "APPROVED" || request.status === "REJECTED" || request.status === "CONTACTED"
-    ).length
-    return Math.round((processed / (adoptionRequests ?? []).length) * 100)
-  }
-
-  // 필터링 및 검색 함수
-  const filterRequests = () => {
-    let filtered = adoptionRequests
-
-    // 상태별 필터링
-    if (statusFilter !== "ALL") {
-      filtered = filtered.filter(request => request.status === statusFilter)
-    }
-
-    // 검색어 필터링
-    if (searchTerm) {
-      filtered = filtered.filter(request => 
-        request.applicantName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.petName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.petBreed.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        request.contactNumber.includes(searchTerm) ||
-        request.email.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-
-    // 정렬
-    filtered.sort((a, b) => {
-      if (a.status === "PENDING" && b.status !== "PENDING") return -1
-      if (a.status !== "PENDING" && b.status === "PENDING") return 1
-      if (a.status === "PENDING" && b.status === "PENDING") {
-        const aUrgent = isUrgent(a.createdAt)
-        const bUrgent = isUrgent(b.createdAt)
-        if (aUrgent && !bUrgent) return -1
-        if (!aUrgent && bUrgent) return 1
-      }
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    })
-
-    setFilteredRequests(filtered)
-  }
-
-  // 필터링 실행
-  useEffect(() => {
-    filterRequests()
-  }, [adoptionRequests, searchTerm, statusFilter])
-
-  // CSV 내보내기 함수
-  const exportToCSV = () => {
-    const headers = [
-      "신청ID", "펫명", "품종", "신청자명", "연락처", "이메일", 
-      "상태", "신청일", "메시지", "회원ID"
-    ]
-    
-    const csvData = filteredRequests.map(request => [
-      request.id,
-      request.petName,
-      request.petBreed,
-      request.applicantName,
-      request.contactNumber,
-      request.email,
-      request.status === "PENDING" ? "대기중" : 
-      request.status === "CONTACTED" ? "연락완료" : 
-      request.status === "APPROVED" ? "승인" : "거절",
-              request.createdAt ? formatToKST(request.createdAt) : "날짜 없음",
-      request.message,
-      request.userId
-    ])
-    
-    const csvContent = [
-      headers.join(","),
-      ...csvData.map(row => row.map(cell => `"${cell}"`).join(","))
-    ].join("\n")
-    
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-    const link = document.createElement("a")
-    const url = URL.createObjectURL(blob)
-    link.setAttribute("href", url)
-          link.setAttribute("download", `입양신청_${getCurrentKSTDate()}.csv`)
-    link.style.visibility = "hidden"
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }
 
   const handleEditPet = (pet: Pet) => {
     setSelectedPetForEdit(pet)
@@ -612,7 +441,6 @@ export default function AdminPage({
               const fileName = imageUrl.split('/').pop()
               if (fileName) {
                 await s3Api.deleteFile(fileName)
-                console.log(`S3에서 이미지 삭제 완료: ${fileName}`)
               }
             } catch (error) {
               console.error("S3 이미지 삭제 실패:", error)
@@ -707,7 +535,6 @@ export default function AdminPage({
 
   // ProductsTab(AdminProduct) -> AdminPage(Product) 어댑터
   const handleEditProductFromTab = (adminProduct: any) => {
-    console.log('handleEditProductFromTab called with:', adminProduct);
     
     // productId를 안전하게 추출
     const productId = adminProduct.id || adminProduct.productId || 0;
@@ -731,7 +558,6 @@ export default function AdminPage({
       registeredBy: adminProduct.registeredBy || "admin",
     }
     
-    console.log('Adapted product:', adaptedProduct);
     handleEditProduct(adaptedProduct)
   }
 
@@ -748,9 +574,7 @@ export default function AdminPage({
   }
   if (window.confirm('정말로 이 상품을 삭제하시겠습니까?')) {
     try {
-      console.log('상품 삭제 요청:', productId);
       await productApi.deleteProduct(productId);
-      console.log('삭제 완료');
       setProducts(prev => prev.filter(p => p.id !== productId));
       alert('상품이 성공적으로 삭제되었습니다.');
     } catch (error) {
@@ -762,83 +586,6 @@ export default function AdminPage({
     }
   }
 };
-
-  const handleUpdateOrderStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
-    try {
-      console.log(`주문 상태 변경 요청: 주문ID ${orderId}, 상태 ${status}`);
-      
-      // 백엔드 상태값으로 변환
-      const backendStatus = status === 'COMPLETED' ? 'PAID' : 
-                           status === 'PENDING' ? 'CREATED' : 
-                           status === 'CANCELLED' ? 'CANCELED' : 'CREATED';
-      
-      const response = await axios.patch(`http://localhost:8080/api/orders/${orderId}/status?status=${backendStatus}`);
-      console.log('업데이트된 주문:', response.data);
-      
-      // 현재 주문 목록에서 해당 주문만 업데이트
-      setOrders(prev => prev.map(order => 
-        order.orderId === orderId 
-          ? { ...order, paymentStatus: status }
-          : order
-      ));
-      
-      // 마이페이지의 주문 내역도 업데이트하기 위해 전역 이벤트 발생
-      window.dispatchEvent(new CustomEvent('orderStatusUpdated', {
-        detail: { orderId, status }
-      }));
-      
-      alert(`주문 상태가 ${status === 'COMPLETED' ? '완료' : status === 'PENDING' ? '대기중' : '취소'}로 변경되었습니다.`);
-    } catch (error) {
-      console.error('주문 상태 업데이트 오류:', error);
-      const errorMessage = axios.isAxiosError(error) && error.response?.data?.error 
-        ? error.response.data.error 
-        : '주문 상태 업데이트에 실패했습니다.';
-      alert('주문 상태 업데이트에 실패했습니다: ' + errorMessage);
-    }
-  };
-
-  const handleUpdateAdoptionRequestStatus = async (requestId: number, status: "PENDING" | "CONTACTED" | "APPROVED" | "REJECTED") => {
-    try {
-      console.log(`입양 신청 상태 변경 요청: 신청ID ${requestId}, 상태 ${status}`);
-      
-      const response = await adoptionRequestApi.updateAdoptionRequestStatus(requestId, status);
-      console.log('업데이트된 입양 신청:', response);
-      
-      // 현재 입양 신청 목록에서 해당 신청만 업데이트
-      setAdoptionRequests(prev => prev.map(request => 
-        request.id === requestId 
-          ? { ...request, status: status }
-          : request
-      ));
-      
-      // 입양신청 승인 시 해당 펫의 상태도 업데이트
-      if (status === "APPROVED") {
-        const approvedRequest = adoptionRequests.find(request => request.id === requestId);
-        if (approvedRequest) {
-          try {
-            // 펫의 adopted 상태를 true로 업데이트
-            await petApi.updateAdoptionStatus(approvedRequest.petId, true);
-            console.log(`펫 ${approvedRequest.petId}의 입양 상태를 완료로 업데이트했습니다.`);
-          } catch (error) {
-            console.error('펫 상태 업데이트 실패:', error);
-          }
-        }
-      }
-      
-      // 입양신청 상태 변경 후 펫 목록도 업데이트
-      setTimeout(() => {
-        fetchPets()
-      }, 100)
-      
-      const statusMessage = status === 'APPROVED' ? '승인 (MyPet에 자동 등록되었습니다)' : 
-                           status === 'REJECTED' ? '거절' : 
-                           status === 'CONTACTED' ? '연락완료' : '대기중'
-      alert(`입양 신청 상태가 ${statusMessage}로 변경되었습니다.`);
-    } catch (error) {
-      console.error('입양 신청 상태 업데이트 오류:', error);
-      alert('입양 신청 상태 업데이트에 실패했습니다.');
-    }
-  };
 
   const fetchContractTemplates = async () => {
     try {
@@ -915,7 +662,7 @@ export default function AdminPage({
           name: actualPet.name,
           breed: actualPet.breed,
           age: actualPet.age,
-          healthStatus: actualPet.healthStatus
+          healthStatus: actualPet.medicalHistory || "건강상태 정보 없음"
         },
         userInfo: {
           name: request.applicantName,
@@ -930,9 +677,6 @@ export default function AdminPage({
         },
       })
 
-      console.log("AI 서비스 응답:", response.data) // 디버깅용
-      console.log("AI 서비스 응답 구조:", JSON.stringify(response.data, null, 2)) // 디버깅용
-
       // 생성된 계약서를 백엔드에 저장
       const contractData = {
         templateId: selectedTemplate,
@@ -946,7 +690,7 @@ export default function AdminPage({
           name: actualPet.name,
           breed: actualPet.breed,
           age: actualPet.age,
-          healthStatus: actualPet.healthStatus
+          healthStatus: actualPet.medicalHistory || "건강상태 정보 없음"
         },
         userInfo: {
           name: request.applicantName,
@@ -1000,25 +744,19 @@ export default function AdminPage({
 
   const handleViewContract = async (pet: Pet) => {
     try {
-      console.log("찾는 동물:", pet.name) // 디버깅용
-      console.log("생성된 계약서 목록:", generatedContracts) // 디버깅용
-      
       // 해당 동물의 생성된 계약서 찾기
       const petContract = generatedContracts.find(contract => {
         // 계약서의 petInfo에서 동물 이름 확인
         try {
           const petInfo = JSON.parse(contract.petInfo || '{}')
-          console.log("계약서 petInfo:", petInfo) // 디버깅용
           return petInfo.name === pet.name
         } catch {
           // JSON 파싱 실패 시 다른 방법으로 확인
-          console.log("JSON 파싱 실패, content에서 검색") // 디버깅용
           return contract.content && contract.content.includes(pet.name)
         }
       })
 
       if (petContract) {
-        console.log("찾은 계약서:", petContract) // 디버깅용
         setSelectedPetForContract(pet)
         setGeneratedContract(petContract.content)
         setShowContractViewModal(true)
@@ -1518,7 +1256,7 @@ export default function AdminPage({
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {(pets ?? []).filter((pet) => pet.adoptionStatus === "available").length}
+                    {(pets ?? []).filter((pet) => !pet.adopted).length}
                   </div>
                   <p className="text-xs text-muted-foreground">입양 가능한 동물</p>
                 </CardContent>
@@ -1554,7 +1292,15 @@ export default function AdminPage({
                   <CheckCircle className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{getProcessingRate()}%</div>
+                  <div className="text-2xl font-bold">
+                    {(() => {
+                      if (!adoptionRequests || adoptionRequests.length === 0) return 0
+                      const processed = (adoptionRequests ?? []).filter(request => 
+                        request.status === "APPROVED" || request.status === "REJECTED" || request.status === "CONTACTED"
+                      ).length
+                      return Math.round((processed / (adoptionRequests ?? []).length) * 100)
+                    })()}%
+                  </div>
                   <p className="text-xs text-muted-foreground">전체 처리 완료율</p>
                 </CardContent>
               </Card>
@@ -1611,421 +1357,19 @@ export default function AdminPage({
             />
           </TabsContent>
 
-          {/* Adoption Requests Tab */}
-          <TabsContent value="adoption-requests" className="space-y-6">
-            <h2 className="text-2xl font-bold">입양신청 관리</h2>
 
-            <div className="grid gap-4">
-              {(adoptionRequests ?? []).length > 0 ? (
-                adoptionRequests.map((request, index) => (
-                  <Card key={request.id || `adoption-request-${index}`}>
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-3">
-                            <h3 className="font-semibold">{request.petName} ({request.petBreed}) 입양신청</h3>
-                            <Badge className={getStatusColor(request.status)}>
-                              {request.status === "PENDING" ? "대기중" : 
-                               request.status === "CONTACTED" ? "연락완료" :
-                               request.status === "APPROVED" ? "승인" : "거절"}
-                            </Badge>
-                          </div>
-                          
-                          <div className="space-y-2 mb-4">
-                            <div className="flex items-center space-x-2">
-                              <Users className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm">신청자: {request.applicantName}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Phone className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm">연락처: {request.contactNumber}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Mail className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm">이메일: {request.email}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-gray-500">사용자 ID: {request.userId}</span>
-                            </div>
-                          </div>
-                          
-                          <div className="mb-4">
-                            <h4 className="font-medium text-sm mb-2">입양 동기 및 메시지:</h4>
-                            <p className="text-sm text-gray-600 bg-gray-50 p-3 rounded">
-                              {request.message}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>신청일: {request.createdAt ? formatToKST(request.createdAt) : "날짜 없음"}</span>
-                            <span>수정일: {request.updatedAt ? formatToKST(request.updatedAt) : "날짜 없음"}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col space-y-2 ml-4">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateAdoptionRequestStatus(request.id, "CONTACTED")}
-                            disabled={request.status === "CONTACTED" || request.status === "APPROVED" || request.status === "REJECTED"}
-                          >
-                            <Phone className="h-4 w-4 mr-1" />
-                            연락완료
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateAdoptionRequestStatus(request.id, "APPROVED")}
-                            disabled={request.status === "APPROVED" || request.status === "REJECTED"}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            승인
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateAdoptionRequestStatus(request.id, "REJECTED")}
-                            disabled={request.status === "APPROVED" || request.status === "REJECTED"}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            거절
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <Card>
-                  <CardContent className="p-6">
-                    <div className="text-center text-gray-500">
-                      <Heart className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                      <p>아직 입양신청이 없습니다.</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          </TabsContent>
 
           {/* Adoption Requests Tab */}
           <TabsContent value="inquiries" className="space-y-6">
-            <h2 className="text-2xl font-bold">입양신청 관리</h2>
-
-            {/* 검색 및 필터 */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  placeholder="신청자명, 펫명, 품종, 연락처로 검색..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
-                />
-              </div>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              >
-                <option value="ALL">전체 상태</option>
-                <option value="PENDING">대기중</option>
-                <option value="CONTACTED">연락완료</option>
-                <option value="APPROVED">승인</option>
-                <option value="REJECTED">거절</option>
-              </select>
-              <Button 
-                onClick={exportToCSV}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                CSV 내보내기
-              </Button>
-            </div>
-
-            {/* 통계 요약 */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 flex-1">
-              <Card key="pending">
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-yellow-600">
-                    {filteredRequests.filter(r => r.status === "PENDING").length}
-                  </div>
-                  <p className="text-xs text-gray-600">대기중</p>
-                </CardContent>
-              </Card>
-              <Card key="contacted">
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-blue-600">
-                    {filteredRequests.filter(r => r.status === "CONTACTED").length}
-                  </div>
-                  <p className="text-xs text-gray-600">연락완료</p>
-                </CardContent>
-              </Card>
-              <Card key="approved">
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-green-600">
-                    {filteredRequests.filter(r => r.status === "APPROVED").length}
-                  </div>
-                  <p className="text-xs text-gray-600">승인</p>
-                </CardContent>
-              </Card>
-              <Card key="rejected">
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-red-600">
-                    {filteredRequests.filter(r => r.status === "REJECTED").length}
-                  </div>
-                  <p className="text-xs text-gray-600">거절</p>
-                </CardContent>
-              </Card>
-            </div>
-              <div className="text-sm text-gray-600 ml-4">
-                총 {(filteredRequests ?? []).length}건 (전체 {(adoptionRequests ?? []).length}건)
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              {(filteredRequests ?? []).length > 0 ? (
-                filteredRequests.map((request, index) => (
-                  <Card key={request.id || `request-${index}`}>
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-3">
-                            <h3 className="font-semibold">{request.petName} ({request.petBreed}) 입양신청</h3>
-                            <div className="flex items-center space-x-2">
-                              <Badge className={getStatusColor(request.status)}>
-                                {request.status === "PENDING" ? "대기중" : 
-                                 request.status === "CONTACTED" ? "연락완료" : 
-                                 request.status === "APPROVED" ? "승인" : "거절"}
-                              </Badge>
-                              {request.status === "PENDING" && isUrgent(request.createdAt) && (
-                                <Badge className="bg-red-100 text-red-800 animate-pulse">
-                                  긴급
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="space-y-2 mb-4">
-                            <div className="flex items-center space-x-2">
-                              <Users className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm">신청자: {request.applicantName}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Phone className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm">연락처: {request.contactNumber}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Mail className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm">이메일: {request.email}</span>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Users className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm">회원 ID: {request.userId}</span>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-600 mb-4">{request.message}</p>
-                          <p className="text-xs text-gray-500">
-                            신청일: {request.createdAt ? formatToKST(request.createdAt) : "날짜 없음"}
-                            {request.status === "PENDING" && request.createdAt && (
-                              <span className="ml-2 text-red-600">
-                                ({Math.floor((new Date().getTime() - new Date(request.createdAt).getTime()) / (1000 * 60 * 60))}시간 경과)
-                              </span>
-                            )}
-                          </p>
-                        </div>
-                        <div className="flex flex-col space-y-2 ml-4">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateAdoptionRequestStatus(request.id, "CONTACTED")}
-                            disabled={request.status === "CONTACTED"}
-                          >
-                            <Phone className="h-4 w-4 mr-1" />
-                            연락완료
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateAdoptionRequestStatus(request.id, "APPROVED")}
-                            disabled={request.status === "APPROVED"}
-                          >
-                            <CheckCircle className="h-4 w-4 mr-1" />
-                            승인
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleUpdateAdoptionRequestStatus(request.id, "REJECTED")}
-                            disabled={request.status === "REJECTED"}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            거절
-                          </Button>
-                          {request.status === "APPROVED" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleShowContractModal(request)}
-                              className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200"
-                            >
-                              <FileText className="h-4 w-4 mr-1" />
-                              AI 계약서 생성
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <Card className="p-6 text-center text-gray-500">
-                  <div className="space-y-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                      <Heart className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {(adoptionRequests ?? []).length === 0 ? "입양신청이 없습니다" : "검색 결과가 없습니다"}
-                      </h3>
-                      <p className="text-gray-500">
-                        {(adoptionRequests ?? []).length === 0 
-                          ? "아직 입양신청이 접수되지 않았습니다." 
-                          : "검색 조건을 변경해보세요."}
-                      </p>
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </div>
+            <AdoptionRequestsTab
+              onShowContractModal={handleShowContractModal}
+              onRefreshPets={fetchPets}
+            />
           </TabsContent>
 
           {/* Orders Tab */}
           <TabsContent value="orders" className="space-y-6">
-            <h2 className="text-2xl font-bold">주문 내역 관리</h2>
-
-            <div className="grid gap-4">
-              {(orders ?? []).length > 0 ? (
-                orders.map((order, index) => (
-                  <Card key={order.orderId || `order-${index}`}>
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-3">
-                            <h3 className="font-semibold">주문 #{order.orderId || order.id || 'N/A'}</h3>
-                            <Badge 
-                              className={
-                                order.paymentStatus === "COMPLETED"
-                                  ? "bg-green-100 text-green-800"
-                                  : order.paymentStatus === "PENDING"
-                                    ? "bg-yellow-100 text-yellow-800"
-                                    : "bg-red-100 text-red-800"
-                              }
-                            >
-                              {order.paymentStatus === "COMPLETED" ? "완료" : 
-                               order.paymentStatus === "PENDING" ? "대기중" : "취소됨"}
-                            </Badge>
-                          </div>
-                          
-                          <div className="space-y-2 mb-4">
-                            <p className="text-sm text-gray-600">사용자 ID: {order.userId}</p>
-                            <p className="text-sm text-gray-600">총 금액: {(order.amount || 0).toLocaleString()}원</p>
-                            <p className="text-sm text-gray-600">
-                              주문일: {order.orderedAt ? 
-                                (() => {
-                                  try {
-                                    // ISO 문자열이나 다른 형식의 날짜를 안전하게 파싱
-                                    const date = new Date(order.orderedAt);
-                                    if (isNaN(date.getTime())) {
-                                      return "날짜 형식 오류";
-                                    }
-                                    return formatToKST(order.orderedAt)
-                                  } catch (error) {
-                                    console.error('날짜 파싱 오류:', error, '원본 데이터:', order.orderedAt);
-                                    return "날짜 없음"
-                                  }
-                                })() 
-                                : "날짜 없음"
-                              }
-                            </p>
-                          </div>
-
-                          {/* 주문 상품 목록 */}
-                          {order.orderItems && order.orderItems.length > 0 ? (
-                            <div className="space-y-2">
-                              <h4 className="font-medium text-sm">주문 상품:</h4>
-                              {order.orderItems.map((item, index) => {
-                                console.log('주문 아이템:', item);
-                                console.log('주문 아이템의 ImageUrl:', item.ImageUrl);
-                                console.log('이미지 표시 여부:', !!item.ImageUrl);
-                                
-                                return (
-                                  <div key={item.id || `order-item-${index}`} className="flex items-center space-x-3 p-2 bg-gray-50 rounded overflow-visible">
-                                    <img
-                                      src={item.ImageUrl ? item.ImageUrl : "/placeholder.svg"}
-                                      alt={item.productName || "상품"}
-                                      className="w-16 h-16 object-cover rounded border border-gray-200"
-                                      onError={(e) => {
-                                        console.log('이미지 로딩 실패:', item.ImageUrl);
-                                        const target = e.target as HTMLImageElement;
-                                        target.src = "/placeholder.svg";
-                                      }}
-                                      onLoad={(e) => {
-                                        console.log('이미지 로딩 성공:', item.ImageUrl);
-                                        const target = e.target as HTMLImageElement;
-                                        console.log('이미지 실제 크기:', target.naturalWidth, 'x', target.naturalHeight);
-                                        console.log('이미지 표시 크기:', target.width, 'x', target.height);
-                                      }}
-                                    />
-                                    <div className="flex-1">
-                                      <p className="text-sm font-medium">{item.productName || "상품명 없음"}</p>
-                                      <p className="text-xs text-gray-500">
-                                        상품 ID: {item.productId || "N/A"} | {(item.price || 0).toLocaleString()}원 × {item.quantity || 1}개
-                                      </p>
-                                      <p className="text-xs text-blue-500">이미지 URL: {item.ImageUrl ? '있음' : '없음'}</p>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            <div className="text-sm text-gray-500">
-                              상품 정보가 없습니다.
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="flex flex-col space-y-2 ml-4">
-                          
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleUpdateOrderStatus(order.orderId, "CANCELLED")}
-                            disabled={order.paymentStatus === "CANCELLED"}
-                          >
-                            <XCircle className="h-4 w-4 mr-1" />
-                            주문취소
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <Card className="p-6 text-center text-gray-500">
-                  <div className="space-y-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">주문 내역이 없습니다</h3>
-                      <p className="text-gray-500">아직 주문이 없습니다.</p>
-                    </div>
-                  </div>
-                </Card>
-              )}
-            </div>
+            <OrdersTab />
           </TabsContent>
 
           {/* AI 계약서 Tab */}
@@ -2172,7 +1516,7 @@ export default function AdminPage({
       <AnimalEditModal
         isOpen={showEditModal}
         onClose={handleCloseEditModal}
-        selectedPet={selectedPetForEdit as unknown as PetsTypePet | null}
+        selectedPet={selectedPetForEdit}
         petId={selectedPetForEdit?.petId || (selectedPetForEdit as any)?.id || (selectedPetForEdit as any)?.petId}
         onUpdatePet={() => {
           // 모달 내부에서 직접 처리하므로 여기서는 아무것도 하지 않음

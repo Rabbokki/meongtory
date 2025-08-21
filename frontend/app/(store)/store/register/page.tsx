@@ -24,7 +24,6 @@ interface Product {
   stock: number
   registrationDate: string
   registeredBy: string
-  petType: "all"
 }
 
 interface StoreProductRegistrationPageProps {
@@ -53,7 +52,6 @@ function StoreProductRegistrationPageContent({
     category: "",
     description: "",
     stock: "",
-    petType: "all", // Add petType to form data
   })
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -149,7 +147,6 @@ function StoreProductRegistrationPageContent({
         category: "",
         description: "",
         stock: "",
-        petType: "all", // Reset petType
       })
       setImageFile(null); // Reset image file
       setImagePreview(null); // Reset image preview
@@ -174,19 +171,19 @@ function StoreProductRegistrationPageContent({
     }
   }
 
-  if (isAdmin) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6 text-center">
-            <h2 className="text-xl font-semibold mb-2">접근 권한이 없습니다</h2>
-            <p className="text-gray-600 mb-4">관리자만 상품을 등록할 수 있습니다.</p>
-            <Button onClick={onBack}>돌아가기</Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
+  // if (!isAdmin) {
+  //   return (
+  //     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+  //       <Card className="w-full max-w-md">
+  //         <CardContent className="pt-6 text-center">
+  //           <h2 className="text-xl font-semibold mb-2">접근 권한이 없습니다</h2>
+  //           <p className="text-gray-600 mb-4">관리자만 상품을 등록할 수 있습니다.</p>
+  //           <Button onClick={onBack}>돌아가기</Button>
+  //         </CardContent>
+  //       </Card>
+  //     </div>
+  //   )
+  // }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -238,13 +235,7 @@ function StoreProductRegistrationPageContent({
                 </Select>
               </div>
 
-              {/* Pet Type */}
-              <div className="space-y-2">
-                <Label htmlFor="petType">대상 동물 *</Label>
-                <div className="p-3 bg-gray-50 rounded-md border">
-                  <span className="text-sm text-gray-700">강아지/고양이 (모두)</span>
-                </div>
-              </div>
+
 
               {/* Price and Stock */}
               <div className="grid grid-cols-2 gap-4">

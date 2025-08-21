@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ChevronDown, Plus } from "lucide-react"
-import { petApi, handleApiError } from "@/lib/api"
+import { petApi } from "@/lib/api"
 
 import type { Pet } from "@/types/pets"
 
@@ -85,8 +85,9 @@ export default function AdoptionPage({
   }
 
   const handlePetClick = (pet: Pet) => {
-    // router를 사용하여 상세페이지로 이동
-    window.location.href = `/adoption/${pet.id}`
+    if (onViewPet) {
+      onViewPet(pet)
+    }
   }
 
   // API 데이터를 프론트엔드 형식으로 변환

@@ -22,14 +22,6 @@ public class CartController {
 
     private final CartService cartService;
 
-    // =======================
-    // 1️⃣ 로그인 사용자 장바구니
-    // =======================
-
-    /**
-     * 현재 로그인한 사용자의 장바구니 목록 조회
-     * 예: GET /api/carts
-     */
     @GetMapping
     public List<CartDto> getCurrentUserCart(@AuthenticationPrincipal UserDetailsImpl userDetails) {
         System.out.println("=== 장바구니 조회 요청 ===");
@@ -50,10 +42,6 @@ public class CartController {
         return cartService.getCartDtoByAccountId(accountId);
     }
 
-    /**
-     * 현재 로그인한 사용자의 장바구니에 상품 추가
-     * 예: POST /api/carts?productId=3&quantity=2
-     */
     @PostMapping
     public ResponseDto<?> addToCart(@AuthenticationPrincipal UserDetailsImpl userDetails,
                                  @RequestParam Long productId,
@@ -98,36 +86,11 @@ public class CartController {
         }
     }
 
-    // =======================
-    // 3️⃣ 장바구니 항목 수정/삭제
-    // =======================
-
-    /**
-     * 장바구니에서 특정 항목 삭제
-     * 예: DELETE /api/carts/5
-     */
     @DeleteMapping("/{cartId}")
-    public void removeFromCart(@AuthenticationPrincipal UserDetailsImpl userDetails,
-                              @PathVariable Long cartId) {
-        System.out.println("=== 장바구니 삭제 요청 ===");
-        System.out.println("userDetails: " + (userDetails != null ? "not null" : "null"));
-        
-        if(userDetails == null || userDetails.getAccount() == null) {
-            System.out.println("ERROR: userDetails가 null입니다. 인증이 필요합니다.");
-            throw new RuntimeException("로그인이 필요합니다.");
-        }
-        
-        System.out.println("사용자 ID: " + userDetails.getAccount().getId());
-        System.out.println("삭제할 장바구니 ID: " + cartId);
-        System.out.println("================================");
-        
+    public void removeFromCart(@PathVariable Long cartId) {
         cartService.removeFromCart(cartId);
     }
 
-    /**
-     * 장바구니 항목 수량 변경
-     * 예: PUT /api/carts/5?quantity=4
-     */
     @PutMapping("/{cartId}")
     public CartDto updateQuantity(@PathVariable Long cartId,
                                   @RequestParam int quantity) {
