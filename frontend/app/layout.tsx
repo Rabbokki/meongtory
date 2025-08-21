@@ -1,10 +1,9 @@
-// app/layout.tsx
 import type React from "react";
 import type { Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
-import Navigation from "@/components/navigation"; // 새로운 클라이언트 컴포넌트
+import Navigation, { AuthProvider } from "@/components/navigation";
 import Chatbot from "@/components/features/chatbot";
 import { Toaster } from "@/components/ui/toaster";
 
@@ -20,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="ko">
       <head>
         <link rel="icon" href="/paw-favicon.png" type="image/png" />
         <style>{`
@@ -32,10 +31,12 @@ export default function RootLayout({
         `}</style>
       </head>
       <body>
-        <Navigation /> {/* 클라이언트 컴포넌트로 네비게이션 처리 */}
-        {children}
-        <Chatbot />
-        <Toaster />
+        <AuthProvider>
+          <Navigation />
+          {children}
+          <Chatbot />
+          <Toaster />
+        </AuthProvider>
       </body>
     </html>
   );
