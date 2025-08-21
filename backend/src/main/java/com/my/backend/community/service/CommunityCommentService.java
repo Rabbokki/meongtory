@@ -1,5 +1,6 @@
 package com.my.backend.community.service;
 
+import com.my.backend.account.entity.Account;
 import com.my.backend.community.dto.CommunityCommentDto;
 import com.my.backend.community.entity.CommunityComment;
 import com.my.backend.community.entity.CommunityPost;
@@ -7,60 +8,80 @@ import com.my.backend.community.repository.CommunityCommentRepository;
 import com.my.backend.community.repository.CommunityPostRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CommunityCommentService {
 
     private final CommunityCommentRepository commentRepository;
     private final CommunityPostRepository postRepository;
 
+    // 댓글 목록 조회
     public List<CommunityCommentDto> getCommentsByPostId(Long postId) {
-        CommunityPost post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("Post not found"));
-        return commentRepository.findByPost(post).stream()
+        return commentRepository.findByPostId(postId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
 
-    public CommunityCommentDto createComment(Long postId, CommunityCommentDto dto) {
+    // 댓글 생성
+    public CommunityCommentDto createComment(Long postId, CommunityCommentDto dto, Account account) {
         CommunityPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
 
+        String authorName = account.getName(); // ✅ Account의 name 필드를 사용
+
         CommunityComment comment = CommunityComment.builder()
                 .post(post)
-                .author(dto.getAuthor())
+                .author(authorName)
                 .content(dto.getContent())
                 .build();
 
         return toDto(commentRepository.save(comment));
     }
 
-    public void deleteComment(Long commentId) {
-        commentRepository.deleteById(commentId);
+    // 댓글 수정
+    public CommunityCommentDto updateComment(Long commentId, CommunityCommentDto dto, Account account) {
+        CommunityComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+
+        String authorName = account.getName(); // ✅ nickname 대신 name 사용
+
+        if (!comment.getAuthor().equals(authorName)) {
+            throw new RuntimeException("본인 댓글만 수정할 수 있습니다.");
+        }
+
+        comment.setContent(dto.getContent());
+        return toDto(commentRepository.save(comment));
     }
 
+    // 댓글 삭제
+    public void deleteComment(Long commentId, Account account) {
+        CommunityComment comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("Comment not found"));
+
+        String authorName = account.getName(); // ✅ nickname 대신 name 사용
+
+        if (!comment.getAuthor().equals(authorName)
+                && !"ROLE_ADMIN".equals(account.getRole())) {
+            throw new RuntimeException("본인 댓글만 삭제할 수 있습니다.");
+        }
+
+        commentRepository.delete(comment);
+    }
+
+    // Entity → DTO 변환
     private CommunityCommentDto toDto(CommunityComment comment) {
         return CommunityCommentDto.builder()
                 .id(comment.getId())
-                .postId(comment.getPost().getId())
                 .author(comment.getAuthor())
                 .content(comment.getContent())
                 .createdAt(comment.getCreatedAt())
                 .updatedAt(comment.getUpdatedAt())
                 .build();
     }
-
-    public CommunityCommentDto updateComment(Long commentId, CommunityCommentDto dto) {
-        CommunityComment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new RuntimeException("Comment not found"));
-
-        comment.setContent(dto.getContent());
-        comment.setAuthor(dto.getAuthor());
-        return toDto(commentRepository.save(comment));
-    }
-
 }

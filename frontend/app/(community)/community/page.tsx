@@ -93,7 +93,7 @@ export default function CommunityPage({
           id: post.id,
           title: post.title || "제목 없음",
           content: post.content || "",
-          author: post.author || "익명",
+          author: post.name || "익명",
           date: post.createdAt ? new Date(post.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
           category: post.category || "",
           boardType: post.boardType || "자유게시판",
@@ -191,7 +191,7 @@ export default function CommunityPage({
         const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
         const headers: HeadersInit = {};
         if (token) {
-           headers["Access_Token"] = token;
+          headers["Access_Token"] = token;
         }
 
         const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}`, {
@@ -377,3 +377,5 @@ export default function CommunityPage({
     </div>
   );
 }
+
+
