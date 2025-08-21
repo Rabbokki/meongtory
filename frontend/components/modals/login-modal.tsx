@@ -55,7 +55,7 @@ export default function LoginModal({
       console.error("토큰 갱신 실패:", err);
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
-      localStorage.removeItem("nickname");
+      localStorage.removeItem("name");   // nickname → name
       localStorage.removeItem("email");
       localStorage.removeItem("role");
       return null;
@@ -76,7 +76,7 @@ export default function LoginModal({
           setIsLoggedIn(true);
 
           // 로컬스토리지에 저장
-          localStorage.setItem("nickname", name || "");
+          localStorage.setItem("name", name || "");   // nickname → name
           localStorage.setItem("email", email || "");
           localStorage.setItem("role", role || "USER");
 
@@ -97,7 +97,7 @@ export default function LoginModal({
                 const { email, name, role } = retryResponse.data.data;
                 setUserEmail(email);
                 setIsLoggedIn(true);
-                localStorage.setItem("nickname", name || "");
+                localStorage.setItem("name", name || "");   // nickname → name
                 localStorage.setItem("email", email || "");
                 localStorage.setItem("role", role || "USER");
                 toast.success("로그인 유지됨");
@@ -148,7 +148,7 @@ export default function LoginModal({
     try {
       // 로그인 요청
       const response = await axios.post(
-        `${API_BASE_URL}/api/accounts/login`, // 오타 수정 (BAKCEND -> BACKEND)
+        `${API_BASE_URL}/api/accounts/login`,
         { email, password },
         { headers: { "Content-Type": "application/json" } }
       );
@@ -167,7 +167,7 @@ export default function LoginModal({
       console.log("Access Token 길이:", accessToken?.length);
       console.log("localStorage에서 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
 
-      setUserEmail(email);
+      setUserEmail(email );
       setIsLoggedIn(true);
       toast.success("로그인 성공");
 
@@ -194,7 +194,7 @@ export default function LoginModal({
     setUserEmail("");
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    localStorage.removeItem("nickname");
+    localStorage.removeItem("name");   // nickname → name
     localStorage.removeItem("email");
     localStorage.removeItem("role");
     toast.success("로그아웃 되었습니다");
