@@ -1,5 +1,29 @@
 // 스토어 관련 타입들
 
+export interface NaverProduct {
+  id: number
+  productId: string
+  title: string
+  description: string
+  price: number
+  imageUrl: string
+  mallName: string
+  productUrl: string
+  brand: string
+  maker: string
+  category1: string
+  category2: string
+  category3: string
+  category4: string
+  reviewCount: number
+  rating: number
+  searchCount: number
+  createdAt: string
+  updatedAt: string
+  relatedProductId?: number
+  link?: string
+}
+
 export interface Product {
   id: number  // productId -> id로 변경
   productId?: number  // 호환성을 위해 유지
@@ -9,7 +33,6 @@ export interface Product {
   stock: number
   imageUrl: string  // image -> imageUrl로 변경
   category: '의류' | '장난감' | '건강관리' | '용품' | '간식' | '사료'  // string -> enum으로 변경
-  targetAnimal: 'ALL' | 'DOG' | 'CAT'  // petType -> targetAnimal으로 변경
   registrationDate: string  // LocalDate를 string으로 표현
   registeredBy: string
   selectedQuantity?: number  // 선택된 수량 (장바구니 추가 시 사용)
@@ -41,7 +64,6 @@ export interface CartItem {
     stock: number
     imageUrl: string
     category: string
-    targetAnimal: string
     registrationDate: string
     registeredBy: string
   }

@@ -107,7 +107,7 @@ interface Comment {
 interface Order {
   orderId: number
   userId: number
-  totalPrice: number
+  amount: number
   paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED"
   orderedAt: string
   id?: number
@@ -388,7 +388,7 @@ export default function AdminPage({
             return {
               orderId: order.id || order.orderId, // 백엔드에서는 id 필드 사용
               userId: order.accountId || order.userId,
-              totalPrice: order.amount || order.totalPrice, // 백엔드에서는 amount 필드 사용
+              amount: order.amount, // 백엔드에서는 amount 필드 사용
               paymentStatus: 'COMPLETED', // 결제 완료된 주문만 표시하므로 항상 COMPLETED
               orderedAt: order.createdAt || order.orderedAt,
               orderItems: [{
@@ -1582,20 +1582,20 @@ export default function AdminPage({
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Button
-                    onClick={onNavigateToStoreRegistration}
+                    onClick={() => router.push('/store/register')}
                     className="h-20 flex flex-col items-center justify-center bg-yellow-400 hover:bg-yellow-500 text-black"
                   >
                     <Plus className="h-6 w-6 mb-2" />
                     상품 등록
                   </Button>
                   <Button
-                    onClick={onNavigateToAnimalRegistration}
+                    onClick={() => router.push("/adoption/register")}
                     className="h-20 flex flex-col items-center justify-center bg-yellow-400 hover:bg-yellow-500 text-black"
                   >
                     <Heart className="h-6 w-6 mb-2" />
                     동물 등록
                   </Button>
-                  <Button onClick={onNavigateToCommunity} className="h-20 flex flex-col items-center justify-center bg-yellow-400 hover:bg-yellow-500 text-black">
+                  <Button onClick={() => router.push("/community")} className="h-20 flex flex-col items-center justify-center bg-yellow-400 hover:bg-yellow-500 text-black">
                     <MessageSquare className="h-6 w-6 mb-2" />
                     커뮤니티 관리
                   </Button>
@@ -1617,7 +1617,7 @@ export default function AdminPage({
           {/* Pets Tab */}
           <TabsContent value="pets" className="space-y-6">
             <PetsTab
-              onNavigateToAnimalRegistration={onNavigateToAnimalRegistration}
+              onNavigateToAnimalRegistration={() => router.push('/adoption/register')}
               onUpdatePet={handleEditPetFromTab}
               onViewContract={handleViewContractFromTab}
             />
@@ -1940,7 +1940,7 @@ export default function AdminPage({
                           
                           <div className="space-y-2 mb-4">
                             <p className="text-sm text-gray-600">사용자 ID: {order.userId}</p>
-                            <p className="text-sm text-gray-600">총 금액: {(order.totalPrice || 0).toLocaleString()}원</p>
+                            <p className="text-sm text-gray-600">총 금액: {(order.amount || 0).toLocaleString()}원</p>
                             <p className="text-sm text-gray-600">
                               주문일: {order.orderedAt ? 
                                 (() => {
