@@ -71,7 +71,6 @@ function PaymentContent() {
   };
 
   const handleSuccess = (paymentInfo: any) => {
-    console.log('결제 성공:', paymentInfo);
     alert('결제가 성공했습니다!');
     router.push('/');
   };

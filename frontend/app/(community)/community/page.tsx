@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Heart, Eye, Plus, Search, Edit, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import axios from "axios";
+import { getBackendUrl } from "@/lib/api"
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +53,6 @@ export default function CommunityPage({
       console.log("isLoggedIn set from localStorage:", !!token);
     }
 
-    console.log("Environment variable NEXT_PUBLIC_BACKEND_URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
     console.log("onUpdatePosts is function:", typeof onUpdatePosts === "function");
     console.log("isLoggedIn:", isLoggedIn, "propIsLoggedIn:", propIsLoggedIn);
 
@@ -65,7 +64,6 @@ export default function CommunityPage({
 
     const fetchPosts = async () => {
       try {
-        console.log("Fetching posts from:", `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts`);
         setLoading(true);
 
         const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
@@ -76,7 +74,7 @@ export default function CommunityPage({
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts`, {
+        const response = await fetch(`${getBackendUrl()}/api/community/posts`, {
           method: "GET",
           headers,
         });
@@ -145,7 +143,7 @@ export default function CommunityPage({
         headers["Authorization"] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}/like`, {
+      const response = await fetch(`${getBackendUrl()}/api/community/posts/${postId}/like`, {
         method: "PUT",
         headers,
       });
@@ -194,7 +192,7 @@ export default function CommunityPage({
           headers["Access_Token"] = token;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}`, {
+        const response = await fetch(`${getBackendUrl()}/api/community/posts/${postId}`, {
           method: "DELETE",
           headers,
         });
@@ -228,7 +226,6 @@ export default function CommunityPage({
       }
       return;
     }
-    console.log("Navigating to /community/write");
     router.push("/community/write");
   };
 

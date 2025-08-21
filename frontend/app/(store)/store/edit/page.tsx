@@ -83,7 +83,7 @@ function StoreProductEditPageContent({ productId: propProductId, onBack, onSave 
           throw new Error('인증 토큰이 없습니다.');
         }
 
-        const response = await axios.get(`http://localhost:8080/api/products/${actualProductId}`, {
+        const response = await axios.get(`${getBackendUrl()}/api/products/${actualProductId}`, {
           headers: {
             Authorization: accessToken, // Bearer 접두사 제거
             'Access_Token': accessToken,
@@ -222,7 +222,7 @@ function StoreProductEditPageContent({ productId: propProductId, onBack, onSave 
         throw new Error('인증 토큰이 없습니다.');
       }
 
-      await axios.put(`http://localhost:8080/api/products/${actualProductId}`, updateData, {
+      await axios.put(`${getBackendUrl()}/api/products/${actualProductId}`, updateData, {
         headers: {
           Authorization: accessToken,
           'Access_Token': accessToken,

@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Heart, Share2, MapPin, Calendar, Weight, Stethoscope, User } from "lucide-react"
 import AdoptionRequestModal from "@/components/modals/adoption-request-modal"
 import { adoptionRequestApi } from "@/lib/api"
-
 import type { Pet } from "@/types/pets"
 
 interface FormField {
@@ -44,7 +43,6 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
     [key: string]: any
   }) => {
     try {
-      console.log("입양신청 데이터:", requestData)
       
       // API 함수 호출 시 필요한 기본 필드들을 포함
       const apiRequestData = {
@@ -55,7 +53,6 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
         message: requestData.message || ""
       }
       
-      console.log("API로 보낼 데이터:", apiRequestData)
       
       await adoptionRequestApi.createAdoptionRequest(apiRequestData)
       alert("입양신청이 성공적으로 접수되었습니다. 보호소에서 검토 후 연락드리겠습니다.")
@@ -69,7 +66,6 @@ export default function AdoptionDetailPage({ pet, onBack, isLoggedIn, onShowLogi
   const handleUpdateCustomFields = (fields: FormField[]) => {
     setCustomFields(fields)
     // 여기서 백엔드에 커스텀 필드 설정을 저장할 수 있습니다
-    console.log("커스텀 필드 업데이트:", fields)
   }
 
   const handleShare = () => {
