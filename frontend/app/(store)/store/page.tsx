@@ -126,9 +126,10 @@ export default function StorePage({
   const [naverProducts, setNaverProducts] = useState<NaverProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showNaverProducts, setShowNaverProducts] = useState(false)
+  const [showNaverProducts, setShowNaverProducts] = useState(true) // 초기에 네이버 상품 표시 모드 활성화
   const [naverSearchQuery, setNaverSearchQuery] = useState("")
   const [naverSearchLoading, setNaverSearchLoading] = useState(false)
+  const [naverInitialLoading, setNaverInitialLoading] = useState(false) // 초기 네이버 상품 로딩 상태
   const [savingProducts, setSavingProducts] = useState<Set<string>>(new Set()) // 저장 중인 상품들
 
   // 네이버 쇼핑 API 함수들
@@ -606,15 +607,6 @@ export default function StorePage({
       
       const response = await productApi.getProducts();
       console.log('가져온 상품 데이터:', response);
-      console.log('응답 타입:', typeof response);
-      console.log('응답이 배열인가?', Array.isArray(response));
-      
-      // 응답이 배열이 아닌 경우 빈 배열로 처리
-      if (!Array.isArray(response)) {
-        console.error('응답이 배열이 아닙니다:', response);
-        setProducts([]);
-        return;
-      }
       
       // 백엔드 응답을 프론트엔드 형식으로 변환
       const data: Product[] = response.map((item: any) => ({
@@ -640,6 +632,7 @@ export default function StorePage({
       });
       
       setProducts(sortedData);
+      console.log('상품 목록 로드 완료:', sortedData.length, '개');
     } catch (error) {
       console.error("Error fetching products:", error);
       setError('상품 목록을 불러오는데 실패했습니다.');
@@ -649,18 +642,26 @@ export default function StorePage({
   };
 
   useEffect(() => {
-    fetchProducts();
-    // 페이지 로드 시 네이버 쇼핑에서 인기 펫 용품 가져오기 (한 번만 실행)
-    const hasLoadedNaverProducts = sessionStorage.getItem('naverProductsLoaded');
-    if (!hasLoadedNaverProducts) {
-      loadInitialNaverProducts();
-      sessionStorage.setItem('naverProductsLoaded', 'true');
-    }
+    const initializeStore = async () => {
+      try {
+        // 먼저 우리 스토어 상품들을 로드
+        await fetchProducts();
+        
+        // 그 다음 네이버 상품들을 로드
+        await loadInitialNaverProducts();
+      } catch (error) {
+        console.error('스토어 초기화 실패:', error);
+        // 에러가 발생해도 기본 상품들은 표시되도록 함
+      }
+    };
+    
+    initializeStore();
   }, []);
 
   // 초기 네이버 상품 로드 - 저장된 상품들 불러오기
   const loadInitialNaverProducts = async () => {
     try {
+      setNaverInitialLoading(true);
       console.log('초기 네이버 상품 로드 시작...');
       
       // 먼저 저장된 네이버 상품들을 불러오기 시도
@@ -803,8 +804,11 @@ export default function StorePage({
         }
       } catch (fallbackError) {
         console.error('기본 검색어 재시도도 실패:', fallbackError);
-        setError('네이버 상품을 불러오는데 실패했습니다.');
+        // 에러가 발생해도 네이버 상품 표시 모드는 활성화하여 사용자가 수동으로 검색할 수 있도록 함
+        setShowNaverProducts(true);
       }
+    } finally {
+      setNaverInitialLoading(false);
     }
   };
 
@@ -1109,7 +1113,7 @@ export default function StorePage({
           <div className="relative w-full max-w-md">
             <Input
               type="text"
-              placeholder="상품 검색 (우리 스토어 + 네이버 쇼핑)"
+              placeholder="상품 검색 (멍토리 + 네이버 쇼핑)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-4 pr-12 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
@@ -1129,25 +1133,7 @@ export default function StorePage({
           </div>
         </div>
 
-        {/* 네이버 쇼핑 퀵 버튼 */}
-        {showNaverProducts && (
-          <div className="flex justify-center mb-6 space-x-4">
-            <Button
-              onClick={handleNaverPopularProducts}
-              disabled={naverSearchLoading}
-              className="bg-blue-500 hover:bg-blue-600 text-white"
-            >
-              {naverSearchLoading ? "로딩중..." : "🔥 인기 상품"}
-            </Button>
-            <Button
-              onClick={handleNaverTopRatedProducts}
-              disabled={naverSearchLoading}
-              className="bg-green-500 hover:bg-green-600 text-white"
-            >
-              {naverSearchLoading ? "로딩중..." : "⭐ 높은 평점"}
-            </Button>
-          </div>
-        )}
+
 
 
 
@@ -1220,11 +1206,13 @@ export default function StorePage({
         </div>
 
         {/* 통합 상품 그리드 */}
-        {naverSearchLoading ? (
+        {(naverSearchLoading || naverInitialLoading) ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
-              <p className="text-gray-600">검색 중...</p>
+              <p className="text-gray-600">
+                {naverInitialLoading ? "네이버 상품을 불러오는 중..." : "검색 중..."}
+              </p>
             </div>
           </div>
         ) : (
