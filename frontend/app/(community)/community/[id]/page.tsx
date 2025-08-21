@@ -5,9 +5,9 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getApiBaseUrl } from "@/lib/utils/apiBaseUrl";
 import { Edit, Trash2, X, ChevronLeft, Check } from "lucide-react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
+import { getBackendUrl } from "@/lib/api";
 
 interface CommunityPost {
   id: number;
@@ -42,7 +42,6 @@ export default function CommunityDetailPage({
   currentUserEmail: propUserEmail,
   currentUserRole: propUserRole,
 }: CommunityDetailPageProps) {
-  const API_BASE_URL = getApiBaseUrl();
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
@@ -73,7 +72,7 @@ export default function CommunityDetailPage({
           setCurrentUserRole(undefined);
           return;
         }
-        const res = await fetch(`${API_BASE_URL}/api/accounts/me`, {
+        const res = await fetch(`${getBackendUrl()}/api/accounts/me`, {
           headers: { Access_Token: token },
         });
         if (!res.ok) throw new Error(`사용자 정보 로드 실패 (${res.status})`);
@@ -104,7 +103,7 @@ export default function CommunityDetailPage({
         try {
           setIsLoading(true);
           setError(null);
-          const res = await fetch(`${API_BASE_URL}/api/community/posts/${postId}`, {
+          const res = await fetch(`${getBackendUrl()}/api/community/posts/${postId}`, {
             headers: getAuthHeaders(),
           });
           console.log("API Response Status:", res.status);
@@ -177,7 +176,7 @@ export default function CommunityDetailPage({
         formData.append("postImg", file);
       });
 
-      const res = await fetch(`${API_BASE_URL}/api/community/posts/${post.id}`, {
+      const res = await fetch(`${getBackendUrl()}/api/community/posts/${post.id}`, {
         method: "PUT",
         headers: getAuthHeaders(),
         body: formData,
@@ -215,7 +214,7 @@ export default function CommunityDetailPage({
       if (token) {
         headers["Access_Token"] = token;
       }
-      const res = await fetch(`${API_BASE_URL}/api/community/posts/${post.id}`, {
+      const res = await fetch(`${getBackendUrl()}/api/community/posts/${post.id}`, {
         method: "DELETE",
         headers,
       });

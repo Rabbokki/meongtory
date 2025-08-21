@@ -8,10 +8,7 @@ import axios from 'axios';
 import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
 import { getBackendUrl } from '@/lib/api';
 
-const API_BASE_URL = `${getBackendUrl()}/api`;
-const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ;
-console.log("CLIENT_KEY:", CLIENT_KEY);
-
+const CLIENT_KEY = process.env.TOSS_CLIENT_KEY ;
 
 interface PaymentItem {
   id: number;
@@ -84,7 +81,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
 
           console.log('네이버 상품 주문 생성 요청:', orderData);
           
-          return await axios.post(`${API_BASE_URL}/orders/naver-product`, orderData, {
+          return await axios.post(`${getBackendUrl()}/api/orders/naver-product`, orderData, {
             headers: {
               'Access_Token': token
             }
@@ -99,7 +96,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
 
           console.log('일반 상품 주문 생성 요청:', orderData);
           
-          return await axios.post(`${API_BASE_URL}/orders`, orderData, {
+          return await axios.post(`${getBackendUrl()}/api/orders`, orderData, {
             headers: {
               'Access_Token': token
             }
@@ -115,7 +112,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
           console.log('주문 생성 중 토큰이 만료되었습니다. 리프레시 토큰으로 갱신을 시도합니다.');
           
           try {
-            const refreshResponse = await axios.post(`${API_BASE_URL}/accounts/refresh`, {
+            const refreshResponse = await axios.post(`${getBackendUrl()}/api/accounts/refresh`, {
               refreshToken: refreshToken
             });
             
@@ -179,7 +176,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
       // 토큰이 만료되었을 경우 리프레시 토큰으로 갱신 시도
       let currentToken = accessToken;
       try {
-        const response = await axios.get(`${API_BASE_URL}/accounts/me`, {
+        const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
           headers: {
             'Access_Token': currentToken
           }
@@ -207,7 +204,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
           console.log('액세스 토큰이 만료되었습니다. 리프레시 토큰으로 갱신을 시도합니다.');
           
           try {
-            const refreshResponse = await axios.post(`${API_BASE_URL}/accounts/refresh`, {
+            const refreshResponse = await axios.post(`${getBackendUrl()}/api/accounts/refresh`, {
               refreshToken: refreshToken
             });
             
@@ -217,7 +214,7 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
               currentToken = newAccessToken;
               
               // 새로운 토큰으로 사용자 정보 다시 요청
-              const userResponse = await axios.get(`${API_BASE_URL}/accounts/me`, {
+              const userResponse = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
                 headers: {
                   'Access_Token': currentToken
                 }
@@ -272,7 +269,6 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
     // SDK 로드 및 초기화 (공식 패키지 방식)
     (async () => {
       try {
-        console.log("Using clientKey:", CLIENT_KEY);
         if (!CLIENT_KEY || CLIENT_KEY.trim().length === 0) {
           console.error('환경변수 NEXT_PUBLIC_TOSS_CLIENT_KEY 가 설정되지 않았습니다. .env.local 에 테스트 클라이언트 키를 설정하고 dev 서버를 재시작하세요.');
           return;
@@ -388,13 +384,6 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
         }))
       });
 
-      // 결제 요청 전 준비 완료
-      console.log("결제 요청 준비 완료");
-      
-      console.log("결제창 요청 시작...");
-      console.log("TossPayments instance:", tossPayments);
-      console.log("Payment instance:", payment);
-      
       // 필수 파라미터 검증
       if (!orderId || !totalAmount || totalAmount <= 0) {
         throw new Error("결제 금액이나 주문번호가 올바르지 않습니다.");
@@ -422,12 +411,6 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
         useCardPoint: false,
         useAppCardOnly: false,
       };
-      
-      // v2 API 사용법으로 결제창 요청
-      console.log("=== 결제 요청 정보 ===");
-      console.log("Payment config:", JSON.stringify(paymentConfig, null, 2));
-      console.log("User info:", userInfo);
-      console.log("========================");
       
       await payment.requestPayment(paymentConfig);
     } catch (error) {
