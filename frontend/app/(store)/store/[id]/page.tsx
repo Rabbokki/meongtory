@@ -560,11 +560,53 @@ export default function StoreProductDetailPage({
       return
     }
 
-    console.log('Payment 페이지로 이동 시도')
-    // URL 파라미터를 통해 Payment 페이지로 이동
-    const paymentUrl = `/payment?productId=${product.id}&quantity=${quantity}&price=${product.price}&productName=${encodeURIComponent(product.name)}&imageUrl=${encodeURIComponent(product.imageUrl)}`
-    console.log('이동할 URL:', paymentUrl)
-    router.push(paymentUrl)
+    // 네이버 상품인지 확인 (productId 필드가 있고 registeredBy가 '네이버'인 경우)
+    const isNaverProduct = product.productId && product.registeredBy === '네이버';
+    console.log('상품 타입 확인 - isNaverProduct:', isNaverProduct, 'productId:', product.productId, 'registeredBy:', product.registeredBy);
+
+    if (isNaverProduct) {
+      console.log('네이버 상품 바로구매 처리');
+      
+             try {
+         console.log('네이버 상품 DB 저장 시작...');
+         // 네이버 상품을 DB에 저장하고 실제 ID를 받아옴
+         const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/save`, {
+           productId: product.productId,
+           title: product.name,
+           description: product.description,
+           price: product.price,
+           imageUrl: product.imageUrl,
+           productUrl: '',
+           mallName: '네이버 쇼핑',
+           brand: product.brand || '',
+           maker: ''
+         }, {
+           headers: {
+             'Access_Token': localStorage.getItem('accessToken') || '',
+             'Refresh_Token': localStorage.getItem('refreshToken') || '',
+             'Content-Type': 'application/json'
+           }
+         });
+
+         const result = response.data;
+        console.log('네이버 상품 DB 저장 결과:', result);
+        
+                 // URL 파라미터를 통해 Payment 페이지로 이동 (네이버 상품이므로 isNaverProduct=true)
+         const paymentUrl = `/payment?productId=${result.data}&quantity=${quantity}&price=${product.price}&productName=${encodeURIComponent(product.name)}&imageUrl=${encodeURIComponent(product.imageUrl)}&isNaverProduct=true`;
+        console.log('네이버 상품 Payment 페이지로 이동할 URL:', paymentUrl);
+        router.push(paymentUrl);
+      } catch (error) {
+        console.error('네이버 상품 DB 저장 실패:', error);
+        alert('상품 정보를 준비하는 중 오류가 발생했습니다. 다시 시도해주세요.');
+      }
+    } else {
+      console.log('일반 상품 바로구매 처리');
+      console.log('Payment 페이지로 이동 시도')
+      // URL 파라미터를 통해 Payment 페이지로 이동 (일반 상품이므로 isNaverProduct=false 명시)
+      const paymentUrl = `/payment?productId=${product.id}&quantity=${quantity}&price=${product.price}&productName=${encodeURIComponent(product.name)}&imageUrl=${encodeURIComponent(product.imageUrl)}&isNaverProduct=false`
+      console.log('이동할 URL:', paymentUrl)
+      router.push(paymentUrl)
+    }
   }
 
   const isInCart = (id: number) => {
@@ -921,80 +963,57 @@ export default function StoreProductDetailPage({
                       <Button
                         disabled={!isNaverProductInStock()}
                         onClick={async () => {
-                          // 네이버 상품 바로구매 로직
+                          console.log('바로구매 버튼 클릭됨');
+                          
                           if (!currentUser) {
-                            alert('로그인이 필요합니다.')
-                            return
+                            alert('로그인이 필요합니다.');
+                            return;
                           }
 
-                          try {
-                            // 네이버 상품을 DB에 저장하고 실제 ID를 가져오기
-                            const naverProductData = {
-                              productId: propNaverProduct.productId,
-                              title: propNaverProduct.title,
-                              description: propNaverProduct.description || propNaverProduct.title,
-                              price: propNaverProduct.price,
-                              imageUrl: propNaverProduct.imageUrl,
-                              mallName: propNaverProduct.mallName,
-                              productUrl: propNaverProduct.productUrl,
-                              brand: propNaverProduct.brand || '',
-                              maker: propNaverProduct.maker || '',
-                              category1: propNaverProduct.category1 || '',
-                              category2: propNaverProduct.category2 || '',
-                              category3: propNaverProduct.category3 || '',
-                              category4: propNaverProduct.category4 || '',
-                              reviewCount: propNaverProduct.reviewCount || 0,
-                              rating: propNaverProduct.rating || 0.0,
-                              searchCount: propNaverProduct.searchCount || 0
-                            };
+                                                     try {
+                             console.log('네이버 상품 DB 저장 시작...');
+                             // 네이버 상품을 DB에 저장하고 실제 ID를 받아옴
+                             const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/save`, {
+                               productId: propNaverProduct.productId,
+                               title: propNaverProduct.title,
+                               description: propNaverProduct.description,
+                               price: propNaverProduct.price,
+                               imageUrl: propNaverProduct.imageUrl,
+                               productUrl: propNaverProduct.productUrl,
+                               mallName: propNaverProduct.mallName,
+                               brand: propNaverProduct.brand,
+                               maker: propNaverProduct.maker
+                             }, {
+                               headers: {
+                                 'Access_Token': localStorage.getItem('accessToken') || '',
+                                 'Refresh_Token': localStorage.getItem('refreshToken') || '',
+                                 'Content-Type': 'application/json'
+                               }
+                             });
 
-                            console.log('네이버 상품 DB 저장 요청:', naverProductData);
-
-                            // 필수 필드 검증
-                            if (!naverProductData.productId || !naverProductData.title || !naverProductData.price) {
-                              throw new Error('필수 상품 정보가 누락되었습니다.');
-                            }
-
-                            const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/save`, naverProductData, {
-                              headers: {
-                                'Access_Token': localStorage.getItem('accessToken'),
-                                'Refresh_Token': localStorage.getItem('refreshToken')
-                              }
-                            });
-
-                            console.log('네이버 상품 DB 저장 응답:', response.data);
-
-                            // 응답 검증
-                            if (!response.data.success) {
-                              throw new Error(response.data.message || '네이버 상품 저장에 실패했습니다.');
-                            }
-
-                            // 저장된 네이버 상품의 실제 ID 사용
-                            const savedNaverProductId = response.data.data;
-
-                            // 네이버 상품을 Product 형태로 변환하여 Payment 페이지로 이동
+                             const result = response.data;
+                            console.log('네이버 상품 DB 저장 결과:', result);
+                            
+                            // 저장된 상품 정보로 업데이트
                             const naverProductAsProduct = {
-                              id: savedNaverProductId, // DB에 저장된 실제 ID 사용 (Long 타입)
+                              id: result.data.id,
                               name: propNaverProduct.title.replace(/<[^>]*>/g, ''),
                               price: propNaverProduct.price,
                               imageUrl: propNaverProduct.imageUrl,
-                              category: propNaverProduct.category1,
-                              description: propNaverProduct.description || '',
-                              tags: [],
-                              stock: 999, // 네이버 상품은 재고 제한 없음
-                              registrationDate: '',
-                              registeredBy: '',
-                              petType: 'all' as const,
-                              selectedQuantity: quantity,
-                              isNaverProduct: true, // 네이버 상품 플래그 추가
                               productUrl: propNaverProduct.productUrl,
                               mallName: propNaverProduct.mallName,
                               brand: propNaverProduct.brand,
                               maker: propNaverProduct.maker
                             }
 
-                            // URL 파라미터를 통해 Payment 페이지로 이동 (네이버 상품 정보 포함)
-                            const paymentUrl = `/payment?productId=${naverProductAsProduct.id}&quantity=${quantity}&price=${naverProductAsProduct.price}&productName=${encodeURIComponent(naverProductAsProduct.name)}&imageUrl=${encodeURIComponent(naverProductAsProduct.imageUrl)}&isNaverProduct=true&productUrl=${encodeURIComponent(naverProductAsProduct.productUrl)}&mallName=${encodeURIComponent(naverProductAsProduct.mallName)}`
+                            console.log('Payment 페이지로 이동할 상품 정보:', naverProductAsProduct);
+                            
+                                                         // URL 파라미터를 통해 Payment 페이지로 이동 (네이버 상품 정보 포함)
+                             const paymentUrl = `/payment?productId=${result.data}&quantity=${quantity}&price=${naverProductAsProduct.price}&productName=${encodeURIComponent(naverProductAsProduct.name)}&imageUrl=${encodeURIComponent(naverProductAsProduct.imageUrl)}&isNaverProduct=true&productUrl=${encodeURIComponent(naverProductAsProduct.productUrl)}&mallName=${encodeURIComponent(naverProductAsProduct.mallName)}`
+                            
+                            console.log('생성된 Payment URL:', paymentUrl);
+                            console.log('Payment 페이지로 이동 시작...');
+                            
                             router.push(paymentUrl)
                           } catch (error) {
                             console.error('네이버 상품 DB 저장 실패:', error);
