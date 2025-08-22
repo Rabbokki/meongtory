@@ -45,7 +45,6 @@ export default function CommunityDetailPage({
   onUpdatePost?: (updatedPost: CommunityPost) => void;
   onDeletePost: (postId: number) => void;
 }) {
-  const API_BASE_URL = getBackendUrl();
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
@@ -84,7 +83,7 @@ export default function CommunityDetailPage({
         return null;
       }
 
-      const response = await axios.post(`${API_BASE_URL}/api/accounts/refresh`, {
+      const response = await axios.post(`${getBackendUrl()}/api/accounts/refresh`, {
         refreshToken: refreshToken
       });
 
@@ -123,7 +122,7 @@ export default function CommunityDetailPage({
           setCurrentUserRole(null);
           return;
         }
-        const response = await axios.get(`${API_BASE_URL}/api/accounts/me`, {
+        const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
           headers: { Access_Token: localStorage.getItem("accessToken") || "" }
         });
         
@@ -147,7 +146,7 @@ export default function CommunityDetailPage({
           const newToken = await refreshToken();
           if (newToken) {
             try {
-                             const retryResponse = await axios.get(`${API_BASE_URL}/api/accounts/me`, {
+                             const retryResponse = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
                  headers: { Access_Token: newToken },
                  withCredentials: true,
                });
@@ -182,7 +181,7 @@ export default function CommunityDetailPage({
     if (postId) {
       fetchUserInfo();
     }
-  }, [API_BASE_URL, postId]);
+  }, [getBackendUrl(), postId]);
 
   useEffect(() => {
     if (!initialPost && postId) {
@@ -190,7 +189,7 @@ export default function CommunityDetailPage({
         try {
           setIsLoading(true);
           setError(null);
-          const response = await axios.get(`${API_BASE_URL}/api/community/posts/${postId}`, {
+          const response = await axios.get(`${getBackendUrl()}/api/community/posts/${postId}`, {
             headers: getAuthHeaders(),
           });
           setPost(response.data);
@@ -211,11 +210,11 @@ export default function CommunityDetailPage({
       setEditedContent(initialPost.content);
       setPreviewImages(initialPost.images || []);
     }
-  }, [initialPost, postId, API_BASE_URL]);
+  }, [initialPost, postId, getBackendUrl()]);
 
   useEffect(() => {
     if (postId && !isEditing) {
-      axios.get(`${API_BASE_URL}/api/community/comments/${postId}`, {
+      axios.get(`${getBackendUrl()}/api/community/comments/${postId}`, {
         headers: getAuthHeaders(),
       })
         .then((response) => {
@@ -223,12 +222,12 @@ export default function CommunityDetailPage({
         })
         .catch((err) => console.error("댓글 불러오기 실패:", err));
     }
-  }, [postId, API_BASE_URL, isEditing]);
+  }, [postId, getBackendUrl(), isEditing]);
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const response = await axios.post(`${API_BASE_URL}/api/community/comments/${postId}`, 
+      const response = await axios.post(`${getBackendUrl()}/api/community/comments/${postId}`, 
         { content: newComment },
         {
           headers: {
@@ -252,7 +251,7 @@ export default function CommunityDetailPage({
 
   const handleUpdateComment = async (id: number) => {
     try {
-      const response = await axios.put(`${API_BASE_URL}/api/community/comments/${id}`, 
+      const response = await axios.put(`${getBackendUrl()}/api/community/comments/${id}`, 
         { content: editContent },
         {
           headers: {
@@ -273,7 +272,7 @@ export default function CommunityDetailPage({
   const handleDeleteComment = async (id: number) => {
     if (!confirm("댓글을 삭제하시겠습니까?")) return;
     try {
-      await axios.delete(`${API_BASE_URL}/api/community/comments/${id}`, {
+      await axios.delete(`${getBackendUrl()}/api/community/comments/${id}`, {
         headers: getAuthHeaders(),
       });
       setComments(comments.filter((c) => c.id !== id));
@@ -333,7 +332,7 @@ export default function CommunityDetailPage({
 
       let response;
       try {
-        response = await axios.put(`${API_BASE_URL}/api/community/posts/${post.id}`, formData, {
+        response = await axios.put(`${getBackendUrl()}/api/community/posts/${post.id}`, formData, {
           headers: { 
             Access_Token: token,
             "Content-Type": "multipart/form-data",
@@ -344,7 +343,7 @@ export default function CommunityDetailPage({
           console.log("401 Unauthorized, attempting to refresh token");
           token = await refreshToken();
           if (token) {
-            response = await axios.put(`${API_BASE_URL}/api/community/posts/${post.id}`, formData, {
+            response = await axios.put(`${getBackendUrl()}/api/community/posts/${post.id}`, formData, {
               headers: { 
                 Access_Token: token,
                 "Content-Type": "multipart/form-data",
@@ -395,7 +394,7 @@ export default function CommunityDetailPage({
 
       let response;
       try {
-        response = await axios.delete(`${API_BASE_URL}/api/community/posts/${post.id}`, {
+        response = await axios.delete(`${getBackendUrl()}/api/community/posts/${post.id}`, {
           headers: { Access_Token: token },
         });
       } catch (err: any) {
@@ -403,7 +402,7 @@ export default function CommunityDetailPage({
           console.log("401 Unauthorized, attempting to refresh token");
           token = await refreshToken();
           if (token) {
-            response = await axios.delete(`${API_BASE_URL}/api/community/posts/${post.id}`, {
+            response = await axios.delete(`${getBackendUrl()}/api/community/posts/${post.id}`, {
               headers: { Access_Token: token },
             });
           } else {
