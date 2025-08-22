@@ -260,6 +260,13 @@ export default function StorePage({
           rating: naverProduct.rating,
           searchCount: naverProduct.searchCount
         });
+        
+        // 새로운 응답 형식 처리
+        if (response.data.success && response.data.data) {
+          const result = response.data.data;
+          console.log(`네이버 상품 저장 결과: ${result.isNewProduct ? '새 상품' : '기존 상품 업데이트'} - ${naverProduct.title}`);
+        }
+        
         return response.data;
       } catch (error) {
         console.error('네이버 상품 저장 실패:', error);
@@ -328,7 +335,7 @@ export default function StorePage({
     
     setNaverSearchLoading(true);
     try {
-      const response = await naverShoppingApi.searchSavedProducts(naverSearchQuery, 0, 20);
+      const response = await naverShoppingApi.searchSavedProducts(naverSearchQuery, 0, 100); // 더 많은 상품 가져오기
       if (response.success && response.data?.content) {
         const savedProducts = response.data.content.map((item: any) => ({
           id: item.id || item.productId || Math.random(),
@@ -371,7 +378,7 @@ export default function StorePage({
   const handleNaverPopularProducts = async () => {
     setNaverSearchLoading(true);
     try {
-      const response = await naverShoppingApi.getPopularProducts(0, 20);
+      const response = await naverShoppingApi.getPopularProducts(0, 100); // 더 많은 상품 가져오기
       if (response.success && response.data?.content) {
         const popularProducts = response.data.content;
         setNaverProducts(popularProducts);
@@ -392,7 +399,7 @@ export default function StorePage({
   const handleNaverTopRatedProducts = async () => {
     setNaverSearchLoading(true);
     try {
-      const response = await naverShoppingApi.getTopRatedProducts(0, 20);
+      const response = await naverShoppingApi.getTopRatedProducts(0, 100); // 더 많은 상품 가져오기
       if (response.success && response.data?.content) {
         const topRatedProducts = response.data.content;
         setNaverProducts(topRatedProducts);
@@ -445,8 +452,8 @@ export default function StorePage({
     
     setNaverSearchLoading(true);
     try {
-      // 저장된 네이버 상품 검색
-      const naverResponse = await naverShoppingApi.searchSavedProducts(searchQuery, 0, 10);
+      // 저장된 네이버 상품 검색 (더 많은 상품 가져오기)
+      const naverResponse = await naverShoppingApi.searchSavedProducts(searchQuery, 0, 100);
       let naverResults: NaverProduct[] = [];
       
       if (naverResponse.success && naverResponse.data?.content) {
@@ -629,8 +636,8 @@ export default function StorePage({
     try {
       setNaverInitialLoading(true);
       
-      // 저장된 네이버 상품들을 불러오기
-      const savedResponse = await naverShoppingApi.getSavedProducts(0, 20);
+      // 저장된 네이버 상품들을 불러오기 (모든 상품을 가져오기 위해 큰 size 설정)
+      const savedResponse = await naverShoppingApi.getSavedProducts(0, 1000);
       if (savedResponse.success && savedResponse.data?.content && savedResponse.data.content.length > 0) {
         console.log('저장된 네이버 상품 발견:', savedResponse.data.content.length, '개');
         const savedProducts = savedResponse.data.content.map((item: any) => ({
@@ -686,7 +693,7 @@ export default function StorePage({
     setNaverSearchLoading(true);
     
     try {
-      const response = await naverShoppingApi.searchByCategory(category, 0, 15);
+      const response = await naverShoppingApi.searchByCategory(category, 0, 100); // 더 많은 상품 가져오기
       if (response.success && response.data?.content) {
         const categoryProducts = response.data.content.map((item: any) => ({
           id: item.id || item.productId || Math.random(),
@@ -851,6 +858,21 @@ export default function StorePage({
 
   // 네이버 상품 필터링
   const filteredNaverProducts = allNaverProducts.filter((product) => {
+    // Category filter
+    if (selectedCategory) {
+      const matchesCategory = 
+        (product.category1 && product.category1.includes(selectedCategory)) ||
+        (product.category2 && product.category2.includes(selectedCategory)) ||
+        (product.category3 && product.category3.includes(selectedCategory)) ||
+        (product.category4 && product.category4.includes(selectedCategory)) ||
+        (product.title && product.title.includes(selectedCategory)) ||
+        (product.description && product.description.includes(selectedCategory));
+      
+      if (!matchesCategory) {
+        return false;
+      }
+    }
+
     // Search query filter
     if (searchQuery.trim() !== "") {
       const lowerCaseQuery = searchQuery.toLowerCase();
@@ -1049,11 +1071,7 @@ export default function StorePage({
             {/* 우리 스토어 상품들 */}
             {sortedLocalProducts.map((product, index) => (
               <Card key={`local-${product.id}-${index}`} className="group cursor-pointer hover:shadow-lg transition-shadow relative">
-                {index === 0 && (
-                  <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
-                    Best
-                  </div>
-                )}
+                {/* Best 라벨 제거됨 */}
                 <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
                   멍토리
                 </div>
@@ -1115,12 +1133,7 @@ export default function StorePage({
                   <div className="absolute top-2 right-2 bg-blue-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
                     네이버
                   </div>
-                  {/* 저장 상태 표시 */}
-                  {naverProduct.isSaved && (
-                    <div className="absolute top-2 left-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
-                      저장됨
-                    </div>
-                  )}
+                  {/* 저장 상태 표시 제거됨 */}
                   {savingProducts.has(naverProduct.productId) && (
                     <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
                       저장중...
@@ -1149,7 +1162,8 @@ export default function StorePage({
                     <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
                       {removeHtmlTags(naverProduct.title)}
                     </h3>
-                    <p className="text-xs text-gray-500 mb-2">{naverProduct.mallName}</p>
+                    <p className="text-xs text-gray-500 mb-1">{naverProduct.mallName}</p>
+                    <p className="text-xs text-blue-600 mb-2">{naverProduct.category1 || '용품'}</p>
                     <div className="mb-2">
                       <span className="text-lg font-bold text-yellow-600">
                         {naverProduct.price ? naverProduct.price.toLocaleString() : '가격 정보 없음'}원
