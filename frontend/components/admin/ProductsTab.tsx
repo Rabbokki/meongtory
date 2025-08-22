@@ -196,15 +196,17 @@ export default function ProductsTab({
     try {
       console.log('네이버 상품 가져오기 시작...')
       
-      // 이전에 가져온 페이지 정보를 localStorage에서 가져오기
-      const lastPageInfo = localStorage.getItem('naverLastPageInfo')
-      let startPageOffset = 0
-      
-      if (lastPageInfo) {
-        const pageInfo = JSON.parse(lastPageInfo)
-        startPageOffset = pageInfo.lastStartPage || 0
-        console.log(`이전 시작 페이지 오프셋: ${startPageOffset}`)
-      }
+             // 이전에 가져온 페이지 정보를 localStorage에서 가져오기
+       const lastPageInfo = localStorage.getItem('naverLastPageInfo')
+       let startPageOffset = 0
+       
+       if (lastPageInfo) {
+         const pageInfo = JSON.parse(lastPageInfo)
+         startPageOffset = pageInfo.lastStartPage || 0
+         console.log(`이전 시작 페이지: ${startPageOffset}, 다음 시작 페이지: ${startPageOffset + 1}`)
+       } else {
+         console.log(`첫 실행: 1페이지부터 시작`)
+       }
       
       // 카테고리별 검색어 그룹화
       const searchCategories = {
@@ -338,11 +340,11 @@ export default function ProductsTab({
       console.log(`카테고리 수: ${categories.length}개`)
       console.log(`카테고리당 목표 상품 수: ${productsPerCategory}개`)
       
-      let totalSaved = 0
-      let newProductsCount = 0
-      let updatedProductsCount = 0
-      let categoryStats: { [key: string]: { new: number, updated: number, total: number } } = {}
-      let maxStartPage = 0 // 이번 실행에서 사용한 최대 시작 페이지
+             let totalSaved = 0
+       let newProductsCount = 0
+       let updatedProductsCount = 0
+       let categoryStats: { [key: string]: { new: number, updated: number, total: number } } = {}
+       let maxStartPage = 0 // 이번 실행에서 사용한 최대 시작 페이지
       
       // 각 카테고리별로 상품 가져오기
       for (const category of categories) {
@@ -371,8 +373,15 @@ export default function ProductsTab({
             const maxPages = 10 // 최대 10페이지까지
             const itemsPerPage = 10
             
-            // 랜덤한 시작 페이지 계산 (1~50 페이지 중에서)
-            const randomStartPage = Math.floor(Math.random() * 50) + 1 + startPageOffset
+                         // 이전 실행에서 끝난 페이지 다음부터 시작 (최대 100페이지 제한)
+             const maxAllowedPage = Math.min(100, startPageOffset + 10) // 최대 10페이지씩 진행
+             let randomStartPage = startPageOffset + 1 // 이전 실행에서 끝난 페이지 다음부터 시작
+             
+             // 100페이지를 넘어가면 1페이지부터 다시 시작
+             if (randomStartPage > 100) {
+               randomStartPage = 1
+               console.log(`${term} - 100페이지 초과, 1페이지부터 다시 시작`)
+             }
             console.log(`${term} - 랜덤 시작 페이지: ${randomStartPage}`)
             
             for (let page = 0; page < maxPages; page++) {
@@ -381,13 +390,13 @@ export default function ProductsTab({
                 break
               }
               
-              const currentPage = randomStartPage + page
-              const start = (currentPage - 1) * itemsPerPage + 1
-              
-              // 최대 시작 페이지 업데이트
-              if (currentPage > maxStartPage) {
-                maxStartPage = currentPage
-              }
+                             const currentPage = randomStartPage + page
+               const start = (currentPage - 1) * itemsPerPage + 1
+               
+               // 최대 시작 페이지 업데이트
+               if (currentPage > maxStartPage) {
+                 maxStartPage = currentPage
+               }
               
               // 네이버 쇼핑 API 호출
               const searchResponse = await axios.post(`${getBackendUrl()}/api/naver-shopping/search`, {
@@ -456,7 +465,7 @@ export default function ProductsTab({
                 }
                 
                 // 잠시 대기 (API 호출 제한 방지)
-                await new Promise(resolve => setTimeout(resolve, 100))
+                await new Promise(resolve => setTimeout(resolve, 500))
               } else {
                 console.log(`${term} - 페이지 ${currentPage}: 검색 결과가 없습니다.`)
                 break
@@ -470,13 +479,19 @@ export default function ProductsTab({
         console.log(`${category} 카테고리 완료: 새 상품 ${categoryStats[category].new}개, 업데이트 ${categoryStats[category].updated}개, 총 ${categoryStats[category].total}개`)
       }
       
-      // 다음 실행을 위해 페이지 정보 저장
-      const nextPageInfo = {
-        lastStartPage: maxStartPage + 10, // 다음 번에는 더 뒤쪽 페이지에서 시작
-        timestamp: new Date().toISOString()
-      }
-      localStorage.setItem('naverLastPageInfo', JSON.stringify(nextPageInfo))
-      console.log(`다음 실행 시작 페이지: ${nextPageInfo.lastStartPage}`)
+             // 다음 실행을 위해 페이지 정보 저장 (100페이지 초과 시 1페이지부터 다시 시작)
+       let nextStartPage = maxStartPage + 1
+       if (nextStartPage > 100) {
+         nextStartPage = 1
+         console.log(`100페이지 초과, 다음 실행은 1페이지부터 시작`)
+       }
+       
+       const nextPageInfo = {
+         lastStartPage: nextStartPage,
+         timestamp: new Date().toISOString()
+       }
+       localStorage.setItem('naverLastPageInfo', JSON.stringify(nextPageInfo))
+       console.log(`다음 실행 시작 페이지: ${nextPageInfo.lastStartPage}`)
       
       // 결과 요약 생성
       let resultMessage = `네이버 상품 가져오기 완료!\n\n`

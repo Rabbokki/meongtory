@@ -322,9 +322,9 @@ export default function StorePage({
       const batch = products.slice(i, i + batchSize);
       await Promise.all(batch.map(product => saveNaverProductToDb(product)));
       
-      // 배치 간 약간의 지연
+      // 배치 간 지연 (API 제한 방지)
       if (i + batchSize < products.length) {
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
   };
