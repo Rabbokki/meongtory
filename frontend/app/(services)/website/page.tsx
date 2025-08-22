@@ -1037,8 +1037,7 @@ export default function PetServiceWebsite() {
           <AdoptionPage
             pets={pets}
             onViewPet={(pet) => {
-              // window.location.href를 사용하여 상세페이지로 이동
-              window.location.href = `/adoption/${pet.petId}`;
+              router.push(`/adoption/${pet.petId}`);
             }}
             onClose={() => router.push("/")}
             isAdmin={isAdmin}
