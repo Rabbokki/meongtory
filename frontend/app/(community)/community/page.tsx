@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Heart, Eye, Plus, Search, Edit, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { getBackendUrl } from "@/lib/api";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +53,6 @@ export default function CommunityPage({
       setIsLoggedIn(!!token);
     }
 
-    if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
-      setError("Backend URL is not defined in environment variables");
-      setLoading(false);
-      return;
-    }
-
     const fetchPosts = async () => {
       try {
         setLoading(true);
@@ -69,7 +64,7 @@ export default function CommunityPage({
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts`, {
+        const response = await fetch(`${getBackendUrl()}/api/community/posts`, {
           method: "GET",
           headers,
         });
@@ -78,24 +73,43 @@ export default function CommunityPage({
 
         const data = await response.json();
 
-        const mappedPosts = data.map((post: any) => ({
-          id: post.id,
-          title: post.title || "제목 없음",
-          content: post.content || "",
-          author: post.author || "익명", //  DB author 매핑
-          date: post.createdAt
-            ? new Date(post.createdAt).toLocaleDateString()
-            : new Date().toLocaleDateString(),
-          category: post.category || "",
-          boardType: post.boardType || "자유게시판",
-          views: post.views || 0,
-          likes: post.likes || 0,
-          comments: post.comments || 0, //  DB community_posts.comments
-          tags: post.tags || [],
-          images: post.images || [],
-          ownerEmail: post.ownerEmail || "",
-          sharedFromDiaryId: post.sharedFromDiaryId,
-        }));
+        const mappedPosts = data.map((post: any) => {
+          // 날짜 처리 개선
+          let formattedDate = "날짜 없음";
+          if (post.createdAt) {
+            try {
+              const date = new Date(post.createdAt);
+              if (!isNaN(date.getTime())) {
+                formattedDate = date.toLocaleDateString('ko-KR', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                });
+              }
+            } catch (error) {
+              console.error("날짜 파싱 오류:", error);
+            }
+          }
+          
+          return {
+            id: post.id,
+            title: post.title || "제목 없음",
+            content: post.content || "",
+            author: post.author || "익명", //  DB author 매핑
+            date: formattedDate,
+            category: post.category || "",
+            boardType: post.boardType || "자유게시판",
+            views: post.views || 0,
+            likes: post.likes || 0,
+            comments: post.comments || 0, // DB community_posts.comments (commentCount)
+            tags: post.tags || [],
+            images: post.images || [],
+            ownerEmail: post.ownerEmail || "",
+            sharedFromDiaryId: post.sharedFromDiaryId,
+          };
+        });
 
         setPosts(mappedPosts);
         if (typeof onUpdatePosts === "function") {
@@ -120,9 +134,7 @@ export default function CommunityPage({
     return matchesSearch;
   });
 
-  const sortedPosts = filteredPosts
-    ? [...filteredPosts].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    : [];
+  const sortedPosts = filteredPosts || [];
 
   const popularPosts = posts?.sort((a, b) => b.views - a.views).slice(0, 5) || [];
 
@@ -137,7 +149,7 @@ export default function CommunityPage({
       const headers: HeadersInit = { "Content-Type": "application/json" };
       if (token) headers["Authorization"] = `Bearer ${token}`;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}/like`, {
+      const response = await fetch(`${getBackendUrl()}/api/community/posts/${postId}/like`, {
         method: "PUT",
         headers,
       });
@@ -180,7 +192,7 @@ export default function CommunityPage({
         const headers: HeadersInit = {};
         if (token) headers["Access_Token"] = token;
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}`, {
+        const response = await fetch(`${getBackendUrl()}/api/community/posts/${postId}`, {
           method: "DELETE",
           headers,
         });
@@ -272,7 +284,7 @@ export default function CommunityPage({
                           </span>
                           <span className="flex items-center">
                             <MessageSquare className="h-4 w-4 mr-1" />
-                            {post.comments}
+                            💬 {post.comments}
                           </span>
                           <button
                             disabled={!isLoggedIn}

@@ -238,6 +238,10 @@ export default function CommunityDetailPage({
         }
       );
       setComments([...comments, response.data]);
+      // 댓글 갯수 실시간 업데이트
+      if (post) {
+        setPost({ ...post, comments: post.comments + 1 });
+      }
       setNewComment("");
     } catch (err: any) {
       console.error("Add comment error:", err);
@@ -273,6 +277,10 @@ export default function CommunityDetailPage({
         headers: getAuthHeaders(),
       });
       setComments(comments.filter((c) => c.id !== id));
+      // 댓글 갯수 실시간 업데이트
+      if (post) {
+        setPost({ ...post, comments: Math.max(0, post.comments - 1) });
+      }
     } catch (err: any) {
       console.error("Delete comment error:", err);
       const errorMessage = err.response?.data?.message || "댓글 삭제 실패";
@@ -426,7 +434,14 @@ export default function CommunityDetailPage({
     return (
       <div className="p-4 text-center text-gray-500">
         <p>{error || "게시글을 불러올 수 없습니다."}</p>
-        <Button variant="outline" onClick={() => router.push("/community")} className="mt-4">
+        <Button variant="outline" onClick={() => {
+          // 브라우저 히스토리가 있으면 뒤로가기, 없으면 커뮤니티 목록으로
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/community");
+          }
+        }} className="mt-4">
           <ChevronLeft className="h-4 w-4 mr-2" /> 뒤로가기
         </Button>
       </div>
@@ -451,7 +466,14 @@ export default function CommunityDetailPage({
   return (
     <div className="p-4">
       <div className="flex items-center justify-between mb-4">
-        <Button variant="outline" onClick={() => router.push("/community")}>
+        <Button variant="outline" onClick={() => {
+          // 브라우저 히스토리가 있으면 뒤로가기, 없으면 커뮤니티 목록으로
+          if (window.history.length > 1) {
+            router.back();
+          } else {
+            router.push("/community");
+          }
+        }}>
           <ChevronLeft className="h-4 w-4 mr-2" /> 뒤로가기
         </Button>
 
@@ -529,7 +551,7 @@ export default function CommunityDetailPage({
 
       {!isEditing && (
         <div className="mt-8">
-          <h3 className="text-lg font-semibold mb-4">댓글</h3>
+          <h3 className="text-lg font-semibold mb-4">댓글 💬 {post.comments}</h3>
           <div className="flex gap-2 mb-4">
             <Input
               placeholder="댓글을 입력하세요"
