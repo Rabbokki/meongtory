@@ -53,7 +53,7 @@ public class WebSecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList("http://localhost:3000",
                 "http://localhost:3001",
-                "http://43.201.8.4:3000",
+                "https://meongtory.shop",
                 "http://frontend:3000"
                 )); // 명시적으로 허용
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
