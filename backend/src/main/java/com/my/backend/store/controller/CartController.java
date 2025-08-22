@@ -94,7 +94,19 @@ public class CartController {
     @PutMapping("/{cartId}")
     public CartDto updateQuantity(@PathVariable Long cartId,
                                   @RequestParam int quantity) {
+        System.out.println("=== CartController.updateQuantity ===");
+        System.out.println("요청된 Cart ID: " + cartId);
+        System.out.println("요청된 수량: " + quantity);
+        System.out.println("================================");
+        
         Cart cart = cartService.updateCartQuantity(cartId, quantity);
-        return cartService.toDto(cart);
+        CartDto result = cartService.toDto(cart);
+        
+        System.out.println("수량 업데이트 완료:");
+        System.out.println("- Cart ID: " + result.getId());
+        System.out.println("- 최종 수량: " + result.getQuantity());
+        System.out.println("=== CartController.updateQuantity 완료 ===");
+        
+        return result;
     }
 }
