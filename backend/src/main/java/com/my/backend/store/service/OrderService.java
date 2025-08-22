@@ -150,20 +150,20 @@ public class OrderService {
         return mapToResponseDto(order);
     }
 
-    // 모든 사용자의 주문 조회 (관리자용) - 결제 완료된 주문만
+    // 모든 사용자의 주문 조회 (관리자용) - 결제 완료 및 취소된 주문 포함
     @Transactional(readOnly = true)
     public List<OrderResponseDto> getAllOrders() {
         return orderRepository.findAll().stream()
-                .filter(order -> order.getStatus() == OrderStatus.PAID) // 결제 완료된 주문만 필터링
+                .filter(order -> order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.CANCELED) // 결제 완료 및 취소된 주문 포함
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
 
-    // 특정 사용자의 주문 조회 (결제 완료된 주문만)
+    // 특정 사용자의 주문 조회 (결제 완료 및 취소된 주문 포함)
     @Transactional(readOnly = true)
     public List<OrderResponseDto> getUserOrders(Long accountId) {
         return orderRepository.findByAccountId(accountId).stream()
-                .filter(order -> order.getStatus() == OrderStatus.PAID) // 결제 완료된 주문만 필터링
+                .filter(order -> order.getStatus() == OrderStatus.PAID || order.getStatus() == OrderStatus.CANCELED) // 결제 완료 및 취소된 주문 포함
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }

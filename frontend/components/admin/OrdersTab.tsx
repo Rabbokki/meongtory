@@ -52,17 +52,27 @@ export default function OrdersTab({
       const data: any[] = response.data;
       console.log('받은 주문 데이터:', data);
       
-      // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료된 주문만)
+      // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료 및 취소된 주문 포함)
       const ordersWithItems: Order[] = data
-        .filter((order: any) => order.status === 'PAID') // 결제 완료된 주문만 필터링
+        .filter((order: any) => order.status === 'PAID' || order.status === 'CANCELED') // 결제 완료 및 취소된 주문 포함
         .map((order: any) => {
           console.log('변환 중인 주문 데이터:', order);
+          
+          // 주문 상태에 따른 paymentStatus 결정
+          let paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED";
+          if (order.status === 'PAID') {
+            paymentStatus = 'COMPLETED';
+          } else if (order.status === 'CANCELED') {
+            paymentStatus = 'CANCELLED';
+          } else {
+            paymentStatus = 'PENDING';
+          }
           
           return {
             orderId: order.id || order.orderId, // 백엔드에서는 id 필드 사용
             userId: order.accountId || order.userId,
             amount: order.amount, // 백엔드에서는 amount 필드 사용
-            paymentStatus: 'COMPLETED', // 결제 완료된 주문만 표시하므로 항상 COMPLETED
+            paymentStatus: paymentStatus,
             orderedAt: order.createdAt || order.orderedAt,
             orderItems: [{
               id: order.id,
@@ -71,7 +81,7 @@ export default function OrdersTab({
               price: order.amount,
               quantity: order.quantity,
               orderDate: order.createdAt,
-              status: 'completed', // 결제 완료된 주문만 표시하므로 항상 completed
+              status: paymentStatus === 'COMPLETED' ? 'completed' : paymentStatus === 'CANCELLED' ? 'cancelled' : 'pending',
               ImageUrl: order.imageUrl || "/placeholder.svg"
             }]
           };
@@ -104,12 +114,28 @@ export default function OrdersTab({
     try {
       console.log(`주문 상태 변경 요청: 주문ID ${orderId}, 상태 ${status}`);
       
+      // 인증 토큰 가져오기
+      const accessToken = localStorage.getItem("accessToken");
+      const refreshToken = localStorage.getItem("refreshToken");
+      
+      if (!accessToken) {
+        console.error('인증 토큰이 없습니다.');
+        alert('인증 토큰이 없습니다. 다시 로그인해주세요.');
+        return;
+      }
+      
+      const headers = {
+        "Authorization": `${accessToken}`,
+        "Access_Token": accessToken,
+        "Refresh_Token": refreshToken || ''
+      };
+      
       // 백엔드 상태값으로 변환
       const backendStatus = status === 'COMPLETED' ? 'PAID' : 
                            status === 'PENDING' ? 'CREATED' : 
                            status === 'CANCELLED' ? 'CANCELED' : 'CREATED';
       
-      const response = await axios.patch(`${getBackendUrl()}/api/orders/${orderId}/status?status=${backendStatus}`);
+      const response = await axios.patch(`${getBackendUrl()}/api/orders/${orderId}/status?status=${backendStatus}`, {}, { headers });
       console.log('업데이트된 주문:', response.data);
       
       // 현재 주문 목록에서 해당 주문만 업데이트

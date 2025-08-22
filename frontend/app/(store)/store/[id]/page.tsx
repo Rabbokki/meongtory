@@ -8,7 +8,7 @@ import { ArrowLeft, Sparkles, PawPrint } from "lucide-react"
 import Image from "next/image"
 import axios from "axios"
 import { useRouter } from "next/navigation"
-import { ProductRecommendationCard } from "@/components/ui/product-recommendation-card"
+import { ProductRecommendationSlider } from "@/components/ui/product-recommendation-slider"
 import { getBackendUrl } from '@/lib/api'
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
@@ -634,63 +634,107 @@ export default function StoreProductDetailPage({
     return (product?.stock || 0) > 0
   }
 
-                       // 추천 상품 장바구니 추가
-     const handleRecommendationAddToCart = async (productId: number) => {
-       try {
-         console.log('추천 상품 장바구니 추가 - productId:', productId, '타입:', typeof productId)
-         
-         if (!productId || isNaN(productId)) {
-           alert('유효하지 않은 상품 ID입니다.')
-           return
-         }
+                                               // 추천 상품 장바구니 추가
+      const handleRecommendationAddToCart = async (productId: number, productInfo?: any) => {
+        try {
+          console.log('추천 상품 장바구니 추가 - productId:', productId, '타입:', typeof productId, 'productInfo:', productInfo)
+          
+          if (!productId || isNaN(productId)) {
+            alert('유효하지 않은 상품 ID입니다.')
+            return
+          }
 
-         const token = localStorage.getItem('accessToken')
-         if (!token) {
-           alert('로그인이 필요합니다.')
-           return
-         }
+          const token = localStorage.getItem('accessToken')
+          if (!token) {
+            alert('로그인이 필요합니다.')
+            return
+          }
 
-         console.log('추천 상품 장바구니 추가 요청:', {
-           url: `${getBackendUrl()}/api/carts?productId=${productId}&quantity=1`,
-           productId: productId,
-           quantity: 1
-         })
+          // 추천 상품이 네이버 상품인지 확인
+          const isNaverProduct = productInfo?.source === 'NAVER' || productInfo?.externalProductUrl;
+          console.log('추천 상품 타입 확인 - isNaverProduct:', isNaverProduct, 'source:', productInfo?.source)
 
-         const response = await axios.post(`${getBackendUrl()}/api/carts?productId=${productId}&quantity=1`, null, {
-           headers: {
-             "Access_Token": token,
-             "Refresh_Token": localStorage.getItem('refreshToken') || ''
-           }
-         })
+          let response: any;
 
-         console.log('추천 상품 장바구니 추가 응답:', response.data)
+          if (isNaverProduct) {
+            // 네이버 상품인 경우 네이버 상품용 API 호출
+            console.log('네이버 추천 상품 장바구니 추가 요청:', {
+              url: `${getBackendUrl()}/api/naver-shopping/cart/add`,
+              productId: productId,
+              productInfo: productInfo
+            })
 
-         if (response.status === 200) {
-           alert('장바구니에 추가되었습니다!')
-           // 장바구니 페이지로 이동
-           router.push('/store/cart')
-         } else {
-           alert('장바구니 추가에 실패했습니다.')
-         }
-       } catch (error: any) {
-         console.error('추천 상품 장바구니 추가 오류:', error)
-         console.error('에러 상세 정보:', {
-           message: error.message,
-           status: error.response?.status,
-           data: error.response?.data,
-           url: error.config?.url
-         })
-         
-         // 백엔드에서 재고 부족 에러 처리
-         if (error.response?.data?.message?.includes('재고가 부족합니다')) {
-           alert(error.response.data.message)
-         } else if (error.response?.status === 400) {
-           alert('이미 장바구니에 있는 상품입니다.')
-         } else {
-           alert('장바구니 추가에 실패했습니다.')
-         }
-       }
-     }
+            const naverProductData = {
+              productId: String(productId),
+              title: productInfo?.name || '네이버 상품',
+              description: productInfo?.description || productInfo?.name || '네이버 상품',
+              price: productInfo?.price || 0,
+              imageUrl: productInfo?.imageUrl || '',
+              mallName: productInfo?.externalMallName || '네이버 쇼핑',
+              productUrl: productInfo?.externalProductUrl || '',
+              brand: productInfo?.brand || '',
+              maker: '',
+              category1: productInfo?.category || '',
+              category2: '',
+              category3: '',
+              category4: '',
+              reviewCount: 0,
+              rating: 0.0,
+              searchCount: 0
+            }
+
+            response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, naverProductData, {
+              params: { quantity: 1 },
+              headers: {
+                "Access_Token": token,
+                "Refresh_Token": localStorage.getItem('refreshToken') || '',
+                "Content-Type": "application/json"
+              }
+            })
+          } else {
+            // 일반 상품인 경우 일반 상품용 API 호출
+            console.log('일반 추천 상품 장바구니 추가 요청:', {
+              url: `${getBackendUrl()}/api/carts?productId=${productId}&quantity=1`,
+              productId: productId,
+              quantity: 1
+            })
+
+            response = await axios.post(`${getBackendUrl()}/api/carts?productId=${productId}&quantity=1`, null, {
+              headers: {
+                "Access_Token": token,
+                "Refresh_Token": localStorage.getItem('refreshToken') || ''
+              }
+            })
+          }
+
+          console.log('추천 상품 장바구니 추가 응답:', response.data)
+
+          if (response.status === 200) {
+            alert('장바구니에 추가되었습니다!')
+            // 장바구니 페이지로 이동
+            router.push('/store/cart')
+          } else {
+            alert('장바구니 추가에 실패했습니다.')
+          }
+        } catch (error: any) {
+          console.error('추천 상품 장바구니 추가 오류:', error)
+          console.error('에러 상세 정보:', {
+            message: error.message,
+            status: error.response?.status,
+            data: error.response?.data,
+            url: error.config?.url
+          })
+          
+          // 백엔드에서 재고 부족 에러 처리
+          if (error.response?.data?.message?.includes('재고가 부족합니다')) {
+            alert(error.response.data.message)
+          } else if (error.response?.status === 400) {
+            alert('이미 장바구니에 있는 상품입니다.')
+          } else {
+            alert('장바구니 추가에 실패했습니다.')
+          }
+        }
+      }
 
   // 추천 상품 위시리스트 추가
   const handleRecommendationAddToWishlist = async (productId: number) => {
@@ -1044,11 +1088,11 @@ export default function StoreProductDetailPage({
              <CardHeader>
                <div className="flex items-center gap-2">
                  <Sparkles className="w-5 h-5 text-orange-500" />
-                 <CardTitle className="text-xl">AI 맞춤 추천</CardTitle>
+                 <CardTitle className="text-xl">AI 맞춤 추천 (네이버 상품)</CardTitle>
                </div>
                {myPet && (
                  <p className="text-sm text-gray-600">
-                   {myPet.name} ({myPet.breed}, {myPet.age}살)을 위한 맞춤 상품을 추천해드려요
+                   {myPet.name} ({myPet.breed}, {myPet.age}살)을 위한 네이버 쇼핑 맞춤 상품을 추천해드려요
                  </p>
                )}
              </CardHeader>
@@ -1070,7 +1114,7 @@ export default function StoreProductDetailPage({
                ) : recommendationsLoading ? (
                  <div className="text-center py-8">
                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
-                   <p className="text-gray-600">맞춤 상품을 찾고 있어요...</p>
+                   <p className="text-gray-600">네이버 쇼핑에서 맞춤 상품을 찾고 있어요...</p>
                  </div>
                ) : recommendationsError ? (
                  <div className="text-center py-8">
@@ -1083,28 +1127,30 @@ export default function StoreProductDetailPage({
                      다시 시도
                    </Button>
                  </div>
-               ) : recommendations.length > 0 ? (
-                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {recommendations.map((recommendation) => {
+                               ) : recommendations.length > 0 ? (
+                  <ProductRecommendationSlider
+                    products={recommendations.map((recommendation) => {
                       console.log('추천 상품 렌더링:', recommendation)
                       const productId = recommendation.productId || recommendation.id
-                      return (
-                        <ProductRecommendationCard
-                          key={productId}
-                          product={{
-                            id: productId,
-                            productId: productId,
-                            name: recommendation.name.replace(/<[^>]*>/g, ''),
-                            price: recommendation.price,
-                            imageUrl: recommendation.imageUrl,
-                            category: recommendation.category,
-                            recommendationReason: recommendation.recommendationReason
-                          }}
-                          onAddToCart={handleRecommendationAddToCart}
-                        />
-                      )
+                      return {
+                        id: productId,
+                        productId: productId,
+                        name: recommendation.name.replace(/<[^>]*>/g, ''),
+                        price: recommendation.price,
+                        imageUrl: recommendation.imageUrl,
+                        category: recommendation.category,
+                        recommendationReason: recommendation.recommendationReason,
+                        source: recommendation.source,
+                        externalProductUrl: recommendation.externalProductUrl,
+                        externalMallName: recommendation.externalMallName,
+                        brand: recommendation.brand,
+                        description: recommendation.description
+                      }
                     })}
-                  </div>
+                    onAddToCart={handleRecommendationAddToCart}
+                    title=""
+                    subtitle=""
+                  />
                ) : (
                  <div className="text-center py-8">
                    <p className="text-gray-600">추천할 상품이 없습니다.</p>
@@ -1332,28 +1378,30 @@ export default function StoreProductDetailPage({
                     다시 시도
                   </Button>
                 </div>
-              ) : recommendations.length > 0 ? (
-                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   {recommendations.map((recommendation) => {
+                             ) : recommendations.length > 0 ? (
+                 <ProductRecommendationSlider
+                   products={recommendations.map((recommendation) => {
                      console.log('추천 상품 데이터:', recommendation)
                      const productId = recommendation.productId || recommendation.id
-                     return (
-                       <ProductRecommendationCard
-                         key={productId}
-                         product={{
-                           id: productId,
-                           productId: productId,
-                           name: recommendation.name.replace(/<[^>]*>/g, ''),
-                           price: recommendation.price,
-                           imageUrl: recommendation.imageUrl,
-                           category: recommendation.category,
-                           recommendationReason: recommendation.recommendationReason
-                         }}
-                         onAddToCart={handleRecommendationAddToCart}
-                       />
-                     )
+                     return {
+                       id: productId,
+                       productId: productId,
+                       name: recommendation.name.replace(/<[^>]*>/g, ''),
+                       price: recommendation.price,
+                       imageUrl: recommendation.imageUrl,
+                       category: recommendation.category,
+                       recommendationReason: recommendation.recommendationReason,
+                       source: recommendation.source,
+                       externalProductUrl: recommendation.externalProductUrl,
+                       externalMallName: recommendation.externalMallName,
+                       brand: recommendation.brand,
+                       description: recommendation.description
+                     }
                    })}
-                 </div>
+                   onAddToCart={handleRecommendationAddToCart}
+                   title=""
+                   subtitle=""
+                 />
               ) : (
                 <div className="text-center py-8">
                   <p className="text-gray-600">추천할 상품이 없습니다.</p>

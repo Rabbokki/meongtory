@@ -33,45 +33,7 @@ public class ProductService {
         products.forEach(product -> {
             System.out.println("상품 ID: " + product.getId() + ", 이름: " + product.getName());
         });
-        if (products.isEmpty()) {
-            System.out.println("상품 데이터가 없어서 테스트 데이터를 생성합니다.");
-            createTestProducts();
-            products = productRepository.findAll();
-        }
         return products;
-    }
-
-    private void createTestProducts() {
-        try {
-            Product product1 = Product.builder()
-                    .name("프리미엄 강아지 사료 (성견용)")
-                    .description("성견을 위한 프리미엄 사료입니다.")
-                    .price(45000L)
-                    .stock(50L)
-                    .imageUrl("/placeholder.svg?height=300&width=300")
-                    .category(Category.사료)
-                    .registrationDate(LocalDate.now())
-                    .registeredBy("admin")
-                    .build();
-            productRepository.save(product1);
-
-            Product product2 = Product.builder()
-                    .name("고양이 장난감 세트")
-                    .description("다양한 고양이 장난감으로 구성된 세트입니다.")
-                    .price(25000L)
-                    .stock(100L)
-                    .imageUrl("/placeholder.svg?height=300&width=300")
-                    .category(Category.장난감)
-                    .registrationDate(LocalDate.now())
-                    .registeredBy("admin")
-                    .build();
-            productRepository.save(product2);
-
-            System.out.println("테스트 상품 데이터 생성 완료");
-        } catch (Exception e) {
-            System.out.println("테스트 상품 데이터 생성 실패: " + e.getMessage());
-            e.printStackTrace();
-        }
     }
 
     public Product createProduct(Product product) {
