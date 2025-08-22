@@ -23,6 +23,7 @@ public class CommunityPostDto {
     private int comments;
     private List<String> tags;
     private List<String> images;
+    private Long sharedFromDiaryId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<String> imagesToDelete;

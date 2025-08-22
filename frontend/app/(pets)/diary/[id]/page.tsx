@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Edit, Trash2, Save, X, Mic, MicOff, Play, Pause, Camera } from "lucide-react"
+import { ArrowLeft, Edit, Trash2, Save, X, Mic, MicOff, Play, Pause, Camera, Share2 } from "lucide-react"
 import Image from "next/image"
 import { fetchDiary, updateDiary, deleteDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/diary"
 import { useToast } from "@/components/ui/use-toast"
@@ -232,13 +232,24 @@ export default function DiaryEntryDetail() {
             </Button>
             <h1 className="text-2xl font-bold text-gray-900">성장일기</h1>
           </div>
-          {!isEditing && currentUser?.id === entry.userId && (
+          {!isEditing && (
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={() => setIsEditing(true)}>
-                <Edit className="w-4 h-4 mr-2" />수정
-              </Button>
-              <Button variant="outline" onClick={() => setShowDeleteConfirm(true)} className="text-red-600">
-                <Trash2 className="w-4 h-4 mr-2" />삭제
+              {currentUser?.id === entry.userId && (
+                <>
+                  <Button variant="outline" onClick={() => setIsEditing(true)}>
+                    <Edit className="w-4 h-4 mr-2" />수정
+                  </Button>
+                  <Button variant="outline" onClick={() => setShowDeleteConfirm(true)} className="text-red-600">
+                    <Trash2 className="w-4 h-4 mr-2" />삭제
+                  </Button>
+                </>
+              )}
+              <Button
+                variant="outline"
+                onClick={() => router.push(`/community/write?sharedFromDiary=${diaryId}`)}
+                className="bg-yellow-400 hover:bg-yellow-500 text-black border-yellow-400"
+              >
+                <Share2 className="w-4 h-4 mr-2" />커뮤니티에 공유
               </Button>
             </div>
           )}
