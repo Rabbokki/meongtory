@@ -128,26 +128,38 @@ export default function MyPage() {
       
       console.log('사용자별 주문 데이터:', response.data)
       
-      // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료된 주문만)
+      // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료 및 취소된 주문 포함)
       const convertedOrders = response.data
-        .filter((order: any) => order.status === 'PAID') // 결제 완료된 주문만 필터링
-        .map((order: any) => ({
-          orderId: order.id,
-          userId: order.accountId,
-          amount: order.amount,
-          paymentStatus: 'COMPLETED', // 결제 완료된 주문만 표시하므로 항상 COMPLETED
-          orderedAt: order.createdAt,
-          orderItems: [{
-            id: order.id,
-            productId: order.productId,
-            productName: order.productName,
-            price: order.amount,
-            quantity: order.quantity,
-            orderDate: order.createdAt,
-            status: 'completed', // 결제 완료된 주문만 표시하므로 항상 completed
-            ImageUrl: order.imageUrl || "/placeholder.svg"
-          }]
-        }))
+        .filter((order: any) => order.status === 'PAID' || order.status === 'CANCELED') // 결제 완료 및 취소된 주문 포함
+        .map((order: any) => {
+          // 주문 상태에 따른 paymentStatus 결정
+          let paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED";
+          if (order.status === 'PAID') {
+            paymentStatus = 'COMPLETED';
+          } else if (order.status === 'CANCELED') {
+            paymentStatus = 'CANCELLED';
+          } else {
+            paymentStatus = 'PENDING';
+          }
+          
+          return {
+            orderId: order.id,
+            userId: order.accountId,
+            amount: order.amount,
+            paymentStatus: paymentStatus,
+            orderedAt: order.createdAt,
+            orderItems: [{
+              id: order.id,
+              productId: order.productId,
+              productName: order.productName,
+              price: order.amount,
+              quantity: order.quantity,
+              orderDate: order.createdAt,
+              status: paymentStatus === 'COMPLETED' ? 'completed' : paymentStatus === 'CANCELLED' ? 'cancelled' : 'pending',
+              ImageUrl: order.imageUrl || "/placeholder.svg"
+            }]
+          };
+        })
       
       console.log('변환된 주문 데이터:', convertedOrders)
       setOrders(convertedOrders)

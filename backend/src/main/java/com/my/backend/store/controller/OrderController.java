@@ -217,8 +217,31 @@ public class OrderController {
     public ResponseEntity<OrderResponseDto> updateOrderStatus(
             @PathVariable Long id,
             @RequestParam OrderStatus status) {
-        OrderResponseDto updatedOrder = orderService.updateOrderStatus(id, status);
-        return ResponseEntity.ok(updatedOrder);
+        try {
+            // 현재 로그인한 사용자의 권한 확인
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+            String userRole = userDetails.getAccount().getRole();
+            
+            System.out.println("주문 상태 변경 요청 - 사용자: " + userDetails.getAccount().getEmail() + ", 권한: " + userRole);
+            
+            if (!"ADMIN".equals(userRole)) {
+                System.out.println("관리자 권한이 없습니다: " + userRole);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+            
+            OrderResponseDto updatedOrder = orderService.updateOrderStatus(id, status);
+            System.out.println("주문 상태 변경 성공: 주문ID " + id + ", 상태 " + status);
+            return ResponseEntity.ok(updatedOrder);
+        } catch (Exception e) {
+            System.out.println("주문 상태 변경 실패: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
 }
