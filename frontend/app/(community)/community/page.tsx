@@ -8,7 +8,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MessageSquare, Heart, Eye, Plus, Search, Edit, Trash } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { getBackendUrl } from "@/lib/api"
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +29,7 @@ interface CommunityPost {
 
 interface CommunityPageProps {
   isLoggedIn?: boolean;
-  onShowLogin?: () => void; // 모달 열기 prop 추가
+  onShowLogin?: () => void;
   onUpdatePosts?: (posts: CommunityPost[]) => void;
 }
 
@@ -50,11 +49,7 @@ export default function CommunityPage({
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("accessToken");
       setIsLoggedIn(!!token);
-      console.log("isLoggedIn set from localStorage:", !!token);
     }
-
-    console.log("onUpdatePosts is function:", typeof onUpdatePosts === "function");
-    console.log("isLoggedIn:", isLoggedIn, "propIsLoggedIn:", propIsLoggedIn);
 
     if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
       setError("Backend URL is not defined in environment variables");
@@ -65,7 +60,6 @@ export default function CommunityPage({
     const fetchPosts = async () => {
       try {
         setLoading(true);
-
         const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
         const headers: HeadersInit = {
           "Content-Type": "application/json",
@@ -74,30 +68,28 @@ export default function CommunityPage({
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${getBackendUrl()}/api/community/posts`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts`, {
           method: "GET",
           headers,
         });
 
-        console.log("Response status:", response.status);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const data = await response.json();
-        console.log("Fetched posts:", data);
 
         const mappedPosts = data.map((post: any) => ({
           id: post.id,
           title: post.title || "제목 없음",
           content: post.content || "",
-          author: post.name || "익명",
-          date: post.createdAt ? new Date(post.createdAt).toLocaleDateString() : new Date().toLocaleDateString(),
+          author: post.author || "익명", //  DB author 매핑
+          date: post.createdAt
+            ? new Date(post.createdAt).toLocaleDateString()
+            : new Date().toLocaleDateString(),
           category: post.category || "",
           boardType: post.boardType || "자유게시판",
           views: post.views || 0,
           likes: post.likes || 0,
-          comments: post.comments || 0,
+          comments: post.comments || 0, //  DB community_posts.comments
           tags: post.tags || [],
           images: post.images || [],
           ownerEmail: post.ownerEmail || "",
@@ -108,7 +100,6 @@ export default function CommunityPage({
           onUpdatePosts(mappedPosts);
         }
       } catch (err: any) {
-        console.error("Failed to fetch posts:", err);
         setError(err.message || "Failed to fetch posts");
       } finally {
         setLoading(false);
@@ -135,21 +126,24 @@ export default function CommunityPage({
 
   const handleLike = async (postId: number) => {
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
-      const headers: HeadersInit = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers["Authorization"] = `Bearer ${token}`;
+      if (!isLoggedIn) {
+        if (onShowLogin) return onShowLogin();
+        return;
       }
 
-      const response = await fetch(`${getBackendUrl()}/api/community/posts/${postId}/like`, {
+      const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}/like`, {
         method: "PUT",
         headers,
       });
 
       if (response.ok) {
-        const updatedPosts = posts.map((post) => (post.id === postId ? { ...post, likes: post.likes + 1 } : post));
+        const updatedPosts = posts.map((post) =>
+          post.id === postId ? { ...post, likes: post.likes + 1 } : post
+        );
         setPosts(updatedPosts);
         if (typeof onUpdatePosts === "function") {
           onUpdatePosts(updatedPosts);
@@ -165,11 +159,8 @@ export default function CommunityPage({
 
   const handleEdit = (post: CommunityPost) => {
     if (!isLoggedIn) {
-      if (onShowLogin) {
-        onShowLogin();
-      } else {
-        router.push("/community");
-      }
+      if (onShowLogin) onShowLogin();
+      else router.push("/community");
       return;
     }
     router.push(`/community/${post.id}?edit=true`);
@@ -177,22 +168,17 @@ export default function CommunityPage({
 
   const handleDelete = async (postId: number) => {
     if (!isLoggedIn) {
-      if (onShowLogin) {
-        onShowLogin();
-      } else {
-        router.push("/community");
-      }
+      if (onShowLogin) onShowLogin();
+      else router.push("/community");
       return;
     }
     if (confirm("정말로 이 게시글을 삭제하시겠습니까?")) {
       try {
         const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null;
         const headers: HeadersInit = {};
-        if (token) {
-          headers["Access_Token"] = token;
-        }
+        if (token) headers["Access_Token"] = token;
 
-        const response = await fetch(`${getBackendUrl()}/api/community/posts/${postId}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/community/posts/${postId}`, {
           method: "DELETE",
           headers,
         });
@@ -215,15 +201,9 @@ export default function CommunityPage({
   };
 
   const handleNavigateToWrite = () => {
-    console.log("handleNavigateToWrite called, isLoggedIn:", isLoggedIn);
     if (!isLoggedIn) {
-      console.log("Not logged in, calling onShowLogin");
-      if (onShowLogin) {
-        onShowLogin();
-      } else {
-        console.warn("onShowLogin prop이 정의되지 않음, /community로 이동");
-        router.push("/community");
-      }
+      if (onShowLogin) onShowLogin();
+      else router.push("/community");
       return;
     }
     router.push("/community/write");
@@ -233,13 +213,8 @@ export default function CommunityPage({
     router.push(`/community/${post.id}`);
   };
 
-  if (loading) {
-    return <div className="min-h-screen bg-gray-50 py-8">로딩 중...</div>;
-  }
-
-  if (error) {
-    return <div className="min-h-screen bg-gray-50 py-8">에러: {error}</div>;
-  }
+  if (loading) return <div className="min-h-screen bg-gray-50 py-8">로딩 중...</div>;
+  if (error) return <div className="min-h-screen bg-gray-50 py-8">에러: {error}</div>;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -250,6 +225,7 @@ export default function CommunityPage({
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
+            {/* 검색 + 글쓰기 */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Input
                 type="text"
@@ -268,6 +244,7 @@ export default function CommunityPage({
               </Button>
             </div>
 
+            {/* 게시글 목록 */}
             {sortedPosts && sortedPosts.length > 0 ? (
               sortedPosts.map((post) => (
                 <Card key={post.id} className="hover:shadow-md transition-shadow cursor-pointer">
@@ -291,16 +268,19 @@ export default function CommunityPage({
                             {post.comments}
                           </span>
                           <button
+                            disabled={!isLoggedIn}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleLike(post.id);
+                              if (isLoggedIn) handleLike(post.id);
                             }}
-                            className="flex items-center hover:text-red-500 transition-colors"
+                            className={`flex items-center ${
+                              isLoggedIn ? "hover:text-red-500" : "opacity-50 cursor-not-allowed"
+                            }`}
                           >
                             <Heart className="h-4 w-4 mr-1" />
                             {post.likes}
                           </button>
-                          {isLoggedIn && (
+                          {/* {isLoggedIn && (
                             <>
                               <button
                                 onClick={(e) => {
@@ -323,7 +303,7 @@ export default function CommunityPage({
                                 삭제
                               </button>
                             </>
-                          )}
+                          )} */}
                         </div>
                       </div>
                       {post.images && post.images.length > 0 && (
@@ -348,6 +328,7 @@ export default function CommunityPage({
             )}
           </div>
 
+          {/* 인기글 사이드 */}
           <div className="lg:col-span-1 space-y-6">
             <Card>
               <CardContent className="p-6">
@@ -374,5 +355,3 @@ export default function CommunityPage({
     </div>
   );
 }
-
-
