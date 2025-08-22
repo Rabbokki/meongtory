@@ -519,6 +519,10 @@ export default function StoreProductDetailPage({
         
         if (response.status === 200) {
           alert(`장바구니에 ${quantity}개가 추가되었습니다!`)
+          
+          // 장바구니 추가 성공 후 cart 페이지로 이동
+          console.log('장바구니 추가 완료, cart 페이지로 이동합니다.');
+          router.push('/store/cart')
         } else {
           alert('장바구니 추가에 실패했습니다.')
         }
@@ -887,6 +891,12 @@ export default function StoreProductDetailPage({
                               return
                             }
 
+                            console.log('네이버 상품 장바구니 추가 시작:', {
+                              productId: propNaverProduct.productId,
+                              title: propNaverProduct.title,
+                              quantity: quantity
+                            });
+
                             // 네이버 상품 정보를 로컬 스토리지에 저장
                             const naverProductForCart = {
                               id: propNaverProduct.id, // 원본 네이버 상품 ID 사용
@@ -914,20 +924,20 @@ export default function StoreProductDetailPage({
                             if (existingIndex >= 0) {
                               // 기존 상품이 있으면 수량 추가
                               existingNaverCart[existingIndex].quantity += quantity
+                              console.log('기존 네이버 상품 수량 추가:', existingNaverCart[existingIndex]);
                             } else {
                               // 새 상품 추가
                               existingNaverCart.push(naverProductForCart)
+                              console.log('새 네이버 상품 추가:', naverProductForCart);
                             }
 
-                            // 네이버 상품을 백엔드 cart에 추가 (한 번만 API 호출)
-                            if (!token) {
-                              alert('로그인이 필요합니다.')
-                              return
-                            }
+                            // 로컬 스토리지에 저장
+                            localStorage.setItem('naverCart', JSON.stringify(existingNaverCart))
+                            console.log('로컬 스토리지에 네이버 상품 저장 완료');
 
                             // 네이버 상품을 백엔드 API로 장바구니에 추가
                             try {
-                              console.log('네이버 상품 장바구니 추가 요청:', {
+                              console.log('네이버 상품 백엔드 장바구니 추가 요청:', {
                                 productId: propNaverProduct.productId,
                                 title: propNaverProduct.title,
                                 price: propNaverProduct.price
@@ -987,10 +997,11 @@ export default function StoreProductDetailPage({
                                     maker: propNaverProduct.maker
                                   }
                                   propOnAddToCart(naverProductAsProduct)
-                                } else {
-                                  // 직접 cart 페이지로 이동
-                                  router.push('/store/cart')
                                 }
+                                
+                                // 항상 cart 페이지로 이동 (propOnAddToCart 호출 여부와 관계없이)
+                                console.log('장바구니 추가 완료, cart 페이지로 이동합니다.');
+                                router.push('/store/cart')
                               } else {
                                 alert('장바구니 추가에 실패했습니다.');
                               }
@@ -1002,11 +1013,21 @@ export default function StoreProductDetailPage({
                                 data: apiError.response?.data,
                                 url: apiError.config?.url
                               });
-                              alert('장바구니 추가에 실패했습니다.');
+                              
+                              // API 오류가 있어도 로컬 스토리지는 저장되었으므로 사용자에게 알림
+                              alert('네이버 상품이 로컬 장바구니에 추가되었습니다. (백엔드 동기화 실패)');
+                              console.log('API 오류로 인해 로컬 장바구니만 사용합니다.');
+                              router.push('/store/cart')
                             }
                           } catch (error) {
                             console.error('네이버 상품 장바구니 추가 오류:', error)
                             alert('장바구니 추가에 실패했습니다.')
+                          } finally {
+                            // 버튼 상태 복원
+                            if (button) {
+                              button.disabled = false;
+                              button.textContent = '장바구니에 추가';
+                            }
                           }
                         }}
                         className={`flex-1 ${isNaverProductInStock() ? 'bg-yellow-400 hover:bg-yellow-500 text-black' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
