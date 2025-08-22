@@ -25,6 +25,7 @@ interface CommunityPost {
   tags: string[];
   images?: string[];
   ownerEmail: string;
+  sharedFromDiaryId?: number;
 }
 
 interface CommunityPageProps {
@@ -93,6 +94,7 @@ export default function CommunityPage({
           tags: post.tags || [],
           images: post.images || [],
           ownerEmail: post.ownerEmail || "",
+          sharedFromDiaryId: post.sharedFromDiaryId,
         }));
 
         setPosts(mappedPosts);
@@ -253,6 +255,11 @@ export default function CommunityPage({
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
                           <Badge variant={post.boardType === "Q&A" ? "default" : "secondary"}>{post.boardType}</Badge>
+                          {post.sharedFromDiaryId && (
+                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                              🐾 성장일기 공유
+                            </Badge>
+                          )}
                           <span className="text-sm text-gray-500">{post.author}</span>
                           <span className="text-sm text-gray-500">{post.date}</span>
                         </div>
