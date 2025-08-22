@@ -146,20 +146,50 @@ public void removeFromCart(Long cartId) {
  * 장바구니 수량 수정
  */
 public Cart updateCartQuantity(Long cartId, int quantity) {
+    System.out.println("=== CartService.updateCartQuantity ===");
+    System.out.println("요청된 Cart ID: " + cartId);
+    System.out.println("요청된 수량: " + quantity);
+    
     Cart cart = cartRepository.findById(cartId)
-            .orElseThrow(() -> new IllegalArgumentException("해당 장바구니 항목이 존재하지 않습니다."));
+            .orElseThrow(() -> {
+                System.out.println("ERROR: Cart ID " + cartId + "에 해당하는 장바구니 항목을 찾을 수 없습니다.");
+                return new IllegalArgumentException("해당 장바구니 항목이 존재하지 않습니다.");
+            });
 
-    // 일반 상품인 경우 재고 확인
+    System.out.println("찾은 장바구니 항목:");
+    System.out.println("- Cart ID: " + cart.getId());
+    System.out.println("- 사용자 ID: " + cart.getAccount().getId());
+    System.out.println("- 현재 수량: " + cart.getQuantity());
+    
     if (cart.getProduct() != null) {
-        Product product = cart.getProduct();
-        if (product.getStock() < quantity) {
-            throw new RuntimeException("상품 '" + product.getName() + "'의 재고가 부족합니다. (재고: " + product.getStock() + ", 요청: " + quantity + ")");
+        System.out.println("- 상품 타입: 일반 상품");
+        System.out.println("- 상품 ID: " + cart.getProduct().getId());
+        System.out.println("- 상품명: " + cart.getProduct().getName());
+        System.out.println("- 상품 재고: " + cart.getProduct().getStock());
+        
+        // 일반 상품인 경우 재고 확인
+        if (cart.getProduct().getStock() < quantity) {
+            System.out.println("ERROR: 재고 부족 - 요청: " + quantity + ", 재고: " + cart.getProduct().getStock());
+            throw new RuntimeException("상품 '" + cart.getProduct().getName() + "'의 재고가 부족합니다. (재고: " + cart.getProduct().getStock() + ", 요청: " + quantity + ")");
         }
+    } else if (cart.getNaverProduct() != null) {
+        System.out.println("- 상품 타입: 네이버 상품");
+        System.out.println("- 네이버 상품 ID: " + cart.getNaverProduct().getId());
+        System.out.println("- 네이버 상품명: " + cart.getNaverProduct().getTitle());
+        // 네이버 상품인 경우 재고 제한 없음
+    } else {
+        System.out.println("ERROR: 상품 정보가 없는 장바구니 항목입니다.");
+        throw new RuntimeException("상품 정보가 없는 장바구니 항목입니다.");
     }
-    // 네이버 상품인 경우 재고 제한 없음
 
+    System.out.println("수량 업데이트: " + cart.getQuantity() + " -> " + quantity);
     cart.setQuantity(quantity);
-    return cartRepository.save(cart);
+    
+    Cart savedCart = cartRepository.save(cart);
+    System.out.println("수량 업데이트 완료 - 최종 수량: " + savedCart.getQuantity());
+    System.out.println("=== CartService.updateCartQuantity 완료 ===");
+    
+    return savedCart;
 }
 
 /**
