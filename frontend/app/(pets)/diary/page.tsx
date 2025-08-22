@@ -188,11 +188,7 @@ export default function GrowthDiaryPage({
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">성장일기</h1>
-            {isLoggedIn && (
-              <p className="text-sm text-gray-600 mt-1">
-                {localStorage.getItem("userRole") === "ADMIN" ? "관리자 모드 - 모든 사용자의 일기를 볼 수 있습니다" : "내 일기 목록"}
-              </p>
-            )}
+          
           </div>
           {isLoggedIn && (
             <Button
