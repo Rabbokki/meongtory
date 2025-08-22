@@ -5,9 +5,10 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getApiBaseUrl } from "@/lib/utils/apiBaseUrl";
+import { getBackendUrl } from "@/lib/api";
 import { Edit, Trash2, X, ChevronLeft, Check } from "lucide-react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
+import axios from "axios";
 
 interface CommunityPost {
   id: number;
@@ -44,7 +45,7 @@ export default function CommunityDetailPage({
   onUpdatePost?: (updatedPost: CommunityPost) => void;
   onDeletePost: (postId: number) => void;
 }) {
-  const API_BASE_URL = getApiBaseUrl();
+  const API_BASE_URL = getBackendUrl();
   const router = useRouter();
   const searchParams = useSearchParams();
   const params = useParams();
@@ -68,7 +69,7 @@ export default function CommunityDetailPage({
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
 
-  const getAuthHeaders = (): HeadersInit => {
+  const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem("accessToken");
     console.log("Access Token:", token);
     return token ? { Access_Token: token } : {};
@@ -79,32 +80,28 @@ export default function CommunityDetailPage({
       const refreshToken = localStorage.getItem("refreshToken");
       console.log("Refresh Token:", refreshToken);
       if (!refreshToken) {
-        throw new Error("No refresh token found");
+        console.warn("No refresh token found");
+        return null;
       }
 
-      const res = await fetch(`${API_BASE_URL}/api/accounts/refresh`, {
-        method: "POST",
-        headers: {
-          Refresh_Token: refreshToken,
-        },
-        credentials: "include",
+      const response = await axios.post(`${API_BASE_URL}/api/accounts/refresh`, {
+        refreshToken: refreshToken
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        localStorage.setItem("accessToken", data.accessToken);
-        console.log("Token refreshed:", data.accessToken);
-        return data.accessToken;
+      console.log("Refresh token response:", response.data);
+
+      if (response.data.data && response.data.data.accessToken) {
+        localStorage.setItem("accessToken", response.data.data.accessToken);
+        console.log("Token refreshed:", response.data.data.accessToken);
+        return response.data.data.accessToken;
       } else {
-        const errorData = await res.json();
-        console.error("Refresh token error response:", errorData);
-        throw new Error(`Token refresh failed: ${errorData.message || "Unknown error"}`);
+        console.error("Refresh token error response:", response.data);
+        console.warn("Token refresh failed, but keeping existing token");
+        return null;
       }
     } catch (err) {
       console.error("Refresh token error:", err);
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      router.push("/login");
+      console.warn("Token refresh error, but keeping existing token");
       return null;
     }
   };
@@ -118,36 +115,74 @@ export default function CommunityDetailPage({
     const fetchUserInfo = async () => {
       try {
         const token = localStorage.getItem("accessToken");
+        console.log("Access Token for /api/accounts/me:", token);
+        
         if (!token) {
-          console.warn("No access token found for /api/accounts/me");
-          const fallbackEmail = localStorage.getItem("email");
-          if (fallbackEmail) setCurrentUserEmail(fallbackEmail);
+          console.warn("No access token found - user not logged in");
+          setCurrentUserEmail(null);
+          setCurrentUserRole(null);
           return;
         }
-
-        const res = await fetch(`${API_BASE_URL}/api/accounts/me`, {
-          headers: { Access_Token: token },
+        const response = await axios.get(`${API_BASE_URL}/api/accounts/me`, {
+          headers: { Access_Token: localStorage.getItem("accessToken") || "" }
         });
-        const response = await res.json();
-        console.log("User info response:", response);
+        
+        
+        console.log("User info response:", response.data);
 
-        if (res.ok && response.status === "success" && response.data) {
-          setCurrentUserEmail(response.data.email);
-          setCurrentUserRole(response.data.role);
-          localStorage.setItem("email", response.data.email);
+        if (response.data.success && response.data.data) {
+          setCurrentUserEmail(response.data.data.email);
+          setCurrentUserRole(response.data.data.role);
+          localStorage.setItem("email", response.data.data.email);
+          console.log("User info set:", { email: response.data.data.email, role: response.data.data.role });
         } else {
-          console.error("User info fetch failed:", response.error);
-          const fallbackEmail = localStorage.getItem("email");
-          if (fallbackEmail) setCurrentUserEmail(fallbackEmail);
+          console.error("User info fetch failed:", response.data.error);
+          setCurrentUserEmail(null);
+          setCurrentUserRole(null);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Fetch user info error:", err);
-        const fallbackEmail = localStorage.getItem("email");
-        if (fallbackEmail) setCurrentUserEmail(fallbackEmail);
+        if (err.response?.status === 401) {
+          console.warn("Token expired or invalid - attempting to refresh");
+          const newToken = await refreshToken();
+          if (newToken) {
+            try {
+                             const retryResponse = await axios.get(`${API_BASE_URL}/api/accounts/me`, {
+                 headers: { Access_Token: newToken },
+                 withCredentials: true,
+               });
+              console.log("Retry user info response:", retryResponse.data);
+              
+              if (retryResponse.data.success && retryResponse.data.data) {
+                setCurrentUserEmail(retryResponse.data.data.email);
+                setCurrentUserRole(retryResponse.data.data.role);
+                localStorage.setItem("email", retryResponse.data.data.email);
+                console.log("User info set after refresh:", { email: retryResponse.data.data.email, role: retryResponse.data.data.role });
+              } else {
+                console.error("Retry failed:", retryResponse.data);
+                setCurrentUserEmail(null);
+                setCurrentUserRole(null);
+              }
+            } catch (retryErr) {
+              console.error("Retry failed:", retryErr);
+              setCurrentUserEmail(null);
+              setCurrentUserRole(null);
+            }
+          } else {
+            setCurrentUserEmail(null);
+            setCurrentUserRole(null);
+          }
+        } else {
+          setCurrentUserEmail(null);
+          setCurrentUserRole(null);
+        }
       }
     };
-    fetchUserInfo();
-  }, [API_BASE_URL]);
+
+    if (postId) {
+      fetchUserInfo();
+    }
+  }, [API_BASE_URL, postId]);
 
   useEffect(() => {
     if (!initialPost && postId) {
@@ -155,21 +190,16 @@ export default function CommunityDetailPage({
         try {
           setIsLoading(true);
           setError(null);
-          const res = await fetch(`${API_BASE_URL}/api/community/posts/${postId}`, {
+          const response = await axios.get(`${API_BASE_URL}/api/community/posts/${postId}`, {
             headers: getAuthHeaders(),
           });
-          if (!res.ok) {
-            const errorData = await res.json();
-            throw new Error(`게시글 로드 실패 (${res.status}): ${errorData.message || "알 수 없는 오류"}`);
-          }
-          const data: CommunityPost = await res.json();
-          console.log("Fetched post data:", data);
-          setPost(data);
-          setEditedTitle(data.title);
-          setEditedContent(data.content);
-          setPreviewImages(data.images || []);
+          setPost(response.data);
+          setEditedTitle(response.data.title);
+          setEditedContent(response.data.content);
+          setPreviewImages(response.data.images || []);
         } catch (err: any) {
-          setError(err.message);
+          const errorMessage = err.response?.data?.message || err.message || "알 수 없는 오류";
+          setError(`게시글 로드 실패: ${errorMessage}`);
           setPost(null);
         } finally {
           setIsLoading(false);
@@ -185,12 +215,11 @@ export default function CommunityDetailPage({
 
   useEffect(() => {
     if (postId && !isEditing) {
-      fetch(`${API_BASE_URL}/api/community/comments/${postId}`, {
+      axios.get(`${API_BASE_URL}/api/community/comments/${postId}`, {
         headers: getAuthHeaders(),
       })
-        .then((res) => res.json())
-        .then((data) => {
-          setComments(data);
+        .then((response) => {
+          setComments(response.data);
         })
         .catch((err) => console.error("댓글 불러오기 실패:", err));
     }
@@ -199,62 +228,55 @@ export default function CommunityDetailPage({
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/community/comments/${postId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify({ content: newComment }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(`댓글 작성 실패 (${res.status}): ${errorData.message || "알 수 없는 오류"}`);
-      }
-      const data = await res.json();
-      setComments([...comments, data]);
+      const response = await axios.post(`${API_BASE_URL}/api/community/comments/${postId}`, 
+        { content: newComment },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+        }
+      );
+      setComments([...comments, response.data]);
       setNewComment("");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Add comment error:", err);
+      const errorMessage = err.response?.data?.message || "댓글 작성 실패";
+      alert(errorMessage);
     }
   };
 
   const handleUpdateComment = async (id: number) => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/community/comments/${id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          ...getAuthHeaders(),
-        },
-        body: JSON.stringify({ content: editContent }),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(`댓글 수정 실패 (${res.status}): ${errorData.message || "알 수 없는 오류"}`);
-      }
-      const updated = await res.json();
-      setComments(comments.map((c) => (c.id === id ? updated : c)));
+      const response = await axios.put(`${API_BASE_URL}/api/community/comments/${id}`, 
+        { content: editContent },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            ...getAuthHeaders(),
+          },
+        }
+      );
+      setComments(comments.map((c) => (c.id === id ? response.data : c)));
       setEditingId(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Update comment error:", err);
+      const errorMessage = err.response?.data?.message || "댓글 수정 실패";
+      alert(errorMessage);
     }
   };
 
   const handleDeleteComment = async (id: number) => {
     if (!confirm("댓글을 삭제하시겠습니까?")) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/api/community/comments/${id}`, {
-        method: "DELETE",
+      await axios.delete(`${API_BASE_URL}/api/community/comments/${id}`, {
         headers: getAuthHeaders(),
       });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(`댓글 삭제 실패 (${res.status}): ${errorData.message || "알 수 없는 오류"}`);
-      }
       setComments(comments.filter((c) => c.id !== id));
-    } catch (err) {
+    } catch (err: any) {
       console.error("Delete comment error:", err);
+      const errorMessage = err.response?.data?.message || "댓글 삭제 실패";
+      alert(errorMessage);
     }
   };
 
@@ -301,31 +323,36 @@ export default function CommunityDetailPage({
         formData.append("postImg", file);
       });
 
-      let res = await fetch(`${API_BASE_URL}/api/community/posts/${post.id}`, {
-        method: "PUT",
-        headers: { Access_Token: token },
-        body: formData,
-      });
-
-      if (res.status === 401) {
-        console.log("401 Unauthorized, attempting to refresh token");
-        token = await refreshToken();
-        if (token) {
-          res = await fetch(`${API_BASE_URL}/api/community/posts/${post.id}`, {
-            method: "PUT",
-            headers: { Access_Token: token },
-            body: formData,
-          });
+      let response;
+      try {
+        response = await axios.put(`${API_BASE_URL}/api/community/posts/${post.id}`, formData, {
+          headers: { 
+            Access_Token: token,
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          console.log("401 Unauthorized, attempting to refresh token");
+          token = await refreshToken();
+          if (token) {
+            response = await axios.put(`${API_BASE_URL}/api/community/posts/${post.id}`, formData, {
+              headers: { 
+                Access_Token: token,
+                "Content-Type": "multipart/form-data",
+              },
+            });
+          } else {
+            alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+            router.push("/");
+            return;
+          }
+        } else {
+          throw err;
         }
       }
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("Edit error response:", errorData);
-        throw new Error(`게시글 수정 실패 (${res.status}): ${errorData.message || "알 수 없는 오류"}`);
-      }
-
-      const updatedPost = await res.json();
+      const updatedPost = response.data;
       setPost({
         ...post,
         title: updatedPost.title,
@@ -338,11 +365,13 @@ export default function CommunityDetailPage({
       router.push(`/community/${post.id}`);
     } catch (err: any) {
       console.error("Edit error:", err.message);
-      alert("게시글 수정 중 오류: " + err.message);
+      const errorMessage = err.response?.data?.message || err.message || "게시글 수정 실패";
+      alert("게시글 수정 중 오류: " + errorMessage);
     }
   };
 
   const handleEdit = () => {
+    if (!post) return;
     setIsEditing(true);
     router.push(`/community/${post.id}?edit=true`, { scroll: false });
   };
@@ -356,26 +385,27 @@ export default function CommunityDetailPage({
         throw new Error("No access token found");
       }
 
-      let res = await fetch(`${API_BASE_URL}/api/community/posts/${post.id}`, {
-        method: "DELETE",
-        headers: { Access_Token: token },
-      });
-
-      if (res.status === 401) {
-        console.log("401 Unauthorized, attempting to refresh token");
-        token = await refreshToken();
-        if (token) {
-          res = await fetch(`${API_BASE_URL}/api/community/posts/${post.id}`, {
-            method: "DELETE",
-            headers: { Access_Token: token },
-          });
+      let response;
+      try {
+        response = await axios.delete(`${API_BASE_URL}/api/community/posts/${post.id}`, {
+          headers: { Access_Token: token },
+        });
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          console.log("401 Unauthorized, attempting to refresh token");
+          token = await refreshToken();
+          if (token) {
+            response = await axios.delete(`${API_BASE_URL}/api/community/posts/${post.id}`, {
+              headers: { Access_Token: token },
+            });
+          } else {
+            alert("인증이 만료되었습니다. 다시 로그인해주세요.");
+            router.push("/");
+            return;
+          }
+        } else {
+          throw err;
         }
-      }
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error("Delete error response:", errorData);
-        throw new Error(`게시글 삭제 실패 (${res.status}): ${errorData.message || "알 수 없는 오류"}`);
       }
 
       alert("게시글이 삭제되었습니다.");
@@ -383,7 +413,8 @@ export default function CommunityDetailPage({
       router.push("/community");
     } catch (err: any) {
       console.error("Delete error:", err.message);
-      alert("게시글 삭제 오류: " + err.message);
+      const errorMessage = err.response?.data?.message || err.message || "게시글 삭제 실패";
+      alert("게시글 삭제 오류: " + errorMessage);
     }
   };
 
@@ -405,7 +436,17 @@ export default function CommunityDetailPage({
   const canEditOrDelete =
     post.ownerEmail &&
     currentUserEmail &&
-    (currentUserEmail === post.ownerEmail || currentUserRole === "ADMIN");
+    (currentUserEmail === post.ownerEmail || currentUserRole === "ROLE_ADMIN");
+
+  // 디버깅을 위한 로그
+  console.log("canEditOrDelete check:", {
+    postOwnerEmail: post.ownerEmail,
+    currentUserEmail,
+    currentUserRole,
+    canEditOrDelete,
+    isOwner: currentUserEmail === post.ownerEmail,
+    isAdmin: currentUserRole === "ROLE_ADMIN"
+  });
 
   return (
     <div className="p-4">
@@ -500,7 +541,7 @@ export default function CommunityDetailPage({
 
           <div className="space-y-4">
             {comments.map((c) => {
-              const canModify = currentUserEmail === c.ownerEmail || currentUserRole === "ADMIN";
+              const canModify = currentUserEmail === c.ownerEmail || currentUserRole === "ROLE_ADMIN";
               return (
                 <div key={c.id} className="border-b pb-2">
                   <div className="flex items-center justify-between">

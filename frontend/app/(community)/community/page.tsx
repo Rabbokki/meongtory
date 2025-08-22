@@ -81,7 +81,7 @@ export default function CommunityPage({
           id: post.id,
           title: post.title || "제목 없음",
           content: post.content || "",
-          author: post.author || "익명", // ✅ DB author 매핑
+          author: post.author || "익명", //  DB author 매핑
           date: post.createdAt
             ? new Date(post.createdAt).toLocaleDateString()
             : new Date().toLocaleDateString(),
@@ -89,7 +89,7 @@ export default function CommunityPage({
           boardType: post.boardType || "자유게시판",
           views: post.views || 0,
           likes: post.likes || 0,
-          comments: post.comments || 0, // ✅ DB community_posts.comments
+          comments: post.comments || 0, //  DB community_posts.comments
           tags: post.tags || [],
           images: post.images || [],
           ownerEmail: post.ownerEmail || "",
