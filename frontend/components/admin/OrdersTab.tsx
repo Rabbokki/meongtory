@@ -1,10 +1,10 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Package, User, Calendar, DollarSign, Eye, AlertCircle, XCircle } from "lucide-react"
+import { Package, User, Calendar, DollarSign, Eye, AlertCircle, XCircle, Loader2 } from "lucide-react"
 import { Order } from "@/types/store"
 import axios from "axios"
 import { getBackendUrl } from "@/lib/api";
@@ -20,14 +20,25 @@ export default function OrdersTab({
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  const loadingRef = useRef<HTMLDivElement>(null)
 
-  // 주문 데이터 페칭
-  const fetchOrders = async () => {
+  // 주문 데이터 페칭 (초기 로딩)
+  const fetchOrders = async (isInitial = true) => {
     try {
-      setLoading(true)
-      setError(null)
+      if (isInitial) {
+        setLoading(true)
+        setError(null)
+        setPage(0)
+        setHasMore(true)
+      } else {
+        setLoadingMore(true)
+      }
       
-      console.log('주문 데이터 가져오기 시작...');
+      console.log('주문 데이터 가져오기 시작...', { page: isInitial ? 0 : page });
       
       // 인증 토큰 가져오기
       const accessToken = localStorage.getItem("accessToken");
@@ -35,7 +46,7 @@ export default function OrdersTab({
       
       if (!accessToken) {
         console.error('인증 토큰이 없습니다.');
-        setOrders([]);
+        if (isInitial) setOrders([]);
         return;
       }
       
@@ -46,7 +57,8 @@ export default function OrdersTab({
       };
       
       console.log('요청 헤더:', headers);
-      const response = await axios.get(`${getBackendUrl()}/api/orders/admin/all`, { headers });
+      const currentPage = isInitial ? 0 : page;
+      const response = await axios.get(`${getBackendUrl()}/api/orders/admin/all?page=${currentPage}&size=20`, { headers });
       console.log('주문 API 응답:', response);
       
       // ResponseDto 형태로 응답이 오므로 response.data.data를 사용
@@ -100,7 +112,19 @@ export default function OrdersTab({
       });
       
       console.log('변환된 주문 데이터:', sortedOrders);
-      setOrders(sortedOrders);
+      
+      if (isInitial) {
+        setOrders(sortedOrders);
+        setPage(1);
+      } else {
+        setOrders(prev => [...prev, ...sortedOrders]);
+        setPage(prev => prev + 1);
+      }
+      
+      // 더 이상 데이터가 없으면 hasMore를 false로 설정
+      if (sortedOrders.length < 20) {
+        setHasMore(false);
+      }
     } catch (error) {
       console.error("Error fetching orders:", error);
       if (axios.isAxiosError(error)) {
@@ -108,11 +132,48 @@ export default function OrdersTab({
         console.error('상태 코드:', error.response?.status);
       }
       setError('주문 데이터를 불러오는데 실패했습니다.');
-      setOrders([]);
+      if (isInitial) setOrders([]);
     } finally {
-      setLoading(false);
+      if (isInitial) {
+        setLoading(false);
+      } else {
+        setLoadingMore(false);
+      }
     }
   }
+
+  // 추가 데이터 로딩
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      fetchOrders(false);
+    }
+  }, [loadingMore, hasMore, page]);
+
+  // Intersection Observer 설정
+  useEffect(() => {
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (loadingRef.current) {
+      observerRef.current.observe(loadingRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [loadMore, hasMore, loadingMore]);
 
   // 주문 상태 업데이트
   const handleUpdateOrderStatus = async (orderId: number, status: "PENDING" | "COMPLETED" | "CANCELLED") => {
@@ -343,6 +404,27 @@ export default function OrdersTab({
               </div>
             </div>
           </Card>
+        )}
+        
+        {/* 무한스크롤 로딩 UI */}
+        {hasMore && (
+          <div ref={loadingRef} className="flex justify-center items-center py-8">
+            {loadingMore ? (
+              <div className="flex items-center space-x-2">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                <span className="text-gray-600">로딩중...</span>
+              </div>
+            ) : (
+              <div className="h-4" /> // 관찰용 빈 요소
+            )}
+          </div>
+        )}
+        
+        {/* 더 이상 데이터가 없을 때 */}
+        {!hasMore && orders.length > 0 && (
+          <div className="text-center py-8 text-gray-500">
+            모든 주문을 불러왔습니다.
+          </div>
         )}
       </div>
     </div>

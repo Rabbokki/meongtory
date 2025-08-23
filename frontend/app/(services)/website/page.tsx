@@ -533,73 +533,65 @@ export default function PetServiceWebsite() {
         return
       }
 
-      // 백엔드 장바구니에 있는 상품들만 필터링 (네이버 상품 제외)
-      const backendCartItems = items.filter(item => 
-        !item.isNaverProduct && 
-        !item.id.toString().startsWith('naver-') && 
-        !item.id.toString().startsWith('backend-naver-')
-      )
-
-      // 네이버 상품들
-      const naverItems = items.filter(item => 
-        item.isNaverProduct || 
-        item.id.toString().startsWith('naver-') || 
-        item.id.toString().startsWith('backend-naver-')
-      )
-
-      const createdOrders: any[] = []
-
-      // 1. 백엔드 장바구니 상품들은 bulk API 사용
-      if (backendCartItems.length > 0) {
-        try {
-          const bulkOrderData = {
-            accountId: currentUser.id
+      // 모든 상품을 배열로 준비
+      const orderItems = items.map(item => {
+        if (item.isNaverProduct || 
+            item.id.toString().startsWith('naver-') || 
+            item.id.toString().startsWith('backend-naver-')) {
+          // 네이버 상품
+          let naverProductId: number;
+          if (item.naverProduct && item.naverProduct.id) {
+            naverProductId = item.naverProduct.id;
+          } else if (item.product && item.product.id) {
+            naverProductId = item.product.id;
+          } else {
+            naverProductId = item.id;
           }
-
-          const bulkResponse = await axios.post(`${getBackendUrl()}/api/orders/bulk`, bulkOrderData, {
-            headers: { "Access_Token": accessToken }
-          })
-
-          if (bulkResponse.data && Array.isArray(bulkResponse.data)) {
-            createdOrders.push(...bulkResponse.data)
-            console.log("Bulk 주문 생성 성공:", bulkResponse.data.length, "개")
-          }
-        } catch (error) {
-          console.error("Bulk 주문 생성 실패:", error)
-          toast.error("일부 상품 주문에 실패했습니다")
-          return
-        }
-      }
-
-      // 2. 네이버 상품들은 개별 주문
-      for (const item of naverItems) {
-        try {
-          const orderData = {
-            accountId: currentUser.id,
-            naverProductId: item.product?.id || item.id,
+          
+          return {
+            type: 'naver',
+            naverProductId: naverProductId,
             quantity: item.quantity,
-          }
-
-          const response = await axios.post(`${getBackendUrl()}/api/orders/naver-product`, orderData, {
-            headers: { "Access_Token": accessToken }
-          })
-
-          if (response.data) {
-            createdOrders.push(response.data)
-          }
-        } catch (error) {
-          console.error("네이버 상품 주문 실패:", error)
-          toast.error(`${item.name} 주문에 실패했습니다`)
+            name: item.name
+          };
+        } else {
+          // 일반 상품
+          return {
+            type: 'regular',
+            productId: item.product?.id || item.id,
+            quantity: item.quantity,
+            name: item.name
+          };
         }
-      }
+      });
 
-      // 3. 장바구니 비우기
-      for (const item of items) {
-        await onRemoveFromCart(item.id)
-      }
+      console.log("주문할 상품들:", orderItems);
 
-      toast.success(`전체 구매가 완료되었습니다. (${createdOrders.length}개 주문)`)
-      router.push("/my")
+      // 모든 상품을 한 번에 전송
+      const orderData = {
+        accountId: currentUser.id,
+        items: orderItems
+      };
+
+      console.log("전체 주문 데이터:", orderData);
+
+      const response = await axios.post(`${getBackendUrl()}/api/orders/bulk-all`, orderData, {
+        headers: { "Access_Token": accessToken }
+      });
+
+      console.log("전체 주문 응답:", response.data);
+
+      if (response.data && response.data.success) {
+        // 장바구니 비우기
+        for (const item of items) {
+          await onRemoveFromCart(item.id)
+        }
+
+        toast.success(`전체 구매가 완료되었습니다. (${orderItems.length}개 상품)`)
+        router.push("/my")
+      } else {
+        throw new Error("주문 처리에 실패했습니다")
+      }
     } catch (error: any) {
       console.error("전체 구매 오류:", error)
       toast.error("전체 구매에 실패했습니다")
