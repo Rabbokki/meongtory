@@ -87,7 +87,12 @@ function StoreProductEditPageContent({ productId: propProductId, onBack, onSave 
         });
         console.log('Raw product data from API:', JSON.stringify(response.data, null, 2));
 
-        const productData = response.data;
+        // ResponseDto 형태로 응답이 오므로 response.data.data를 사용
+        if (!response.data || !response.data.success) {
+          throw new Error(response.data?.error?.message || "API 응답이 올바르지 않습니다.");
+        }
+        
+        const productData = response.data.data;
         const convertedProduct: Product = {
           id: productData.id || productData.productId || actualProductId,
           name: productData.name || productData.productName || '이름 없음',
