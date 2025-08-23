@@ -509,39 +509,63 @@ export default function NaverProductDetailPage({ params }: PageProps) {
         </div>
 
         {/* AI 추천 섹션 */}
-        {myPet && (
-          <div className="mt-12">
-            <div className="flex items-center mb-6">
-              <Sparkles className="h-6 w-6 text-yellow-500 mr-2" />
-              <h2 className="text-2xl font-bold text-gray-900">☆ AI 맞춤 추천</h2>
-            </div>
-            <p className="text-gray-600 mb-6">
-              {myPet.name} ({myPet.breed}, {myPet.age}살)을 위한 맞춤 상품을 추천해드려요
-            </p>
-            
-            {recommendationsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto mb-2"></div>
-                  <p className="text-gray-600 text-sm">추천 상품을 불러오는 중...</p>
+        <div className="mt-12">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-orange-500" />
+                <CardTitle className="text-xl">AI 맞춤 추천</CardTitle>
+              </div>
+              {myPet && (
+                <p className="text-sm text-gray-600">
+                  {myPet.name} ({myPet.breed}, {myPet.age}살)을 위한 맞춤 상품을 추천해드려요
+                </p>
+              )}
+            </CardHeader>
+            <CardContent>
+              {!myPet ? (
+                <div className="text-center py-8">
+                  <PawPrint className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">반려동물을 등록해주세요</h3>
+                  <p className="text-gray-600 mb-4">
+                    반려동물을 등록하면 맞춤 추천을 받을 수 있어요!
+                  </p>
+                  <Button 
+                    onClick={() => router.push('/my')}
+                    className="bg-orange-500 hover:bg-orange-600"
+                  >
+                    마이페이지에서 반려동물 등록하기
+                  </Button>
                 </div>
-              </div>
-            ) : recommendationsError ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">{recommendationsError}</p>
-              </div>
-            ) : recommendations && recommendations.length > 0 ? (
-              <ProductRecommendationSlider 
-                products={recommendations} 
-                title="AI 맞춤 추천"
-              />
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500">추천 상품이 없습니다.</p>
-              </div>
-            )}
-          </div>
-        )}
+              ) : recommendationsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600">맞춤 상품을 찾고 있어요...</p>
+                </div>
+              ) : recommendationsError ? (
+                <div className="text-center py-8">
+                  <p className="text-red-500 mb-4">{recommendationsError}</p>
+                  <Button 
+                    onClick={fetchRecommendations}
+                    variant="outline"
+                  >
+                    다시 시도
+                  </Button>
+                </div>
+              ) : recommendations && recommendations.length > 0 ? (
+                <ProductRecommendationSlider 
+                  products={recommendations} 
+                  title=""
+                  subtitle=""
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">추천할 상품이 없습니다.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
