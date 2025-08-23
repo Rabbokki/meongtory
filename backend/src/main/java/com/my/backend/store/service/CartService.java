@@ -83,11 +83,6 @@ public List<CartDto> getCartDtoByAccountId(Long accountId) {
  * 장바구니에 상품 추가 (중복 시 수량 증가)
  */
 public Cart addToCart(Long accountId, Long productId, int quantity) {
-    System.out.println("=== CartService.addToCart ===");
-    System.out.println("사용자 ID: " + accountId);
-    System.out.println("상품 ID: " + productId);
-    System.out.println("수량: " + quantity);
-
     if (accountId == null) {
         System.out.println("ERROR: accountId가 null입니다.");
         throw new IllegalArgumentException("사용자 ID가 필요합니다.");
@@ -95,8 +90,6 @@ public Cart addToCart(Long accountId, Long productId, int quantity) {
 
     Account account = accountRepository.findById(accountId)
             .orElseThrow(() -> new IllegalArgumentException("해당 사용자가 존재하지 않습니다."));
-
-    System.out.println("찾은 사용자: " + account.getEmail() + " (ID: " + account.getId() + ")");
 
     Product product = productRepository.findById(productId)
             .orElseThrow(() -> new IllegalArgumentException("해당 상품이 존재하지 않습니다."));
@@ -146,48 +139,25 @@ public void removeFromCart(Long cartId) {
  * 장바구니 수량 수정
  */
 public Cart updateCartQuantity(Long cartId, int quantity) {
-    System.out.println("=== CartService.updateCartQuantity ===");
-    System.out.println("요청된 Cart ID: " + cartId);
-    System.out.println("요청된 수량: " + quantity);
-    
     Cart cart = cartRepository.findById(cartId)
-            .orElseThrow(() -> {
-                System.out.println("ERROR: Cart ID " + cartId + "에 해당하는 장바구니 항목을 찾을 수 없습니다.");
-                return new IllegalArgumentException("해당 장바구니 항목이 존재하지 않습니다.");
-            });
+            .orElseThrow(() -> new IllegalArgumentException("해당 장바구니 항목이 존재하지 않습니다."));
 
-    System.out.println("찾은 장바구니 항목:");
-    System.out.println("- Cart ID: " + cart.getId());
-    System.out.println("- 사용자 ID: " + cart.getAccount().getId());
-    System.out.println("- 현재 수량: " + cart.getQuantity());
-    
     if (cart.getProduct() != null) {
-        System.out.println("- 상품 타입: 일반 상품");
-        System.out.println("- 상품 ID: " + cart.getProduct().getId());
-        System.out.println("- 상품명: " + cart.getProduct().getName());
-        System.out.println("- 상품 재고: " + cart.getProduct().getStock());
-        
         // 일반 상품인 경우 재고 확인
         if (cart.getProduct().getStock() < quantity) {
             System.out.println("ERROR: 재고 부족 - 요청: " + quantity + ", 재고: " + cart.getProduct().getStock());
             throw new RuntimeException("상품 '" + cart.getProduct().getName() + "'의 재고가 부족합니다. (재고: " + cart.getProduct().getStock() + ", 요청: " + quantity + ")");
         }
     } else if (cart.getNaverProduct() != null) {
-        System.out.println("- 상품 타입: 네이버 상품");
-        System.out.println("- 네이버 상품 ID: " + cart.getNaverProduct().getId());
-        System.out.println("- 네이버 상품명: " + cart.getNaverProduct().getTitle());
         // 네이버 상품인 경우 재고 제한 없음
     } else {
         System.out.println("ERROR: 상품 정보가 없는 장바구니 항목입니다.");
         throw new RuntimeException("상품 정보가 없는 장바구니 항목입니다.");
     }
 
-    System.out.println("수량 업데이트: " + cart.getQuantity() + " -> " + quantity);
     cart.setQuantity(quantity);
     
     Cart savedCart = cartRepository.save(cart);
-    System.out.println("수량 업데이트 완료 - 최종 수량: " + savedCart.getQuantity());
-    System.out.println("=== CartService.updateCartQuantity 완료 ===");
     
     return savedCart;
 }
@@ -204,13 +174,8 @@ public Cart addNaverProductToCart(Long accountId, Long naverProductId, int quant
     Account account = accountRepository.findById(accountId)
             .orElseThrow(() -> new IllegalArgumentException("해당 사용자가 존재하지 않습니다."));
 
-    System.out.println("찾은 사용자: " + account.getEmail() + " (ID: " + account.getId() + ")");
-
     // 네이버 상품 조회 (id로 조회 - 이제 id가 네이버의 원본 productId)
-    System.out.println("네이버 상품 조회 시도 - id: " + naverProductId + " (타입: " + naverProductId.getClass().getSimpleName() + ")");
-    
     Optional<NaverProduct> naverProductOpt = naverProductRepository.findById(naverProductId);
-    System.out.println("DB 조회 결과: " + (naverProductOpt.isPresent() ? "찾음" : "없음"));
     
     NaverProduct naverProduct = naverProductOpt.orElseGet(() -> {
         // DB에 없으면 네이버 API로 상품 정보를 가져와서 저장

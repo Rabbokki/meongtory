@@ -129,40 +129,63 @@ export default function MyPage() {
       console.log('사용자별 주문 데이터:', response.data)
       
       // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료 및 취소된 주문 포함)
-      const convertedOrders = response.data
-        .filter((order: any) => order.status === 'PAID' || order.status === 'CANCELED') // 결제 완료 및 취소된 주문 포함
-        .map((order: any) => {
-          // 주문 상태에 따른 paymentStatus 결정
-          let paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED";
-          if (order.status === 'PAID') {
-            paymentStatus = 'COMPLETED';
-          } else if (order.status === 'CANCELED') {
-            paymentStatus = 'CANCELLED';
-          } else {
-            paymentStatus = 'PENDING';
+      const orderData = response.data.data || response.data
+      
+      // 주문 ID별로 그룹화하여 중복 제거
+      const orderGroups = new Map()
+      
+      orderData
+        .filter((order: any) => order.status === 'PAID' || order.status === 'CANCELED')
+        .forEach((order: any) => {
+          const orderId = order.id
+          
+          if (!orderGroups.has(orderId)) {
+            // 주문 상태에 따른 paymentStatus 결정
+            let paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED";
+            if (order.status === 'PAID') {
+              paymentStatus = 'COMPLETED';
+            } else if (order.status === 'CANCELED') {
+              paymentStatus = 'CANCELLED';
+            } else {
+              paymentStatus = 'PENDING';
+            }
+            
+            // 새로운 주문 그룹 생성
+            orderGroups.set(orderId, {
+              orderId: order.id,
+              userId: order.accountId,
+              amount: order.amount,
+              paymentStatus: paymentStatus,
+              orderedAt: order.createdAt,
+              orderItems: []
+            })
           }
           
-          return {
-            orderId: order.id,
-            userId: order.accountId,
-            amount: order.amount,
-            paymentStatus: paymentStatus,
-            orderedAt: order.createdAt,
-            orderItems: [{
-              id: order.id,
-              productId: order.productId,
-              productName: order.productName,
-              price: order.amount,
-              quantity: order.quantity,
-              orderDate: order.createdAt,
-              status: paymentStatus === 'COMPLETED' ? 'completed' : paymentStatus === 'CANCELLED' ? 'cancelled' : 'pending',
-              ImageUrl: order.imageUrl || "/placeholder.svg"
-            }]
-          };
+          // 주문 그룹에 상품 추가
+          const orderGroup = orderGroups.get(orderId)
+          orderGroup.orderItems.push({
+            id: order.id,
+            productId: order.productId,
+            productName: order.productName,
+            price: order.amount,
+            quantity: order.quantity,
+            orderDate: order.createdAt,
+            status: orderGroup.paymentStatus === 'COMPLETED' ? 'completed' : orderGroup.paymentStatus === 'CANCELLED' ? 'cancelled' : 'pending',
+            ImageUrl: order.imageUrl || "/placeholder.svg"
+          })
         })
       
-      console.log('변환된 주문 데이터:', convertedOrders)
-      setOrders(convertedOrders)
+      const convertedOrders = Array.from(orderGroups.values())
+      
+      // 최신순으로 정렬 (orderedAt 기준 내림차순)
+      const sortedOrders = convertedOrders.sort((a: any, b: any) => {
+        const dateA = new Date(a.orderedAt).getTime()
+        const dateB = new Date(b.orderedAt).getTime()
+        return dateB - dateA // 내림차순 (최신순)
+      })
+      
+      console.log('변환된 주문 데이터:', sortedOrders)
+      setOrders(sortedOrders)
     } catch (error) {
       console.error('주문 내역을 가져오는데 실패했습니다:', error)
       if (axios.isAxiosError(error)) {

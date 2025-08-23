@@ -29,57 +29,35 @@ public class ProductService {
 
     public List<Product> getAllProducts() {
         List<Product> products = productRepository.findAll();
-        System.out.println("조회된 상품 수: " + products.size());
-        products.forEach(product -> {
-            System.out.println("상품 ID: " + product.getId() + ", 이름: " + product.getName());
-        });
         return products;
     }
 
     public Product createProduct(Product product) {
-        System.out.println("=== 상품 생성 시작 ===");
-        System.out.println("상품명: " + product.getName());
-        System.out.println("이미지 URL: " + (product.getImageUrl() != null ? product.getImageUrl().substring(0, Math.min(50, product.getImageUrl().length())) + "..." : "null"));
-
         if (product.getRegistrationDate() == null) {
             product.setRegistrationDate(LocalDate.now());
-            System.out.println("등록일 자동 설정: " + product.getRegistrationDate());
         }
 
         if (product.getRegisteredBy() == null || product.getRegisteredBy().trim().isEmpty()) {
             product.setRegisteredBy("admin");
-            System.out.println("등록자 자동 설정: " + product.getRegisteredBy());
         }
 
         if (product.getImageUrl() != null && product.getImageUrl().startsWith("data:")) {
-            System.out.println("Base64 이미지 감지됨 - S3 업로드 시작");
             try {
                 String s3ImageUrl = s3Service.uploadProductBase64Image(product.getImageUrl());
                 product.setImageUrl(s3ImageUrl);
-                System.out.println("S3 업로드 완료: " + s3ImageUrl);
             } catch (Exception e) {
-                System.out.println("S3 업로드 실패: " + e.getMessage());
                 e.printStackTrace();
                 product.setImageUrl("/placeholder.svg?height=300&width=300");
             }
-        } else {
-            System.out.println("Base64 이미지가 아님 - S3 업로드 건너뜀");
         }
 
         Product savedProduct = productRepository.save(product);
-        System.out.println("상품 저장 완료: " + savedProduct.getId());
         return savedProduct;
     }
 
     public Product getProductById(Long id) {
-        System.out.println("=== 상품 조회 시작 ===");
-        System.out.println("조회할 상품 ID: " + id);
-
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("상품을 찾을 수 없습니다."));
-
-        System.out.println("조회된 상품: " + product.getName());
-        System.out.println("상품 이미지 URL: " + product.getImageUrl());
 
         return product;
     }
@@ -102,7 +80,6 @@ public class ProductService {
                     try {
                         String fileName = oldImageUrl.substring(oldImageUrl.lastIndexOf("/") + 1);
                         s3Service.deleteFile(fileName);
-                        System.out.println("기존 S3 이미지 삭제 완료: " + fileName);
                     } catch (Exception e) {
                         System.out.println("기존 S3 이미지 삭제 실패: " + e.getMessage());
                     }
@@ -119,39 +96,28 @@ public class ProductService {
 
     @Transactional(rollbackFor = Exception.class)
     public ResponseDto<?> deleteProduct(Long id) {
-        System.out.println("=== 상품 삭제 서비스 시작 ===");
-        System.out.println("삭제할 상품 ID: " + id);
-        
         // 상품 존재 여부 확인
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("상품을 찾을 수 없습니다: " + id));
         
-        System.out.println("삭제할 상품: " + product.getName());
-        
         try {
             // 1. 관련된 장바구니 항목들 먼저 삭제
-            int deletedCartItems = cartRepository.deleteByProduct_Id(id);
-            System.out.println("삭제된 장바구니 항목 수: " + deletedCartItems);
+            cartRepository.deleteByProduct_Id(id);
             
             // 2. 관련된 주문들의 product 참조를 null로 설정 (주문은 유지)
             List<Order> relatedOrders = orderRepository.findByProduct_Id(id);
-            System.out.println("관련된 주문 수: " + relatedOrders.size());
             
             for (Order order : relatedOrders) {
                 order.setProduct(null);
                 orderRepository.save(order);
-                System.out.println("주문 ID " + order.getId() + "의 product 참조를 null로 설정");
             }
             
             // 3. 관련된 주문 항목들 삭제 (OrderItem)
-            int deletedOrderItems = orderItemRepository.deleteByProduct_Id(id);
-            System.out.println("삭제된 주문 항목 수: " + deletedOrderItems);
+            orderItemRepository.deleteByProduct_Id(id);
             
             // 4. 상품 삭제
             productRepository.delete(product);
-            System.out.println("상품 삭제 완료");
             
-            System.out.println("=== 상품 삭제 서비스 성공 ===");
             return ResponseDto.success("삭제 완료");
             
         } catch (Exception e) {
