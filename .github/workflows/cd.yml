@@ -168,7 +168,7 @@ jobs:
         echo "Final docker-compose configuration:"
         cat docker-compose.production.yml
 
-    # Service Instance 정리 작업 (Bastion을 통한 직접 SSH)
+    # Service Instance 정리 작업 (Bastion을 통한 터널링)
     - name: Clean up service instance via bastion
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -176,10 +176,16 @@ jobs:
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         script: |
+          echo "Setting up service instance key..."
+          
+          # Service instance SSH 키 설정
+          echo "${{ secrets.AWS_PEM_KEY }}" > /tmp/service_key.pem
+          chmod 600 /tmp/service_key.pem
+          
           echo "Connecting to service instance to cleanup..."
           
-          # Bastion에서 Service Instance로 직접 SSH 접속하여 정리 작업
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
+          # Bastion에서 Service Instance로 SSH 터널링하여 정리 작업
+          ssh -o StrictHostKeyChecking=no -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
             echo "Starting cleanup on service instance..."
             
             # Stop existing containers
@@ -197,6 +203,9 @@ jobs:
             
             echo "Cleanup completed on service instance"
           EOF
+          
+          # 보안을 위해 키 파일 삭제
+          rm -f /tmp/service_key.pem
 
     # 배포 파일을 Bastion Host에 먼저 전송
     - name: Copy files to bastion host
@@ -208,28 +217,34 @@ jobs:
         source: "docker-compose.production.yml,db/init-db"
         target: "/home/ubuntu/"
 
-    # Service Instance에 배포 및 서비스 시작
+    # Bastion Host에서 Service Instance로 파일 전송 및 서비스 시작
     - name: Deploy to service instance via bastion
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ env.BASTION_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
-        script: |          
+        script: |
+          echo "Setting up service instance key..."
+          
+          # Service instance SSH 키 설정
+          echo "${{ secrets.AWS_PEM_KEY }}" > /tmp/service_key.pem
+          chmod 600 /tmp/service_key.pem
+          
           echo "Copying deployment files to service instance..."
           
           # 배포 파일을 service instance로 전송
-          scp -o StrictHostKeyChecking=no docker-compose.production.yml ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
-          scp -o StrictHostKeyChecking=no -r db/init-db ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
+          scp -o StrictHostKeyChecking=no -i /tmp/service_key.pem docker-compose.production.yml ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
+          scp -o StrictHostKeyChecking=no -i /tmp/service_key.pem -r db/init-db ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
           
           echo "Connecting to service instance to start services..."
           
           # Service instance에서 서비스 시작
-          ssh -o StrictHostKeyChecking=no ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
             echo "Renaming docker-compose file..."
             mv docker-compose.production.yml docker-compose.yml
             
-            echo "Starting services on private instance..."
+            echo "Starting services on service instance..."
             
             # Configure AWS CLI for ECR access
             aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -254,8 +269,11 @@ jobs:
             echo "Deployment completed. Running containers:"
             docker ps
             
-            echo "Services started successfully on private instance"
+            echo "Services started successfully on service instance"
           EOF
+          
+          # 보안을 위해 키 파일 삭제
+          rm -f /tmp/service_key.pem
 
     # 배포 완료 상태 출력
     - name: Deployment Status
