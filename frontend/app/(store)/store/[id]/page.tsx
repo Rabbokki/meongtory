@@ -358,18 +358,28 @@ export default function StoreProductDetailPage({
 
         let rawData: any;
         
-        // URL의 productId로 상품 조회 (백엔드에서 자동으로 구분)
-        try {
-          // 먼저 네이버 상품으로 조회 시도
-          const naverResponse = await productApi.getNaverProduct(String(productId));
-          rawData = naverResponse.data;
-        } catch (naverError) {
-          // 네이버 상품이 아니면 일반 상품으로 조회
-          const numericProductId = Number(productId);
-          if (!isNaN(numericProductId)) {
+        // URL의 productId로 상품 조회
+        const numericProductId = Number(productId);
+        if (!isNaN(numericProductId)) {
+          // 숫자 ID인 경우 일반 상품으로 조회
+          try {
             rawData = await productApi.getProduct(numericProductId);
-          } else {
-            throw new Error('유효하지 않은 상품 ID입니다.');
+          } catch (productError) {
+            // 일반 상품이 아니면 네이버 상품으로 조회 시도
+            try {
+              const naverResponse = await productApi.getNaverProduct(String(productId));
+              rawData = naverResponse.data;
+            } catch (naverError) {
+              throw new Error('상품을 찾을 수 없습니다.');
+            }
+          }
+        } else {
+          // 문자열 ID인 경우 네이버 상품으로 조회
+          try {
+            const naverResponse = await productApi.getNaverProduct(String(productId));
+            rawData = naverResponse.data;
+          } catch (naverError) {
+            throw new Error('상품을 찾을 수 없습니다.');
           }
         }
         

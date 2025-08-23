@@ -84,18 +84,11 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
       console.log('전체 주문 생성 시작 (결제용)');
       
       const orderItems = items.map(item => {
-        if (item.isNaverProduct ||
-            item.id.toString().startsWith('naver-') ||
-            item.id.toString().startsWith('backend-naver-')) {
-          // 네이버 상품인 경우
-          const naverProductId = item.naverProduct?.id || 
-                                (item.id.toString().startsWith('naver-') ? 
-                                 parseInt(item.id.toString().replace('naver-', '')) : 
-                                 (item.id.toString().startsWith('backend-naver-') ? 
-                                  parseInt(item.id.toString().replace('backend-naver-', '')) : item.id));
+        if (item.isNaverProduct) {
+          // 네이버 상품인 경우 - item.id가 데이터베이스에 저장된 네이버 상품 ID
           return { 
             type: 'naver', 
-            naverProductId: naverProductId, 
+            naverProductId: item.id, 
             quantity: item.quantity, 
             name: item.name 
           };

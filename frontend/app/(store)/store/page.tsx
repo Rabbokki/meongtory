@@ -1248,13 +1248,13 @@ export default function StorePage({
                     } else {
                       // onViewProduct가 없으면 직접 라우팅
                       const encodedId = encodeURIComponent(naverProduct.productId);
-                      window.location.href = `/store/${encodedId}`;
+                      window.location.href = `/store/naver/${encodedId}`;
                     }
                   } catch (error) {
                     console.error("onViewProduct 호출 중 오류:", error);
                     // 에러 발생 시에도 직접 라우팅
                     const encodedId = encodeURIComponent(naverProduct.productId);
-                    window.location.href = `/store/${encodedId}`;
+                    window.location.href = `/store/naver/${encodedId}`;
                   }
                 }}>
                   <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
@@ -1285,13 +1285,13 @@ export default function StorePage({
                       } else {
                         // onViewProduct가 없으면 직접 라우팅
                         const encodedId = encodeURIComponent(naverProduct.productId);
-                        window.location.href = `/store/${encodedId}`;
+                        window.location.href = `/store/naver/${encodedId}`;
                       }
                     } catch (error) {
                       console.error("onViewProduct 호출 중 오류:", error);
                       // 에러 발생 시에도 직접 라우팅
                       const encodedId = encodeURIComponent(naverProduct.productId);
-                      window.location.href = `/store/${encodedId}`;
+                      window.location.href = `/store/naver/${encodedId}`;
                     }
                   }}>
                     <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
