@@ -43,8 +43,8 @@ services:
       - TOSS_SECRET_KEY=${TOSS_SECRET_KEY}
       - NAVER_API_CLIENT_ID=${NAVER_API_CLIENT_ID}
       - NAVER_API_CLIENT_SECRET=${NAVER_API_CLIENT_SECRET}
-      - OAUTH2_REDIRECT_URI_BASE=${OAUTH2_REDIRECT_URI_BASE:http://localhost:8080}
-      - FRONTEND_URL=${FRONTEND_URL:http://localhost:3000}
+      - OAUTH2_REDIRECT_URI_BASE=https://meongtory.shop
+      - FRONTEND_URL=https://meongtory.shop
     depends_on:
       - ai
     networks:
