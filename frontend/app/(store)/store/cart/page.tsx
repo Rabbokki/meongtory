@@ -77,7 +77,8 @@ export default function CartPage() {
           })
 
           if (response.status === 200) {
-            cartData = response.data
+            // 백엔드에서 List<CartDto>를 직접 반환하므로 response.data가 바로 배열
+            cartData = Array.isArray(response.data) ? response.data : []
           }
         } catch (error) {
           console.log("백엔드 장바구니 조회 실패, 로컬 스토리지만 사용")
@@ -404,11 +405,11 @@ export default function CartPage() {
           // 네이버 상품
           let naverProductId: number;
           if (item.naverProduct && item.naverProduct.id) {
-            naverProductId = item.naverProduct.id;
+            naverProductId = Number(item.naverProduct.id);
           } else if (item.product && item.product.id) {
-            naverProductId = item.product.id;
+            naverProductId = Number(item.product.id);
           } else {
-            naverProductId = item.id;
+            naverProductId = Number(item.id);
           }
           
           return {

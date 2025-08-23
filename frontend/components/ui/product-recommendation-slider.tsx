@@ -45,9 +45,16 @@ export function ProductRecommendationSlider({
     setCurrentIndex(prev => Math.max(prev - 1, 0));
   };
 
-  const handleCardClick = (productId: number | undefined) => {
+  const handleCardClick = (product: any) => {
+    const productId = product.id || product.productId;
     if (productId) {
-      router.push(`/store/${productId}`);
+      // 네이버 상품인 경우 네이버 전용 URL로 이동
+      if (product.source === 'NAVER') {
+        router.push(`/store/naver/${productId}`);
+      } else {
+        // 일반 상품인 경우 기존 URL로 이동
+        router.push(`/store/${productId}`);
+      }
     }
   };
 
@@ -93,7 +100,7 @@ export function ProductRecommendationSlider({
           <Card 
             key={product.id || product.productId || index}
             className="w-full hover:shadow-lg transition-shadow duration-200 cursor-pointer"
-            onClick={() => handleCardClick(product.id || product.productId)}
+            onClick={() => handleCardClick(product)}
           >
             <CardHeader className="p-4 pb-2">
               <div className="relative">
