@@ -360,6 +360,22 @@ export const productApi = {
   },
 };
 
+// 네이버 상품 API 함수들
+export const naverProductApi = {
+  getNaverProductCount: async (): Promise<number> => {
+    try {
+      const response = await axios.get(`${getBackendUrl()}/api/naver-shopping/products/count`);
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.error?.message || "API 응답이 올바르지 않습니다.");
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('네이버 상품 개수 조회 실패:', error);
+      return 0; // 에러 시 0 반환
+    }
+  },
+};
+
 // 에러 처리 유틸리티
 export const handleApiError = (error: unknown): string => {
   if (axios.isAxiosError(error)) {

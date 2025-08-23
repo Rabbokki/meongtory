@@ -49,7 +49,12 @@ export default function OrdersTab({
       const response = await axios.get(`${getBackendUrl()}/api/orders/admin/all`, { headers });
       console.log('주문 API 응답:', response);
       
-      const data: any[] = response.data;
+      // ResponseDto 형태로 응답이 오므로 response.data.data를 사용
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.error?.message || "API 응답이 올바르지 않습니다.");
+      }
+      
+      const data: any[] = response.data.data || [];
       console.log('받은 주문 데이터:', data);
       
       // 백엔드에서 받은 데이터를 프론트엔드 형식으로 변환 (결제 완료 및 취소된 주문 포함)
