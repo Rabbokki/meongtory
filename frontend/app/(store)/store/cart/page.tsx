@@ -77,19 +77,8 @@ export default function CartPage() {
           })
 
           if (response.status === 200) {
-            cartData = response.data
-            console.log("=== 백엔드 장바구니 데이터 ===");
-            console.log("전체 cartData:", cartData);
-            console.log("cartData 길이:", cartData.length);
-            
-            cartData.forEach((item, index) => {
-              console.log(`아이템 ${index}:`, {
-                id: item.id,
-                product: item.product,
-                naverProduct: item.naverProduct,
-                quantity: item.quantity
-              });
-            });
+            // 백엔드에서 List<CartDto>를 직접 반환하므로 response.data가 바로 배열
+            cartData = Array.isArray(response.data) ? response.data : []
           }
         } catch (error) {
           console.log("백엔드 장바구니 조회 실패, 로컬 스토리지만 사용")
@@ -115,26 +104,13 @@ export default function CartPage() {
         }
       }))
 
-             // 백엔드 데이터 구조 분석
-       console.log("=== 백엔드 데이터 분석 ===");
-       console.log("전체 cartData:", cartData);
-       console.log("cartData 길이:", cartData.length);
-       
-       cartData.forEach((item, index) => {
-         console.log(`항목 ${index}:`, {
-           id: item.id,
-           product: item.product ? '있음' : '없음',
-           naverProduct: item.naverProduct ? '있음' : '없음',
-           quantity: item.quantity
-         });
-       });
+
 
       // 백엔드에서 가져온 네이버 상품 처리
       const backendNaverItems = cartData
         .filter((item: any) => item.naverProduct)
         .map((item: any, index: number) => {
           const cartId = `backend-naver-${item.id}`;
-          console.log(`백엔드 네이버 상품 ${index}: Cart ID ${item.id} -> 프론트엔드 ID ${cartId}`);
           return {
             id: cartId,
             productId: item.naverProduct.id,
@@ -160,7 +136,6 @@ export default function CartPage() {
 
       // 백엔드 일반 상품을 CartItem 형태로 변환
       const backendRegularCartItems = backendRegularItems.map((item: any, index: number) => {
-        console.log(`백엔드 일반 상품 ${index}: Cart ID ${item.id} -> 프론트엔드 ID ${item.id}`);
         return {
           id: item.id,
           name: item.product.name,
@@ -185,10 +160,7 @@ export default function CartPage() {
         };
       });
 
-      console.log("=== 처리 결과 ===");
-      console.log("네이버 상품 개수:", backendNaverItems.length);
-      console.log("일반 상품 개수:", backendRegularItems.length);
-      console.log("변환된 일반 상품 개수:", backendRegularCartItems.length);
+
 
       // 백엔드 장바구니와 네이버 장바구니 합치기
       const allCartData = [...backendRegularCartItems, ...backendNaverItems, ...naverItems]
@@ -266,24 +238,6 @@ export default function CartPage() {
         })
 
       setCartItems(items)
-      console.log("장바구니 설정 완료:", items.length, "개")
-      console.log("백엔드 장바구니 데이터:", cartData)
-      console.log("백엔드 네이버 상품:", backendNaverItems)
-      console.log("백엔드 일반 상품:", backendRegularItems)
-      console.log("로컬 네이버 상품:", naverItems)
-      console.log("유효한 장바구니 데이터:", validCartData)
-      console.log("최종 장바구니 아이템:", items)
-      
-      // 각 아이템의 ID 상세 로깅
-      items.forEach((item, index) => {
-        console.log(`아이템 ${index}:`, {
-          id: item.id,
-          idType: typeof item.id,
-          name: item.name,
-          quantity: item.quantity,
-          isNaverProduct: item.isNaverProduct
-        });
-      });
     } catch (error: any) {
       console.error("장바구니 조회 오류:", error)
       setCartItems([])
@@ -357,15 +311,9 @@ export default function CartPage() {
   // 수량 업데이트
   const onUpdateQuantity = async (cartId: number | string, quantity: number) => {
     try {
-      console.log("=== 수량 업데이트 시작 ===");
-      console.log("cartId:", cartId, "타입:", typeof cartId);
-      console.log("요청 수량:", quantity);
-      
       // 백엔드 네이버 상품인지 확인
       if (typeof cartId === 'string' && cartId.startsWith('backend-naver-')) {
-        console.log("백엔드 네이버 상품 수량 업데이트");
         const actualCartId = cartId.replace('backend-naver-', '')
-        console.log("실제 cartId:", actualCartId);
         
         const accessToken = localStorage.getItem("accessToken")
         if (!accessToken) {
@@ -378,7 +326,6 @@ export default function CartPage() {
         })
         
         if (response.status === 200) {
-          console.log("백엔드 네이버 상품 수량 업데이트 성공");
           await fetchCartItems()
         } else {
           throw new Error("수량 업데이트에 실패했습니다.")
@@ -388,27 +335,20 @@ export default function CartPage() {
 
       // 로컬 네이버 상품인지 확인 (ID가 문자열로 시작하는 경우)
       if (typeof cartId === 'string' && cartId.startsWith('naver-')) {
-        console.log("로컬 네이버 상품 수량 업데이트");
         const naverCartData = JSON.parse(localStorage.getItem('naverCart') || '[]')
         const index = parseInt(cartId.replace('naver-', ''))
-        console.log("로컬 네이버 상품 인덱스:", index);
         
-        if (naverCartData[index]) {
-          naverCartData[index].quantity = quantity
-          localStorage.setItem('naverCart', JSON.stringify(naverCartData))
-          console.log("로컬 네이버 상품 수량 업데이트 성공");
-          await fetchCartItems()
-        } else {
-          console.error("로컬 네이버 상품을 찾을 수 없습니다:", index);
-          alert("상품을 찾을 수 없습니다")
-        }
+                  if (naverCartData[index]) {
+            naverCartData[index].quantity = quantity
+            localStorage.setItem('naverCart', JSON.stringify(naverCartData))
+            await fetchCartItems()
+          } else {
+            alert("상품을 찾을 수 없습니다")
+          }
         return
       }
 
       // 일반 상품은 백엔드에서 수량 업데이트
-      console.log("일반 상품 수량 업데이트");
-      console.log("사용할 cartId:", cartId);
-      
       const accessToken = localStorage.getItem("accessToken")
       if (!accessToken) {
         alert("로그인이 필요합니다")
@@ -420,7 +360,6 @@ export default function CartPage() {
       })
       
       if (response.status === 200) {
-        console.log("일반 상품 수량 업데이트 성공");
         await fetchCartItems()
       } else {
         throw new Error("수량 업데이트에 실패했습니다.")
@@ -438,9 +377,6 @@ export default function CartPage() {
   // 전체 구매
   const onPurchaseAll = async (items: CartItem[]) => {
     try {
-      console.log("=== onPurchaseAll 시작 ===");
-      console.log("전체 아이템:", items);
-      console.log("전체 아이템 개수:", items.length);
       
       const accessToken = localStorage.getItem("accessToken")
       if (!accessToken) {
@@ -461,106 +397,59 @@ export default function CartPage() {
         return
       }
 
-      // 백엔드 장바구니에 있는 상품들만 필터링 (네이버 상품 제외)
-      const backendCartItems = items.filter(item => 
-        !item.isNaverProduct && 
-        !item.id.toString().startsWith('naver-') && 
-        !item.id.toString().startsWith('backend-naver-') &&
-        item.product && item.product.id // product 정보가 있는 일반 상품만
-      )
-
-      // 네이버 상품들
-      const naverItems = items.filter(item => 
-        item.isNaverProduct || 
-        item.id.toString().startsWith('naver-') || 
-        item.id.toString().startsWith('backend-naver-')
-      )
-
-      console.log("백엔드 장바구니 상품들:", backendCartItems);
-      console.log("네이버 상품들:", naverItems);
-      console.log("백엔드 상품 개수:", backendCartItems.length);
-      console.log("네이버 상품 개수:", naverItems.length);
-
-      const createdOrders: any[] = []
-
-      // 1. 백엔드 장바구니 상품들은 bulk API 사용
-      if (backendCartItems.length > 0) {
-        console.log("Bulk API 호출 시작");
-        try {
-          const bulkOrderData = {
-            accountId: currentUserId
-          }
-
-          console.log("Bulk 주문 데이터:", bulkOrderData);
-
-          const bulkResponse = await axios.post(`${getBackendUrl()}/api/orders/bulk`, bulkOrderData, {
-            headers: { "Access_Token": accessToken }
-          })
-
-          console.log("Bulk API 응답:", bulkResponse.data);
-
-          if (bulkResponse.data && Array.isArray(bulkResponse.data)) {
-            createdOrders.push(...bulkResponse.data)
-            console.log("Bulk 주문 생성 성공:", bulkResponse.data.length, "개")
-          }
-        } catch (error) {
-          console.error("Bulk 주문 생성 실패:", error)
-          alert("일부 상품 주문에 실패했습니다")
-          return
-        }
-      } else {
-        console.log("백엔드 장바구니 상품이 없어서 bulk API 호출하지 않음");
-      }
-
-      // 2. 네이버 상품들은 개별 주문
-      for (const item of naverItems) {
-        try {
-          console.log("네이버 상품 주문 처리:", item);
-          
-          // 네이버 상품 ID를 올바르게 가져오기
+      // 모든 상품을 배열로 준비
+      const orderItems = items.map(item => {
+        if (item.isNaverProduct || 
+            item.id.toString().startsWith('naver-') || 
+            item.id.toString().startsWith('backend-naver-')) {
+          // 네이버 상품
           let naverProductId: number;
           if (item.naverProduct && item.naverProduct.id) {
-            // naverProduct 객체에서 ID 가져오기
-            naverProductId = item.naverProduct.id;
+            naverProductId = Number(item.naverProduct.id);
           } else if (item.product && item.product.id) {
-            // product 객체에서 ID 가져오기 (네이버 상품이 product 형태로 저장된 경우)
-            naverProductId = item.product.id;
+            naverProductId = Number(item.product.id);
           } else {
-            // 마지막 fallback으로 item.id 사용
-            naverProductId = item.id;
+            naverProductId = Number(item.id);
           }
           
-          const orderData = {
-            accountId: currentUserId,
+          return {
+            type: 'naver',
             naverProductId: naverProductId,
             quantity: item.quantity,
-          }
-
-          console.log("네이버 상품 주문 데이터:", orderData);
-
-          const response = await axios.post(`${getBackendUrl()}/api/orders/naver-product`, orderData, {
-            headers: { "Access_Token": accessToken }
-          })
-
-          console.log("네이버 상품 주문 응답:", response.data);
-
-          if (response.data) {
-            createdOrders.push(response.data)
-            console.log("네이버 상품 주문 성공:", item.name);
-          }
-        } catch (error) {
-          console.error("네이버 상품 주문 실패:", error)
-          alert(`${item.name} 주문에 실패했습니다`)
+            name: item.name
+          };
+        } else {
+          // 일반 상품
+          return {
+            type: 'regular',
+            productId: item.product?.id || item.id,
+            quantity: item.quantity,
+            name: item.name
+          };
         }
-      }
+      });
 
-      // 3. 장바구니 비우기
-      for (const item of items) {
-        await onRemoveFromCart(item.id)
-      }
+      // 모든 상품을 한 번에 전송
+      const orderData = {
+        accountId: currentUserId,
+        items: orderItems
+      };
 
-      alert(`전체 구매가 완료되었습니다. (${createdOrders.length}개 주문)`)
-      router.push("/my")
+      const response = await axios.post(`${getBackendUrl()}/api/orders/bulk-all`, orderData, {
+        headers: { "Access_Token": accessToken }
+      });
+
+      if (response.data && response.data.success) {
+        // 장바구니 비우기
+        for (const item of items) {
+          await onRemoveFromCart(item.id)
+        }
+
+        alert(`전체 구매가 완료되었습니다. (${orderItems.length}개 상품)`)
+        router.push("/my")
+      } else {
+        throw new Error("주문 처리에 실패했습니다")
+      }
     } catch (error: any) {
       console.error("전체 구매 오류:", error)
       alert("전체 구매에 실패했습니다")
@@ -605,7 +494,6 @@ export default function CartPage() {
     
     // 결제 완료 후 장바구니 새로고침을 위한 이벤트 리스너
     const handleCartUpdate = () => {
-      console.log('장바구니 업데이트 이벤트 수신')
       fetchCartItems()
     }
     
@@ -616,15 +504,7 @@ export default function CartPage() {
     }
   }, [])
 
-  // 디버깅: cartItems 배열 확인
-  console.log('CartPage - cartItems:', cartItems);
-  if (cartItems) {
-    const ids = cartItems.map(item => item.id);
-    const uniqueIds = new Set(ids);
-    if (ids.length !== uniqueIds.size) {
-      console.warn('CartPage - 중복된 ID가 있습니다:', ids);
-    }
-  }
+
 
   const handlePurchaseAll = () => {
     setPaymentItems(cartItems)
@@ -637,10 +517,6 @@ export default function CartPage() {
   }
 
   const handlePaymentSuccess = async (paymentInfo: any) => {
-    console.log("=== 결제 성공 처리 시작 ===");
-    console.log("결제 성공:", paymentInfo);
-    console.log("결제된 상품들:", paymentItems);
-    console.log("전체 장바구니 상품들:", cartItems);
     
     try {
       // 결제 성공 후 나머지 상품들을 모두 주문
@@ -651,24 +527,12 @@ export default function CartPage() {
         )
       );
       
-      console.log("=== 나머지 상품 분석 ===");
-      console.log("결제된 상품:", paymentItems);
-      console.log("나머지 상품:", remainingItems);
-      console.log("나머지 상품 개수:", remainingItems.length);
-      
       if (remainingItems.length > 0) {
-        console.log("=== 나머지 상품들 주문 시작 ===");
-        
         // onPurchaseAll 함수를 호출하여 나머지 상품들 주문
         await onPurchaseAll(remainingItems);
-        
-        console.log("=== 나머지 상품들 주문 완료 ===");
-      } else {
-        console.log("나머지 상품이 없습니다.");
       }
       
       // 결제된 상품 장바구니에서 제거
-      console.log("=== 장바구니에서 결제된 상품 제거 ===");
       paymentItems.forEach(item => onRemoveFromCart(item.id))
       
       setShowPayment(false)
@@ -679,7 +543,6 @@ export default function CartPage() {
       router.push("/my")
       
     } catch (error) {
-      console.error("=== 나머지 상품 주문 실패 ===");
       console.error("나머지 상품 주문 실패:", error)
       alert("일부 상품 주문에 실패했습니다. 장바구니를 확인해주세요.")
     }
@@ -863,7 +726,6 @@ export default function CartPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            console.log("수량 감소 버튼 클릭 - item.id:", item.id, "현재 수량:", item.quantity);
                             onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))
                           }}
                           className="w-8 h-8 p-0"
@@ -875,7 +737,6 @@ export default function CartPage() {
                           size="sm"
                           variant="outline"
                           onClick={() => {
-                            console.log("수량 증가 버튼 클릭 - item.id:", item.id, "현재 수량:", item.quantity);
                             const stock = item.product?.stock || 0
                             if (item.quantity >= stock) {
                               alert(`재고가 부족합니다. (재고: ${stock}개, 현재: ${item.quantity}개)`)

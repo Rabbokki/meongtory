@@ -31,8 +31,13 @@ export function ProductRecommendationCard({
   const handleCardClick = () => {
     const productId = product.id || product.productId;
     if (productId) {
-      // 모든 상품을 동일한 라우트로 이동 (네이버 상품도 일반 상품과 동일하게 처리)
-      router.push(`/store/${productId}`);
+      // 네이버 상품인 경우 네이버 전용 URL로 이동
+      if (product.source === 'NAVER') {
+        router.push(`/store/naver/${productId}`);
+      } else {
+        // 일반 상품인 경우 기존 URL로 이동
+        router.push(`/store/${productId}`);
+      }
     }
   };
 

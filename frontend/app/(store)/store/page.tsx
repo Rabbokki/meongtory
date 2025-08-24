@@ -271,7 +271,6 @@ export default function StorePage({
         // 새로운 응답 형식 처리
         if (response.data.success && response.data.data) {
           const result = response.data.data;
-          console.log(`네이버 상품 저장 결과: ${result.isNewProduct ? '새 상품' : '기존 상품 업데이트'} - ${naverProduct.title}`);
         }
         
         return response.data;
@@ -300,7 +299,6 @@ export default function StorePage({
           : product
       ));
       
-      console.log(`네이버 상품 "${naverProduct.title}" 저장 완료`);
     } catch (error) {
       console.error(`네이버 상품 "${naverProduct.title}" 저장 실패:`, error);
     } finally {
@@ -321,7 +319,6 @@ export default function StorePage({
     }
     
     // isSaved 필드 확인 없이 모든 상품을 저장 시도
-    console.log(`${products.length}개의 네이버 상품을 DB에 저장합니다...`);
     
     // 병렬로 저장 (최대 5개씩)
     const batchSize = 5;
@@ -376,7 +373,6 @@ export default function StorePage({
       }
     } catch (error) {
       // 오류 발생 시 조용히 처리
-      console.log('네이버 검색 중 오류 발생 (무시됨):', error);
       setNaverProducts([]);
       setShowNaverProducts(false);
     } finally {
@@ -519,7 +515,6 @@ export default function StorePage({
       setShowNaverProducts(naverResults.length > 0);
       
     } catch (error) {
-      console.log('통합 검색 중 오류 발생:', error);
       setNaverProducts([]);
       setShowNaverProducts(false);
     } finally {
@@ -598,10 +593,8 @@ export default function StorePage({
     try {
       setLoading(true)
       setError(null)
-      console.log('상품 목록 가져오기 시작...');
       
       const response = await productApi.getProducts();
-      console.log('가져온 상품 데이터:', response);
       
       // 백엔드 응답을 프론트엔드 형식으로 변환
       const data: Product[] = response.map((item: any) => ({
@@ -627,7 +620,6 @@ export default function StorePage({
       });
       
       setProducts(sortedData);
-      console.log('상품 목록 로드 완료:', sortedData.length, '개');
     } catch (error) {
       console.error("Error fetching products:", error);
       setError('상품 목록을 불러오는데 실패했습니다.');
@@ -654,17 +646,13 @@ export default function StorePage({
 
   // DB에 저장된 네이버 상품만 가져오기 (API 호출 안함) - 무한스크롤 적용
   const loadSavedNaverProducts = async () => {
-    console.log('🚀 DB에 저장된 네이버 상품 로드 시작...');
     try {
       setNaverInitialLoading(true);
       
-      console.log('📡 DB에서 네이버 상품 조회 중...');
       // DB에 저장된 네이버 상품들을 가져오기 (첫 페이지)
       const savedResponse = await naverShoppingApi.getSavedProducts(0, 20);
-      console.log('📦 DB 네이버 상품 응답:', savedResponse);
       
       if (savedResponse.success && savedResponse.data?.content && savedResponse.data.content.length > 0) {
-        console.log('✅ DB에 저장된 네이버 상품 발견:', savedResponse.data.content.length, '개');
         const savedProducts = savedResponse.data.content.map((item: any) => ({
           id: item.id || item.productId || Math.random(),
           productId: item.productId || '',
@@ -691,9 +679,7 @@ export default function StorePage({
         setShowNaverProducts(true);
         setHasMore(savedProducts.length === 20);
         setCurrentPageState(0);
-        console.log('✅ DB 네이버 상품 설정 완료');
       } else {
-        console.log('⚠️ DB에 저장된 네이버 상품이 없음');
         setNaverProducts([]);
         setShowNaverProducts(false);
         setHasMore(false);
@@ -706,23 +692,18 @@ export default function StorePage({
       setHasMore(false);
     } finally {
       setNaverInitialLoading(false);
-      console.log('🏁 DB 네이버 상품 로드 완료');
     }
   };
 
   // 초기 네이버 상품 로드 - 네이버 API 호출하여 상품 가져오기 (관리자 전용)
   const loadInitialNaverProducts = async () => {
-    console.log('🚀 네이버 API 상품 로드 시작...');
     try {
       setNaverInitialLoading(true);
       
-      console.log('📡 네이버 API 호출 중...');
       // 네이버 쇼핑 API를 통해 인기 상품들을 가져오기
       const popularResponse = await naverShoppingApi.getPopularProducts(0, 50);
-      console.log('📦 네이버 API 응답:', popularResponse);
       
       if (popularResponse.success && popularResponse.data?.content && popularResponse.data.content.length > 0) {
-        console.log('✅ 네이버 인기 상품 발견:', popularResponse.data.content.length, '개');
         const popularProducts = popularResponse.data.content.map((item: any) => ({
           id: item.id || item.productId || Math.random(),
           productId: item.productId || '',
@@ -747,9 +728,7 @@ export default function StorePage({
         }));
         setNaverProducts(popularProducts);
         setShowNaverProducts(true); // 네이버 상품 표시 모드 활성화
-        console.log('✅ 네이버 상품 설정 완료');
       } else {
-        console.log('⚠️ 네이버 상품이 없거나 응답 형식이 잘못됨');
         // 네이버 상품이 없으면 조용히 처리 (오류 메시지 없음)
         setNaverProducts([]);
         setShowNaverProducts(false); // 네이버 상품이 없으면 표시하지 않음
@@ -818,7 +797,6 @@ export default function StorePage({
       }
     } catch (error) {
       // 오류 발생 시 조용히 처리
-      console.log('카테고리 검색 중 오류 발생 (무시됨):', error);
       setNaverProducts([]);
       setShowNaverProducts(false);
       setHasMore(false);
@@ -838,7 +816,6 @@ export default function StorePage({
       const accessToken = localStorage.getItem("accessToken");
       
       // 일반 상품인 경우
-      console.log('일반 상품 장바구니 추가:', product.id);
       
       const response = await axios.post(`${getBackendUrl()}/api/carts?productId=${product.id}&quantity=1`, null, {
         headers: {
@@ -874,7 +851,6 @@ export default function StorePage({
     
     try {
       const accessToken = localStorage.getItem("accessToken");
-      console.log('네이버 상품 장바구니 추가:', naverProduct.productId);
       
       // 네이버 상품 전용 API 사용
       const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, {
@@ -1267,20 +1243,18 @@ export default function StorePage({
               >
                 <div className="relative" onClick={() => {
                   try {
-                    console.log("네이버 상품 클릭됨:", naverProduct);
                     if (typeof onViewProduct === 'function') {
                       onViewProduct(naverProduct);
                     } else {
                       // onViewProduct가 없으면 직접 라우팅
-                      console.log("onViewProduct 함수가 없어 직접 라우팅합니다.");
                       const encodedId = encodeURIComponent(naverProduct.productId);
-                      window.location.href = `/store/${encodedId}`;
+                      window.location.href = `/store/naver/${encodedId}`;
                     }
                   } catch (error) {
                     console.error("onViewProduct 호출 중 오류:", error);
                     // 에러 발생 시에도 직접 라우팅
                     const encodedId = encodeURIComponent(naverProduct.productId);
-                    window.location.href = `/store/${encodedId}`;
+                    window.location.href = `/store/naver/${encodedId}`;
                   }
                 }}>
                   <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
@@ -1306,20 +1280,18 @@ export default function StorePage({
                 <CardContent className="p-4">
                   <div className="mb-2" onClick={() => {
                     try {
-                      console.log("네이버 상품 제목 클릭됨:", naverProduct);
                       if (typeof onViewProduct === 'function') {
                         onViewProduct(naverProduct);
                       } else {
                         // onViewProduct가 없으면 직접 라우팅
-                        console.log("onViewProduct 함수가 없어 직접 라우팅합니다.");
                         const encodedId = encodeURIComponent(naverProduct.productId);
-                        window.location.href = `/store/${encodedId}`;
+                        window.location.href = `/store/naver/${encodedId}`;
                       }
                     } catch (error) {
                       console.error("onViewProduct 호출 중 오류:", error);
                       // 에러 발생 시에도 직접 라우팅
                       const encodedId = encodeURIComponent(naverProduct.productId);
-                      window.location.href = `/store/${encodedId}`;
+                      window.location.href = `/store/naver/${encodedId}`;
                     }
                   }}>
                     <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
