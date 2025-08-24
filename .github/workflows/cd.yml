@@ -175,9 +175,21 @@ jobs:
           echo "${{ secrets.AWS_PEM_KEY }}" > /tmp/service_key.pem
           chmod 600 /tmp/service_key.pem
           
+          # Service Instance 연결 테스트
+          echo "Testing connection to Service Instance..."
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} "echo 'Connection successful'" || {
+            echo "ERROR: Cannot connect to Service Instance at ${{ env.SERVICE_INSTANCE_IP }}"
+            echo "Please check:"
+            echo "1. Service Instance is running"
+            echo "2. Security Group allows SSH from Bastion IP"
+            echo "3. SERVICE_INSTANCE_IP environment variable is correct"
+            echo "4. SSH key is valid"
+            rm -f /tmp/service_key.pem
+            exit 1
+          }
           
           # Bastion에서 Service Instance로 SSH 터널링하여 정리 작업
-          ssh -o StrictHostKeyChecking=no -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
             
             # Stop existing containers
             if [ -f docker-compose.yml ]; then
@@ -218,14 +230,21 @@ jobs:
           echo "${{ secrets.AWS_PEM_KEY }}" > /tmp/service_key.pem
           chmod 600 /tmp/service_key.pem
           
+          # Service Instance 연결 재테스트
+          echo "Re-testing connection to Service Instance..."
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} "echo 'Connection successful for deployment'" || {
+            echo "ERROR: Cannot connect to Service Instance for deployment"
+            rm -f /tmp/service_key.pem
+            exit 1
+          }
           
           # 배포 파일을 service instance로 전송
-          scp -o StrictHostKeyChecking=no -i /tmp/service_key.pem docker-compose.production.yml ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
-          scp -o StrictHostKeyChecking=no -i /tmp/service_key.pem -r db/init-db ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem docker-compose.production.yml ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem -r db/init-db ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
           
           
           # Service instance에서 서비스 시작
-          ssh -o StrictHostKeyChecking=no -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
             mv docker-compose.production.yml docker-compose.yml
             
             
