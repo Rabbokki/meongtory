@@ -97,6 +97,8 @@ public class WebSecurityConfig {
                                 "/api/ai/**",
                                 "/api/community/**",
                                 "/api/carts/**",
+                                "/api/insurance/**",
+                                "/api/recent/**",
                                 "/error",
                                 "/actuator/**",
                                 "/api/naver-shopping/**",

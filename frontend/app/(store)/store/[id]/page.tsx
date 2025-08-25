@@ -4,12 +4,15 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Sparkles, PawPrint } from "lucide-react"
+import { ArrowLeft, Sparkles, PawPrint, Clock } from "lucide-react"
 import Image from "next/image"
 import axios from "axios"
 import { useRouter } from "next/navigation"
 import { ProductRecommendationSlider } from "@/components/ui/product-recommendation-slider"
 import { getBackendUrl } from '@/lib/api'
+import { recentApi } from '@/lib/api'
+import { RecentProductsSidebar } from "@/components/ui/recent-products-sidebar"
+import { loadSidebarState, updateSidebarState } from "@/lib/sidebar-state"
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(
@@ -146,6 +149,27 @@ export default function StoreProductDetailPage({
   const [recommendations, setRecommendations] = useState<any[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(false)
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null)
+
+  // 최근 본 상품 사이드바
+  const [showRecentSidebar, setShowRecentSidebar] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // 사이드바 상태 로드
+  useEffect(() => {
+    const savedState = loadSidebarState()
+    if (savedState.productType === 'store') {
+      setShowRecentSidebar(savedState.isOpen)
+    }
+  }, [])
+
+  // 사이드바 토글 함수
+  const handleSidebarToggle = () => {
+    const newIsOpen = !showRecentSidebar
+    setShowRecentSidebar(newIsOpen)
+    updateSidebarState({ isOpen: newIsOpen, productType: 'store' })
+  }
+
+
 
   // 상품 API 함수들 - 백엔드와 직접 연결
   const productApi = {
@@ -289,6 +313,110 @@ export default function StoreProductDetailPage({
     }
   }
 
+  // 최근 본 상품에 추가하는 함수
+  const addToRecentProducts = async (product: Product | any) => {
+    const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('accessToken')
+    
+    console.log('최근 본 상품 추가 시도:', {
+      productId: product.id,
+      productName: product.name || product.title,
+      isLoggedIn: isLoggedIn,
+      productType: 'store'
+    })
+    
+    if (isLoggedIn) {
+      // 로그인 시: DB에 저장
+      try {
+        console.log('DB에 저장 시도:', product.id, 'store')
+        await recentApi.addToRecent(product.id, "store")
+        console.log('DB 저장 성공')
+      } catch (error: any) {
+        console.error("최근 본 상품 저장 실패:", error)
+        if (error.response) {
+          console.error("에러 응답:", error.response.data)
+          console.error("에러 상태:", error.response.status)
+        }
+        // DB 저장 실패 시 localStorage에 저장
+        addToLocalRecentProducts(product)
+      }
+    } else {
+      // 비로그인 시: localStorage에 저장
+      addToLocalRecentProducts(product)
+      
+      // localStorage 변경 이벤트 발생 (다른 탭/컴포넌트에서 감지)
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'recentStoreProducts',
+        newValue: localStorage.getItem('recentStoreProducts')
+      }))
+    }
+  }
+
+  // localStorage 관련 함수들
+  type SimplifiedProduct = {
+    id: number
+    naverProductId?: string
+    name: string
+    title?: string
+    imageUrl: string
+    type: string
+    price?: number
+  }
+
+  const getLocalRecentProducts = (): SimplifiedProduct[] => {
+    try {
+      const stored = localStorage.getItem('recentStoreProducts')
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  }
+
+  const addToLocalRecentProducts = (product: Product | NaverProduct, isNaverProduct: boolean = false) => {
+    try {
+      const products = getLocalRecentProducts()
+      
+      // 중복 체크 - 더 정확한 중복 확인
+      const existingIndex = products.findIndex(p => {
+        if (isNaverProduct) {
+          // 네이버 상품인 경우 naverProductId로 체크
+          return p.naverProductId === product.productId || p.id === product.id
+        } else {
+          // 일반 상품인 경우 id로만 체크 (다른 상품이어도 중복 처리하지 않음)
+          return p.id === product.id
+        }
+      })
+      
+      if (existingIndex > -1) {
+        // 기존 항목 제거
+        products.splice(existingIndex, 1)
+      }
+      
+      // 필요한 정보만 추출하여 저장
+      const simplifiedProduct: SimplifiedProduct = {
+        id: product.id,
+        naverProductId: isNaverProduct ? product.productId : undefined,
+        name: isNaverProduct ? (product as NaverProduct).title?.replace(/<[^>]*>/g, '') : (product as Product).name,
+        title: isNaverProduct ? (product as NaverProduct).title : (product as Product).name,
+        imageUrl: product.imageUrl,
+        type: 'store',
+        price: product.price
+      }
+      
+      // 새 항목을 맨 앞에 추가 (최신순)
+      products.unshift(simplifiedProduct)
+      
+      // 최대 15개만 유지
+      if (products.length > 15) {
+        products.splice(15)
+      }
+      
+      localStorage.setItem('recentStoreProducts', JSON.stringify(products))
+      console.log('localStorage에 최근 본 상품 추가됨:', simplifiedProduct)
+    } catch (error) {
+      console.error("localStorage 저장 실패:", error)
+    }
+  }
+
   // 현재 사용자 정보 가져오기
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -341,6 +469,10 @@ export default function StoreProductDetailPage({
          brand: propNaverProduct.brand || '브랜드 없음'
        }
       setProduct(naverProductAsProduct)
+      
+      // 최근 본 상품에 추가
+      addToRecentProducts(propNaverProduct)
+      
       setLoading(false)
       return
     }
@@ -383,11 +515,14 @@ export default function StoreProductDetailPage({
           }
         }
         
+        console.log('상품 상세 데이터:', rawData);
+        
+        // 백엔드 응답을 프론트엔드 형식으로 변환
+        const data: Product = {
+          ...rawData,
+          id: rawData.id || Number(productId) || 0,  // DB의 자동 생성 ID 또는 URL의 productId
+          productId: rawData.productId || String(productId),  // 네이버의 원본 productId
                  // 백엔드 응답을 프론트엔드 형식으로 변환
-         const data: Product = {
-           ...rawData,
-           id: rawData.id || 0,  // DB의 자동 생성 ID
-           productId: rawData.productId || String(productId),  // 네이버의 원본 productId
            name: (rawData.name || rawData.title || '상품명 없음').replace(/<[^>]*>/g, ''),
            price: typeof rawData.price === 'number' ? rawData.price : 0,
            imageUrl: rawData.image || rawData.imageUrl || '/placeholder.svg',
@@ -401,7 +536,29 @@ export default function StoreProductDetailPage({
            registeredBy: rawData.registeredBy || '네이버'
          };
         
+        console.log('상품 데이터 설정:', {
+          id: data.id,
+          name: data.name,
+          productId: data.productId,
+          rawDataId: rawData.id,
+          urlProductId: productId
+        })
+        
         setProduct(data)
+        
+        // 최근 본 상품에 추가
+        const isNaverProduct = data.registeredBy === '네이버'
+        addToLocalRecentProducts(data, isNaverProduct)
+        
+        // 로그인 시 백엔드에도 추가
+        const token = localStorage.getItem('accessToken')
+        if (token) {
+          try {
+            await recentApi.addToRecent(data.id, 'store')
+          } catch (error) {
+            console.error('백엔드 최근본 추가 실패:', error)
+          }
+        }
       } catch (error) {
         console.error('상품 조회 오류:', error)
         setError('상품을 불러오는데 실패했습니다.')
@@ -1350,6 +1507,27 @@ export default function StoreProductDetailPage({
           </Card>
         </div>
       </div>
+
+      {/* 최근 본 상품 사이드바 */}
+      <RecentProductsSidebar
+        productType="store"
+        isOpen={showRecentSidebar}
+        onToggle={handleSidebarToggle}
+        refreshTrigger={refreshTrigger}
+      />
+
+      {/* 고정된 사이드바 토글 버튼 */}
+      <div className="fixed top-20 right-6 z-40">
+        <Button
+          onClick={handleSidebarToggle}
+          className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg rounded-full w-14 h-14 p-0"
+          title="최근 본 상품"
+        >
+          <Clock className="h-6 w-6" />
+        </Button>
+      </div>
+
+
     </div>
   )
 }
