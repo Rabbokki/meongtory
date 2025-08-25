@@ -89,6 +89,7 @@ logging:
     org.springframework: INFO
     org.springframework.boot: INFO
     org.springframework.security: DEBUG
+    org.springframework.security.oauth2: TRACE # 추가: OAuth2 디버깅
     org.apache.tomcat: INFO
     com.zaxxer.hikari: DEBUG
     org.hibernate.SQL: DEBUG
