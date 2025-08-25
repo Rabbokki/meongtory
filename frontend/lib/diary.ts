@@ -28,11 +28,12 @@ async function handleUnauthorized(res: any) {
 
 export interface DiaryEntry {
   diaryId: number;
-  userId: number;
+  userId?: number;
   title: string;
   text: string;
   audioUrl?: string;
   imageUrl?: string;
+  categories?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -52,19 +53,24 @@ export interface UpdateDiaryRequest {
   imageUrl?: string;
 }
 
-export async function fetchDiaries(): Promise<DiaryEntry[]> {
+export async function fetchDiaries(category?: string): Promise<DiaryEntry[]> {
   console.log("=== fetchDiaries called ===");
+  console.log("Category filter:", category);
   
   const accessToken = getAccessTokenOrRedirect();
   console.log("Access token obtained:", accessToken ? "Yes" : "No");
 
-  console.log("Making request to:", `${getBackendUrl()}/api/diary`);
+  const url = category 
+    ? `${getBackendUrl()}/api/diary?category=${encodeURIComponent(category)}`
+    : `${getBackendUrl()}/api/diary`;
+    
+  console.log("Making request to:", url);
   console.log("Request headers:", {
     "Access_Token": accessToken, 
   });
 
   try {
-    const response = await axios.get(`${getBackendUrl()}/api/diary`, {
+    const response = await axios.get(url, {
       headers: {
         "Access_Token": accessToken, 
       },

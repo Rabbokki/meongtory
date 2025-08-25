@@ -2,16 +2,12 @@
 
 export interface DiaryEntry {
   diaryId: number  // id -> diaryId로 변경
-  user: {  // userId -> user 관계로 변경
-    id: number
-    name: string
-    email: string
-  }
+  userId?: number  // 백엔드 응답과 일치하도록 userId 추가
   title: string
   text: string  // content -> text로 변경
   audioUrl?: string
   imageUrl?: string  // images[] -> imageUrl로 변경
-  isDeleted: boolean  // 추가
+  categories?: string[]  // 카테고리 배열 추가
   createdAt: string  // LocalDateTime을 string으로 표현
   updatedAt: string  // LocalDateTime을 string으로 표현
 }
