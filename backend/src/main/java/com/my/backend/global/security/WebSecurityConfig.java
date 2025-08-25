@@ -93,7 +93,9 @@ public class WebSecurityConfig {
                                 "/api/carts/**",
                                 "/error",
                                 "/actuator/**",
-                                "/api/naver-shopping/**"
+                                "/api/naver-shopping/**",
+                                "/api/search/**",
+                                "/api/embedding/**"
                         ).permitAll()
                         .requestMatchers("/api/orders/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/travel-plans/**", "/chat").authenticated()

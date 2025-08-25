@@ -91,6 +91,7 @@ interface NaverProduct {
   updatedAt: string
   relatedProductId?: number
   isSaved?: boolean // DB 저장 상태 추가
+  similarity?: number // 임베딩 검색 유사도 점수
 }
 
 interface StorePageProps {
@@ -117,7 +118,7 @@ export default function StorePage({
   setCurrentPage,
 }: StorePageProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"popular" | "latest" | "lowPrice" | "highPrice">("popular")
+  const [sortBy, setSortBy] = useState<"popular" | "latest" | "lowPrice" | "highPrice" | "similarity">("popular")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [naverProducts, setNaverProducts] = useState<NaverProduct[]>([])
@@ -451,7 +452,7 @@ export default function StorePage({
     }
   };
 
-  // 통합 검색 함수 (우리 스토어 + DB에 저장된 네이버 상품)
+  // 통합 검색 함수 (우리 스토어 + DB에 저장된 네이버 상품 + 임베딩 검색)
   const handleUnifiedSearch = async () => {
     // 검색 시 페이지 초기화
     setCurrentPageState(0)
@@ -467,40 +468,87 @@ export default function StorePage({
     
     setNaverSearchLoading(true);
     try {
-      // DB에 저장된 네이버 상품에서 검색 (첫 페이지)
-      const naverResponse = await naverShoppingApi.searchSavedProducts(searchQuery, 0, 20);
-      let naverResults: NaverProduct[] = [];
-      
-      if (naverResponse.success && naverResponse.data?.content) {
-        naverResults = naverResponse.data.content.map((item: any) => ({
-          id: item.id || item.productId || Math.random(),
-          productId: item.productId || '',
-          title: item.title || '제목 없음',
-          description: item.description || '',
-          price: parseInt(item.price) || 0,
-          imageUrl: item.imageUrl || '/placeholder.svg',
-          mallName: item.mallName || '판매자 정보 없음',
-          productUrl: item.productUrl || '#',
-          brand: item.brand || '',
-          maker: item.maker || '',
-          category1: item.category1 || '',
-          category2: item.category2 || '',
-          category3: item.category3 || '',
-          category4: item.category4 || '',
-          reviewCount: parseInt(item.reviewCount) || 0,
-          rating: parseFloat(item.rating) || 0,
-          searchCount: parseInt(item.searchCount) || 0,
-          createdAt: item.createdAt || new Date().toISOString(),
-          updatedAt: item.updatedAt || new Date().toISOString(),
-          isSaved: true
-        }));
+      // 1. 임베딩 검색 시도 (우선순위 1)
+      let embeddingResults: NaverProduct[] = [];
+      try {
+        const embeddingResponse = await axios.get(`${getBackendUrl()}/api/search`, {
+          params: { query: searchQuery, limit: 20 }
+        });
         
-        // 더 로드할 상품이 있는지 확인
-        setHasMore(naverResults.length === 20);
+        console.log('임베딩 검색 응답:', embeddingResponse.data);
+        
+        // 응답 데이터가 배열인지 확인
+        const responseData = embeddingResponse.data;
+        if (responseData && Array.isArray(responseData)) {
+          embeddingResults = responseData
+            .filter((item: any) => item && item.id) // null이나 id가 없는 항목 필터링
+            .map((item: any) => ({
+              id: Number(item.id) || Math.random(),
+              productId: item.productId || '',
+              title: item.title || '제목 없음',
+              description: item.description || '',
+              price: Number(item.price) || 0,
+              imageUrl: item.imageUrl || '/placeholder.svg',
+              mallName: item.mallName || '판매자 정보 없음',
+              productUrl: item.productUrl || '#',
+              brand: item.brand || '',
+              maker: item.maker || '',
+              category1: item.category1 || '',
+              category2: item.category2 || '',
+              category3: item.category3 || '',
+              category4: item.category4 || '',
+              reviewCount: Number(item.reviewCount) || 0,
+              rating: Number(item.rating) || 0,
+              searchCount: Number(item.searchCount) || 0,
+              createdAt: item.createdAt || new Date().toISOString(),
+              updatedAt: item.updatedAt || new Date().toISOString(),
+              relatedProductId: item.relatedProductId ? Number(item.relatedProductId) : undefined,
+              isSaved: true,
+              similarity: Number(item.similarity) || 0 // 유사도 점수 추가
+            }));
+          
+          console.log('임베딩 검색 결과 변환 완료:', embeddingResults.length, '개');
+        } else {
+          console.log('임베딩 검색 응답이 배열이 아님:', typeof responseData, responseData);
+        }
+      } catch (embeddingError) {
+        console.log('임베딩 검색 실패, 일반 검색으로 대체:', embeddingError);
       }
 
-      // 우리 스토어 검색
-      const filteredLocalProducts = products.filter((product) => {
+      // 2. 일반 키워드 검색 (임베딩 검색 결과가 없을 때)
+      let keywordResults: NaverProduct[] = [];
+      if (embeddingResults.length === 0) {
+        const naverResponse = await naverShoppingApi.searchSavedProducts(searchQuery, 0, 20);
+        
+                 if (naverResponse.success && naverResponse.data?.content) {
+           keywordResults = naverResponse.data.content.map((item: any) => ({
+             id: Number(item.id) || Math.random(),
+             productId: item.productId || '',
+             title: item.title || '제목 없음',
+             description: item.description || '',
+             price: Number(item.price) || 0,
+             imageUrl: item.imageUrl || '/placeholder.svg',
+             mallName: item.mallName || '판매자 정보 없음',
+             productUrl: item.productUrl || '#',
+             brand: item.brand || '',
+             maker: item.maker || '',
+             category1: item.category1 || '',
+             category2: item.category2 || '',
+             category3: item.category3 || '',
+             category4: item.category4 || '',
+             reviewCount: Number(item.reviewCount) || 0,
+             rating: Number(item.rating) || 0,
+             searchCount: Number(item.searchCount) || 0,
+             createdAt: item.createdAt || new Date().toISOString(),
+             updatedAt: item.updatedAt || new Date().toISOString(),
+             relatedProductId: item.relatedProductId ? Number(item.relatedProductId) : undefined,
+             isSaved: true
+           }));
+         }
+      }
+
+      // 3. 우리 스토어 검색 - 임베딩 검색 결과가 있을 때는 필터링하지 않음
+      const filteredLocalProducts = embeddingResults.length > 0 ? products : products.filter((product) => {
         const lowerCaseQuery = searchQuery.toLowerCase();
         return (
           product.name.toLowerCase().includes(lowerCaseQuery) ||
@@ -509,12 +557,23 @@ export default function StorePage({
         );
       });
 
-      // 결과 합치기
-      setNaverProducts(naverResults);
+      // 4. 결과 합치기 (임베딩 검색 결과 우선)
+      const finalNaverResults = embeddingResults.length > 0 ? embeddingResults : keywordResults;
+      
+      console.log('최종 네이버 결과:', finalNaverResults.length, '개');
+      console.log('필터된 로컬 상품:', filteredLocalProducts.length, '개');
+      
+      setNaverProducts(finalNaverResults);
       setProducts(filteredLocalProducts);
-      setShowNaverProducts(naverResults.length > 0);
+      setShowNaverProducts(finalNaverResults.length > 0);
+      
+      // 더 로드할 상품이 있는지 확인
+      setHasMore(finalNaverResults.length === 20);
+      
+      console.log('상태 업데이트 완료 - 네이버 상품:', finalNaverResults.length, '개, 로컬 상품:', filteredLocalProducts.length, '개');
       
     } catch (error) {
+      console.error('검색 중 오류:', error);
       setNaverProducts([]);
       setShowNaverProducts(false);
     } finally {
@@ -944,8 +1003,8 @@ export default function StorePage({
       }
     }
 
-    // Search query filter
-    if (searchQuery.trim() !== "") {
+    // Search query filter - 임베딩 검색 결과인 경우 필터링 건너뛰기
+    if (searchQuery.trim() !== "" && !product.similarity) {
       const lowerCaseQuery = searchQuery.toLowerCase();
       if (
         !product.title.toLowerCase().includes(lowerCaseQuery) &&
@@ -975,6 +1034,11 @@ export default function StorePage({
           const popDateA = a.registrationDate ? new Date(a.registrationDate).getTime() : new Date(a.createdAt).getTime();
           const popDateB = b.registrationDate ? new Date(b.registrationDate).getTime() : new Date(b.createdAt).getTime();
           return popDateB - popDateA;
+        case "similarity":
+          // 유사도 점수 기준 정렬 (높은 순)
+          const similarityA = a.similarity || 0;
+          const similarityB = b.similarity || 0;
+          return similarityB - similarityA;
         default:
           return 0;
       }
@@ -1192,6 +1256,14 @@ export default function StorePage({
             >
               높은 가격순
             </button>
+            <button
+              onClick={() => setSortBy("similarity")}
+              className={`font-medium ${
+                sortBy === "similarity" ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              유사도순
+            </button>
           </div>
         </div>
 
@@ -1274,6 +1346,12 @@ export default function StorePage({
                   {savingProducts.has(naverProduct.productId) && (
                     <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
                       저장중...
+                    </div>
+                  )}
+                  {/* 임베딩 검색 유사도 점수 표시 */}
+                  {naverProduct.similarity !== undefined && (
+                    <div className="absolute bottom-2 left-2 bg-purple-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
+                      유사도: {naverProduct.similarity.toFixed(2)}
                     </div>
                   )}
                 </div>
