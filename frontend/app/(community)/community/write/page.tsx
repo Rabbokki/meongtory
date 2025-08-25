@@ -377,7 +377,12 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
           }
         }
       } else {
-        setError(err.message || "게시글 작성 중 오류가 발생했습니다.");
+        // 비속어 필터링 에러 처리
+        if (err.response?.status === 400 && err.response?.data?.error?.includes("비속어가 포함되어 등록할 수 없습니다")) {
+          toast.error("🚫 비속어를 사용하지 말아주세요.");
+        } else {
+          setError(err.response?.data?.error || err.message || "게시글 작성 중 오류가 발생했습니다.");
+        }
       }
     }
   };
