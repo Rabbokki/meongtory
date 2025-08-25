@@ -6,6 +6,7 @@ import com.my.backend.community.entity.CommunityComment;
 import com.my.backend.community.entity.CommunityPost;
 import com.my.backend.community.repository.CommunityCommentRepository;
 import com.my.backend.community.repository.CommunityPostRepository;
+import com.my.backend.community.util.ProfanityFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ public class CommunityCommentService {
 
     private final CommunityCommentRepository commentRepository;
     private final CommunityPostRepository postRepository;
+    private final ProfanityFilter profanityFilter;
 
     // 댓글 목록 조회
     public List<CommunityCommentDto> getCommentsByPostId(Long postId) {
@@ -31,6 +33,11 @@ public class CommunityCommentService {
 
     // 댓글 생성
     public CommunityCommentDto createComment(Long postId, CommunityCommentDto dto, Account account) {
+        // 비속어 필터링 체크
+        if (profanityFilter.containsProfanity(dto.getContent())) {
+            throw new RuntimeException("비속어가 포함되어 등록할 수 없습니다");
+        }
+
         CommunityPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
 
@@ -52,6 +59,11 @@ public class CommunityCommentService {
 
     // 댓글 수정
     public CommunityCommentDto updateComment(Long commentId, CommunityCommentDto dto, Account account) {
+        // 비속어 필터링 체크
+        if (profanityFilter.containsProfanity(dto.getContent())) {
+            throw new RuntimeException("비속어가 포함되어 등록할 수 없습니다");
+        }
+
         CommunityComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Comment not found"));
 
