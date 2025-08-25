@@ -92,6 +92,15 @@ public class CommunityPostController {
         try {
             CommunityPostDto response = postService.createPost(dto, imgs, account);
             return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            // 비속어 필터링 예외 처리
+            if (e.getMessage().contains("비속어가 포함되어 등록할 수 없습니다")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", e.getMessage(), "message", e.getMessage()));
+            }
+            logger.error("Error creating post: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "게시물 생성 중 오류 발생: " + e.getMessage()));
         } catch (Exception e) {
             logger.error("Error creating post: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -127,6 +136,15 @@ public class CommunityPostController {
 
             CommunityPost updatedPost = postService.updatePost(id, dto, imgs);
             return ResponseEntity.ok(updatedPost);
+        } catch (RuntimeException e) {
+            // 비속어 필터링 예외 처리
+            if (e.getMessage().contains("비속어가 포함되어 등록할 수 없습니다")) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", e.getMessage(), "message", e.getMessage()));
+            }
+            logger.error("Error updating post: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             logger.error("Error updating post: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

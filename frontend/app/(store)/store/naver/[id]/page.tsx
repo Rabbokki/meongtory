@@ -4,12 +4,15 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Sparkles, PawPrint, ExternalLink } from "lucide-react"
+import { ArrowLeft, Sparkles, PawPrint, ExternalLink, Clock } from "lucide-react"
 import Image from "next/image"
 import axios from "axios"
 import { useRouter } from "next/navigation"
 import { ProductRecommendationSlider } from "@/components/ui/product-recommendation-slider"
 import { getBackendUrl } from '@/lib/api'
+import { recentApi } from '@/lib/api'
+import { RecentProductsSidebar } from "@/components/ui/recent-products-sidebar"
+import { loadSidebarState, updateSidebarState } from "@/lib/sidebar-state"
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(
@@ -108,6 +111,10 @@ export default function NaverProductDetailPage({ params }: PageProps) {
   const [recommendations, setRecommendations] = useState<any[]>([])
   const [recommendationsLoading, setRecommendationsLoading] = useState(false)
   const [recommendationsError, setRecommendationsError] = useState<string | null>(null)
+
+  // 최근 본 상품 사이드바
+  const [showRecentSidebar, setShowRecentSidebar] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   // 네이버 상품 조회
   const getNaverProduct = async (productId: string): Promise<any> => {
@@ -214,6 +221,85 @@ export default function NaverProductDetailPage({ params }: PageProps) {
     }
   }, [myPet, product])
 
+  // 사이드바 상태 로드 및 페이지 포커스 시 동기화
+  useEffect(() => {
+    const handleFocus = () => {
+      const savedState = loadSidebarState()
+      if (savedState.productType === 'store') {
+        setShowRecentSidebar(savedState.isOpen)
+      }
+    }
+
+    // 페이지 포커스 시 상태 로드
+    window.addEventListener('focus', handleFocus)
+    
+    // 초기 상태 로드
+    handleFocus()
+
+    return () => {
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
+  // 사이드바 토글 함수
+  const handleSidebarToggle = () => {
+    const newIsOpen = !showRecentSidebar
+    setShowRecentSidebar(newIsOpen)
+    updateSidebarState({ isOpen: newIsOpen, productType: 'store' })
+  }
+
+  // localStorage 관련 함수들
+  const getLocalRecentProducts = (): any[] => {
+    try {
+      const stored = localStorage.getItem('recentStoreProducts')
+      return stored ? JSON.parse(stored) : []
+    } catch {
+      return []
+    }
+  }
+
+  const addToLocalRecentProducts = (product: NaverProduct) => {
+    try {
+      const products = getLocalRecentProducts()
+      
+      // 중복 체크 - naverProductId로 체크
+      const existingIndex = products.findIndex(p => 
+        p.naverProductId === product.productId || p.id === product.id
+      )
+      
+      if (existingIndex > -1) {
+        // 기존 항목 제거
+        products.splice(existingIndex, 1)
+      }
+      
+      // 필요한 정보만 추출하여 저장
+      const simplifiedProduct = {
+        id: product.id,
+        naverProductId: product.productId,
+        productName: product.title?.replace(/<[^>]*>/g, ''),
+        name: product.title?.replace(/<[^>]*>/g, ''),
+        title: product.title?.replace(/<[^>]*>/g, ''),
+        description: product.description?.replace(/<[^>]*>/g, ''),
+        logoUrl: product.imageUrl,
+        imageUrl: product.imageUrl,
+        price: product.price,
+        type: 'store'
+      }
+      
+      // 새 항목을 맨 앞에 추가
+      products.unshift(simplifiedProduct)
+      
+      // 최대 15개만 유지
+      if (products.length > 15) {
+        products.splice(15)
+      }
+      
+      localStorage.setItem('recentStoreProducts', JSON.stringify(products))
+    } catch (error) {
+      console.error("localStorage 저장 실패:", error)
+    }
+  }
+
   useEffect(() => {
     // 네이버 상품 조회 함수
     const fetchNaverProduct = async () => {
@@ -229,6 +315,19 @@ export default function NaverProductDetailPage({ params }: PageProps) {
         
         if (response.success && response.data) {
           setProduct(response.data);
+          
+          // 최근 본 상품에 추가
+          addToLocalRecentProducts(response.data)
+          
+          // 로그인 시 백엔드에도 추가
+          const token = localStorage.getItem('accessToken')
+          if (token) {
+            try {
+              await recentApi.addToRecent(response.data.id, 'store')
+            } catch (error) {
+              console.error('백엔드 최근본 추가 실패:', error)
+            }
+          }
         } else {
           throw new Error('상품 정보를 찾을 수 없습니다.');
         }
@@ -509,39 +608,82 @@ export default function NaverProductDetailPage({ params }: PageProps) {
         </div>
 
         {/* AI 추천 섹션 */}
-        {myPet && (
-          <div className="mt-12">
-            <div className="flex items-center mb-6">
-              <Sparkles className="h-6 w-6 text-yellow-500 mr-2" />
-              <h2 className="text-2xl font-bold text-gray-900">☆ AI 맞춤 추천</h2>
-            </div>
-            <p className="text-gray-600 mb-6">
-              {myPet.name} ({myPet.breed}, {myPet.age}살)을 위한 맞춤 상품을 추천해드려요
-            </p>
-            
-            {recommendationsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500 mx-auto mb-2"></div>
-                  <p className="text-gray-600 text-sm">추천 상품을 불러오는 중...</p>
+        <div className="mt-12">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-orange-500" />
+                <CardTitle className="text-xl">AI 맞춤 추천</CardTitle>
+              </div>
+              {myPet && (
+                <p className="text-sm text-gray-600">
+                  {myPet.name} ({myPet.breed}, {myPet.age}살)을 위한 맞춤 상품을 추천해드려요
+                </p>
+              )}
+            </CardHeader>
+            <CardContent>
+              {!myPet ? (
+                <div className="text-center py-8">
+                  <PawPrint className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">반려동물을 등록해주세요</h3>
+                  <p className="text-gray-600 mb-4">
+                    반려동물을 등록하면 맞춤 추천을 받을 수 있어요!
+                  </p>
+                  <Button 
+                    onClick={() => router.push('/my')}
+                    className="bg-orange-500 hover:bg-orange-600"
+                  >
+                    마이페이지에서 반려동물 등록하기
+                  </Button>
                 </div>
-              </div>
-            ) : recommendationsError ? (
-              <div className="text-center py-8">
-                <p className="text-gray-500">{recommendationsError}</p>
-              </div>
-            ) : recommendations && recommendations.length > 0 ? (
-              <ProductRecommendationSlider 
-                products={recommendations} 
-                title="AI 맞춤 추천"
-              />
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500">추천 상품이 없습니다.</p>
-              </div>
-            )}
-          </div>
-        )}
+              ) : recommendationsLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500 mx-auto mb-4"></div>
+                  <p className="text-gray-600">맞춤 상품을 찾고 있어요...</p>
+                </div>
+              ) : recommendationsError ? (
+                <div className="text-center py-8">
+                  <p className="text-red-500 mb-4">{recommendationsError}</p>
+                  <Button 
+                    onClick={fetchRecommendations}
+                    variant="outline"
+                  >
+                    다시 시도
+                  </Button>
+                </div>
+              ) : recommendations && recommendations.length > 0 ? (
+                <ProductRecommendationSlider 
+                  products={recommendations} 
+                  title=""
+                  subtitle=""
+                />
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">추천할 상품이 없습니다.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* 최근 본 상품 사이드바 */}
+      <RecentProductsSidebar
+        productType="store"
+        isOpen={showRecentSidebar}
+        onToggle={handleSidebarToggle}
+        refreshTrigger={refreshTrigger}
+      />
+
+      {/* 고정된 사이드바 토글 버튼 */}
+      <div className="fixed top-20 right-6 z-40">
+        <Button
+          onClick={handleSidebarToggle}
+          className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg rounded-full w-14 h-14 p-0"
+          title="최근 본 상품"
+        >
+          <Clock className="h-6 w-6" />
+        </Button>
       </div>
     </div>
   );

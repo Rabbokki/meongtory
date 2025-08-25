@@ -26,6 +26,7 @@ from store.api import app as storeai_app
 # transcribe.py 모듈을 import하기 위해 경로 추가
 sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
 from transcribe import transcribe_audio
+from category_classifier import CategoryClassifier
 
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG)
@@ -56,6 +57,7 @@ if not client.api_key:
 story_service = StoryAIService()
 contract_service = ContractAIService()
 classifier = DogBreedClassifier()
+category_classifier = CategoryClassifier()
 
 class BackgroundStoryRequest(BaseModel):
     petName: str
@@ -70,6 +72,9 @@ class QueryRequest(BaseModel):
 
 class RetrainRequest(BaseModel):
     min_feedback_count: int = 10
+
+class CategoryClassificationRequest(BaseModel):
+    content: str
 
 @app.post("/predict")
 async def predict_dog_breed(file: UploadFile = File(...)):
@@ -230,6 +235,18 @@ async def get_retrain_status():
     except Exception as e:
         logger.error(f"재학습 상태 조회 실패: {str(e)}")
         raise HTTPException(status_code=500, detail=f"재학습 상태 조회 중 오류 발생: {str(e)}")
+
+@app.post("/classify-category")
+async def classify_category_endpoint(request: CategoryClassificationRequest):
+    """일기 내용 카테고리 분류"""
+    try:
+        logger.info(f"카테고리 분류 요청 - 내용 길이: {len(request.content)}")
+        categories = category_classifier.classify_diary_content(request.content)
+        logger.info(f"분류된 카테고리: {categories}")
+        return {"categories": categories}
+    except Exception as e:
+        logger.error(f"카테고리 분류 중 오류 발생: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"카테고리 분류 중 오류 발생: {str(e)}")
 
 def build_story_prompt(request: BackgroundStoryRequest) -> str:
     prompt = f"""다음 정보를 바탕으로 입양 동물의 감동적인 배경 스토리를 작성해주세요:

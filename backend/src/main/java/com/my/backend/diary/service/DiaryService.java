@@ -8,6 +8,8 @@ import com.my.backend.diary.dto.DiaryUpdateDto;
 import com.my.backend.diary.entity.Diary;
 import com.my.backend.diary.repository.DiaryRepository;
 import com.my.backend.s3.S3Service;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +35,7 @@ public class DiaryService {
     private final AccountRepository accountRepository;
     private final RestTemplate restTemplate;
     private final S3Service s3Service;
+    private final ObjectMapper objectMapper;
     
     @Value("${ai.service.url}")
     private String aiServiceUrl;
@@ -47,6 +50,10 @@ public class DiaryService {
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
         diary.setImageUrl(dto.getImageUrl());
+
+        // AI 카테고리 분류 수행
+        String[] categories = classifyDiaryContent(dto.getText());
+        diary.setCategories(categories);
 
         return DiaryResponseDto.from(diaryRepository.save(diary));
     }
@@ -94,6 +101,10 @@ public class DiaryService {
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
         diary.setImageUrl(dto.getImageUrl());
+        
+        // 내용이 변경된 경우 카테고리 재분류
+        String[] categories = classifyDiaryContent(dto.getText());
+        diary.setCategories(categories);
         
         return DiaryResponseDto.from(diaryRepository.save(diary));
     }
@@ -169,6 +180,91 @@ public class DiaryService {
             return audioUrl;
         } catch (Exception e) {
             throw new RuntimeException("오디오 업로드 중 오류 발생: " + e.getMessage());
+        }
+    }
+    
+    // 카테고리 분류 메서드
+    private String[] classifyDiaryContent(String content) {
+        try {
+            if (content == null || content.trim().isEmpty()) {
+                return new String[0];
+            }
+            
+            // AI 서비스 URL 구성
+            String classifyUrl = aiServiceUrl + "/classify-category";
+            log.info("카테고리 분류 시작 - AI 서비스 URL: {}", classifyUrl);
+            
+            // 요청 데이터 구성
+            CategoryClassificationRequest request = new CategoryClassificationRequest();
+            request.setContent(content);
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<CategoryClassificationRequest> requestEntity = new HttpEntity<>(request, headers);
+            
+            log.info("AI 서비스로 카테고리 분류 요청 전송 중...");
+            
+            // AI 서비스 호출
+            ResponseEntity<CategoryClassificationResponse> response = restTemplate.postForEntity(
+                classifyUrl,
+                requestEntity,
+                CategoryClassificationResponse.class
+            );
+            
+            log.info("AI 서비스 응답 - 상태 코드: {}, 응답 본문: {}", response.getStatusCode(), response.getBody());
+            
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                String[] categories = response.getBody().getCategories();
+                log.info("카테고리 분류 성공 - 분류된 카테고리: {}", (Object) categories);
+                return categories != null ? categories : new String[0];
+            } else {
+                log.error("AI 서비스에서 카테고리 분류 실패 - 상태 코드: {}", response.getStatusCode());
+                return new String[0];
+            }
+            
+        } catch (Exception e) {
+            log.error("카테고리 분류 중 오류 발생: {}", e.getMessage(), e);
+            return new String[0];
+        }
+    }
+    
+    // 카테고리별 일기 조회 메서드
+    public List<DiaryResponseDto> getDiariesByCategory(String category, Long userId, String userRole) {
+        if ("ADMIN".equals(userRole)) {
+            return diaryRepository.findByCategory(category).stream()
+                    .map(DiaryResponseDto::from)
+                    .collect(Collectors.toList());
+        } else {
+            return diaryRepository.findByCategoryAndUser(category, userId).stream()
+                    .map(DiaryResponseDto::from)
+                    .collect(Collectors.toList());
+        }
+    }
+    
+    // 카테고리 분류 요청 DTO
+    public static class CategoryClassificationRequest {
+        private String content;
+        
+        public String getContent() {
+            return content;
+        }
+        
+        public void setContent(String content) {
+            this.content = content;
+        }
+    }
+    
+    // 카테고리 분류 응답 DTO
+    public static class CategoryClassificationResponse {
+        private String[] categories;
+        
+        public String[] getCategories() {
+            return categories;
+        }
+        
+        public void setCategories(String[] categories) {
+            this.categories = categories;
         }
     }
     

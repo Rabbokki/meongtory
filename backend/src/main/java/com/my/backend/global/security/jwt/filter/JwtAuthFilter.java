@@ -29,9 +29,13 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
-        boolean shouldNotFilter = path.equals("/api/accounts/register") || 
-                                 path.equals("/api/accounts/login") || 
-                                 path.equals("/api/accounts/refresh");
+        boolean shouldNotFilter = path.equals("/api/health") || // 추가: ELB HealthChecker용
+                path.startsWith("/actuator/") || // 추가: Actuator 엔드포인트
+                path.equals("/api/accounts/register") ||
+                path.equals("/api/accounts/login") ||
+                path.equals("/api/accounts/refresh") ||
+                path.startsWith("/oauth2/") || // 추가: OAuth2 요청
+                path.startsWith("/login/oauth2/"); // 추가: OAuth2 리다이렉트
         log.info("JwtAuthFilter: shouldNotFilter for path {}: {}", path, shouldNotFilter);
         return shouldNotFilter;
     }

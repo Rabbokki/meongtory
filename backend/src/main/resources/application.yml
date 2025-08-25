@@ -82,32 +82,20 @@ jwt:
 
 ai:
   service:
-    url: ${AI_SERVICE_URL:http://localhost:9000}
+    url: ${AI_SERVICE_URL:http://ai:9000}
 
 logging:
   level:
     org.springframework: INFO
     org.springframework.boot: INFO
     org.springframework.security: DEBUG
+    org.springframework.security.oauth2: TRACE # 추가: OAuth2 디버깅
     org.apache.tomcat: INFO
     com.zaxxer.hikari: DEBUG
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql: TRACE
+    com.meongtory: DEBUG # 추가: 애플리케이션 로그 디버깅 강화
 
-# 토스페이먼츠 설정
-toss:
-  payments:
-    secret-key: ${TOSS_SECRET_KEY}
-    client-key: ${NEXT_PUBLIC_TOSS_CLIENT_KEY}
-
-# 네이버 API 설정
-naver:
-  api:
-    client-id: ${NAVER_API_CLIENT_ID}
-    client-secret: ${NAVER_API_CLIENT_SECRET}
-    shopping-url: https://openapi.naver.com/v1/search/shop.json
-
-# Spring Boot Actuator 설정
 management:
   endpoints:
     web:
@@ -117,3 +105,19 @@ management:
   endpoint:
     health:
       show-details: always
+
+toss:
+  payments:
+    secret-key: ${TOSS_SECRET_KEY}
+    client-key: ${NEXT_PUBLIC_TOSS_CLIENT_KEY}
+
+naver:
+  api:
+    client-id: ${NAVER_API_CLIENT_ID}
+    client-secret: ${NAVER_API_CLIENT_SECRET}
+    shopping-url: https://openapi.naver.com/v1/search/shop.json
+
+openai:
+  api:
+    key: ${OPENAI_API_KEY}
+    url: https://api.openai.com/v1/embeddings

@@ -29,6 +29,9 @@ public class Diary {
     @Column(columnDefinition = "TEXT")
     private String text;
 
+    @Column(name = "categories", columnDefinition = "text[]")
+    private String[] categories;
+
     private String audioUrl;
     private String imageUrl;
 

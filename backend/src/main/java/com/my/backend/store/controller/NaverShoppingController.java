@@ -46,11 +46,21 @@ public class NaverShoppingController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         try {
+            log.info("=== 키워드 기반 검색 요청 시작 ===");
+            log.info("검색어: '{}'", keyword);
+            log.info("페이지: {}, 크기: {}", page, size);
+            log.info("검색 방식: 키워드 기반 검색 (SQL LIKE)");
+            log.info("엔드포인트: /api/naver-shopping/products/search");
+            
             Page<NaverProductDto> products = naverShoppingService.searchNaverProductsByKeyword(keyword, page, size);
+            
+            log.info("키워드 기반 검색 결과 개수: {}", products.getTotalElements());
+            log.info("=== 키워드 기반 검색 요청 완료 ===");
+            
             return ResponseEntity.ok(ResponseDto.success(products));
         } catch (Exception e) {
-            log.error("네이버 상품 검색 실패: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(ResponseDto.fail("SEARCH_FAILED", "네이버 상품 검색에 실패했습니다: " + e.getMessage()));
+            log.error("키워드 기반 검색 실패: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(ResponseDto.fail("SEARCH_FAILED", "키워드 기반 검색에 실패했습니다: " + e.getMessage()));
         }
     }
 

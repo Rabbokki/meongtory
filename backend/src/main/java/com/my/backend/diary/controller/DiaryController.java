@@ -34,18 +34,23 @@ public class DiaryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<DiaryResponseDto>> getDiaries() {
+    public ResponseEntity<List<DiaryResponseDto>> getDiaries(@RequestParam(required = false) String category) {
         // 현재 로그인한 사용자 정보 가져오기
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         Long userId = userDetails.getAccount().getId();
         String userRole = userDetails.getAccount().getRole();
         
-        // 관리자인 경우 모든 일기 반환, 일반 사용자는 자신의 일기만 반환
-        if ("ADMIN".equals(userRole)) {
-            return ResponseEntity.ok(diaryService.getAllDiaries());
+        // 카테고리 파라미터가 있으면 카테고리별 조회, 없으면 전체 조회
+        if (category != null && !category.trim().isEmpty()) {
+            return ResponseEntity.ok(diaryService.getDiariesByCategory(category, userId, userRole));
         } else {
-            return ResponseEntity.ok(diaryService.getUserDiaries(userId));
+            // 관리자인 경우 모든 일기 반환, 일반 사용자는 자신의 일기만 반환
+            if ("ADMIN".equals(userRole)) {
+                return ResponseEntity.ok(diaryService.getAllDiaries());
+            } else {
+                return ResponseEntity.ok(diaryService.getUserDiaries(userId));
+            }
         }
     }
 

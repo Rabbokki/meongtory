@@ -139,8 +139,17 @@ public class NaverShoppingService {
      * 키워드로 네이버 상품 검색
      */
     public Page<NaverProductDto> searchNaverProductsByKeyword(String keyword, int page, int size) {
+        log.info("=== 키워드 기반 검색 시작 (SQL LIKE 검색) ===");
+        log.info("검색어: '{}'", keyword);
+        log.info("페이지: {}, 크기: {}", page, size);
+        log.info("검색 방식: 키워드 기반 검색 (SQL LIKE - title, description, brand)");
+        
         Pageable pageable = PageRequest.of(page, size);
         Page<NaverProduct> naverProducts = naverProductRepository.findByKeyword(keyword, pageable);
+        
+        log.info("키워드 기반 검색 완료: {}개 결과", naverProducts.getTotalElements());
+        log.info("=== 키워드 기반 검색 완료 ===");
+        
         return naverProducts.map(this::convertToDto);
     }
 

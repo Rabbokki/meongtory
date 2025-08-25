@@ -120,7 +120,7 @@ export function ProductRecommendationSlider({
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-2">
-              <CardTitle className="text-lg font-semibold mb-2 line-clamp-2">
+              <CardTitle className="text-lg font-semibold mb-2 truncate">
                 {product.name}
               </CardTitle>
               

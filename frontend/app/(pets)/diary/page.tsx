@@ -12,11 +12,12 @@ import GrowthDiaryWritePage from "./write/page"
 
 interface DiaryEntry {
   diaryId: number;
-  userId: number | null;
+  userId?: number;
   title: string | null;
   text: string | null;
   imageUrl: string | null;
   audioUrl: string | null;
+  categories?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -46,15 +47,17 @@ export default function GrowthDiaryPage({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [diaryToDelete, setDiaryToDelete] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<string>("전체");
   const router = useRouter();
   const { toast } = useToast();
 
-  const refetchDiaries = async () => {
+  const refetchDiaries = async (category?: string) => {
     console.log("=== refetchDiaries called ===");
     console.log("Fetching diaries for current user, isLoggedIn:", isLoggedIn);
+    console.log("Category filter:", category);
     
     try {
-      const data = await fetchDiaries();
+      const data = await fetchDiaries(category);
       console.log("=== fetchDiaries success ===");
       console.log("Raw data received:", data);
       console.log("Data type:", typeof data);
@@ -94,6 +97,12 @@ export default function GrowthDiaryPage({
   const handleDelete = async (diaryId: number) => {
     setDiaryToDelete(diaryId);
     setShowDeleteConfirm(true);
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    const category = tab === "전체" ? undefined : tab;
+    refetchDiaries(category);
   };
 
   const confirmDelete = async () => {
@@ -142,7 +151,7 @@ export default function GrowthDiaryPage({
       setIsLoading(true);
       await checkLoginStatus();
       if (isLoggedIn) {
-        await refetchDiaries();
+        await refetchDiaries(activeTab === "전체" ? undefined : activeTab);
       }
       setIsLoading(false);
     };
@@ -188,7 +197,6 @@ export default function GrowthDiaryPage({
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">성장일기</h1>
-          
           </div>
           {isLoggedIn && (
             <Button
@@ -200,6 +208,23 @@ export default function GrowthDiaryPage({
           )}
         </div>
 
+        {/* 카테고리 탭 UI */}
+        <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+          {["전체", "일상", "건강"].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => handleTabChange(tab)}
+              className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? "bg-yellow-400 text-black shadow-sm"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
         <div className="grid gap-6">
           {userEntries.length > 0 ? (
             userEntries.map((entry) => (
@@ -209,7 +234,7 @@ export default function GrowthDiaryPage({
                 onClick={() => handleViewEntry(entry.diaryId)}
               >
                 <CardContent className="p-6">
-                  <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-2">
                         <div>
@@ -257,6 +282,18 @@ export default function GrowthDiaryPage({
                       </div>
                       <p className="text-base text-gray-700 mb-2">{entry.text || "(내용 없음)"}</p>
                       <p className="text-sm text-gray-500 mb-3">{entry.createdAt}</p>
+                      {entry.categories && entry.categories.length > 0 && (
+                        <div className="flex gap-1 mb-2">
+                          {entry.categories.map((category: string, index: number) => (
+                            <span
+                              key={index}
+                              className="inline-block px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full"
+                            >
+                              {category}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       {entry.audioUrl && (
                         <div className="flex items-center gap-2 mb-2">
                           <Mic className="h-4 w-4" />
@@ -267,11 +304,11 @@ export default function GrowthDiaryPage({
                       )}
                     </div>
                     {entry.imageUrl && (
-                      <div className="flex-shrink-0 w-full md:w-1/3 lg:w-1/4 relative">
+                      <div className="ml-4 flex-shrink-0">
                         <img
                           src={entry.imageUrl}
                           alt="diary image"
-                          className="rounded-md object-cover w-full h-auto"
+                          className="w-24 h-24 object-cover rounded-md"
                         />
                       </div>
                     )}

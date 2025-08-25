@@ -28,6 +28,7 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+        log.info("Starting OAuth2 user load for client: {}", userRequest.getClientRegistration().getRegistrationId());
         try {
             log.info("OAuth2 UserRequest: clientId={}, redirectUri={}, code={}",
                     userRequest.getClientRegistration().getClientId(),

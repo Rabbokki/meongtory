@@ -45,7 +45,13 @@ public class WebSecurityConfig {
 
     @Bean
     public WebSecurityCustomizer ignoringCustomizer() {
-        return (web) -> web.ignoring().requestMatchers("/h2-console/**");
+        return (web) -> web.ignoring().requestMatchers(
+                "/h2-console/**",
+                "/api/health", // 추가: ELB HealthChecker용
+                "/actuator/**", // 추가: Actuator 엔드포인트
+                "/oauth2/**", // 추가: OAuth2 요청
+                "/login/oauth2/**" // 추가: OAuth2 리다이렉트
+        );
     }
 
     @Bean
@@ -91,9 +97,15 @@ public class WebSecurityConfig {
                                 "/api/ai/**",
                                 "/api/community/**",
                                 "/api/carts/**",
+                                "/api/insurance/**",
+                                "/api/recent/**",
                                 "/error",
                                 "/actuator/**",
-                                "/api/naver-shopping/**"
+                                "/api/naver-shopping/**",
+                                "/api/search/**",
+                                "/api/embedding/**",
+                                "/api/health",
+                                "/login/oauth2/code/**"
                         ).permitAll()
                         .requestMatchers("/api/orders/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/travel-plans/**", "/chat").authenticated()
