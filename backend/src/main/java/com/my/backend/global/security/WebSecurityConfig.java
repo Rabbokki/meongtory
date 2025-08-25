@@ -95,7 +95,9 @@ public class WebSecurityConfig {
                                 "/actuator/**",
                                 "/api/naver-shopping/**",
                                 "/api/search/**",
-                                "/api/embedding/**"
+                                "/api/embedding/**",
+                                "/api/health",
+                                "/login/oauth2/code/**"
                         ).permitAll()
                         .requestMatchers("/api/orders/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/travel-plans/**", "/chat").authenticated()
