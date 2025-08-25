@@ -45,6 +45,7 @@ services:
       - NAVER_API_CLIENT_SECRET=${NAVER_API_CLIENT_SECRET}
       - OAUTH2_REDIRECT_URI_BASE=${OAUTH2_REDIRECT_URI_BASE:-http://localhost:8080}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     depends_on:
       - ai
     networks:
