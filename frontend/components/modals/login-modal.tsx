@@ -161,7 +161,7 @@ export default function LoginModal({
           <div className="space-y-3">
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/google`)}
+              onClick={() => (window.location.href = `https://meongtory.shop/oauth2/authorization/google`)}
               className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
