@@ -18,6 +18,7 @@ public class DiaryResponseDto {
     private String text;
     private String audioUrl;
     private String imageUrl;
+    private String[] categories;
     private String createdAt;
     private String updatedAt;
 
@@ -37,6 +38,7 @@ public class DiaryResponseDto {
                 .text(diary.getText())
                 .audioUrl(diary.getAudioUrl())
                 .imageUrl(diary.getImageUrl())
+                .categories(diary.getCategories())
                 .createdAt(diary.getCreatedAt() != null ? diary.getCreatedAt().format(formatter) : null)
                 .updatedAt(diary.getUpdatedAt() != null ? diary.getUpdatedAt().format(formatter) : null)
                 .build();

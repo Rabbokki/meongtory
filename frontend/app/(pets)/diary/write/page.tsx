@@ -373,7 +373,7 @@ export default function GrowthDiaryWritePage({
             <ChevronLeft className="h-4 w-4 mr-2" />
             뒤로가기
           </Button>
-          <h1 className="text-3xl font-bold text-gray-900">새 게시글 작성</h1>
+          <h1 className="text-3xl font-bold text-gray-900">새 일기 작성</h1>
           <div className="w-24" /> {/* Placeholder for alignment */}
         </div>
 
