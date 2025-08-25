@@ -1,18 +1,32 @@
-# AWS 인스턴스 배포 자동화 워크플로우
+# AWS 인스턴스 배포 자동화 워크플로우 (ALB + Bastion Host 아키텍처)
 # 
 # 실행 방법:
-# 1. 수동 실행: GitHub Actions에서 "Run workflow"로 실행 시 IP 주소 입력
-# 2. 자동 실행: main 브랜치에 push/merge 시 자동 배포 (TEST_INSTANCE_IP secret 필요)
+# 1. 수동 실행: GitHub Actions에서 "Run workflow"로 실행 시 Bastion Host IP와 도메인 입력
+# 2. 자동 실행: main 브랜치에 push/merge 시 자동 배포 (BASTION_IP, DOMAIN_NAME secret 필요)
 # 3. 테스트 실행: feature/cd 브랜치에 push 시 테스트용 자동 실행
+#
+# 아키텍처:
+# - Public Subnet: ALB, NAT Gateway, Bastion Host
+# - Private Subnet: Service Instance (Frontend, Backend, AI, DB)
+# - Route53 + ACM으로 도메인 인증서 관리
+# - ALB로 Frontend(/) 와 API(/api) 라우팅 분리
 
 name: CD Pipeline
 
 on:
-  # 수동 실행 (IP 주소 입력)
+  # 수동 실행 (Bastion Host IP와 도메인 입력)
   workflow_dispatch:
     inputs:
-      instance_ip:
-        description: 'AWS Instance Public IP Address (예: 13.124.123.45)'
+      bastion_ip:
+        description: 'Bastion Host Public IP Address (예: 13.124.123.45)'
+        required: true
+        type: string
+      domain_name:
+        description: 'Service Domain Name (예: api.example.com)'
+        required: true
+        type: string
+      service_instance_ip:
+        description: 'Private Service Instance IP (예: 10.0.3.10)'
         required: true
         type: string
   
@@ -39,8 +53,10 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     
     env:
-      # push 이벤트일 때는 GitHub Secrets의 테스트 IP 사용, workflow_dispatch일 때는 입력받은 IP 사용
-      INSTANCE_IP: ${{ github.event.inputs.instance_ip || secrets.TEST_INSTANCE_IP }}
+      # 환경변수 설정: workflow_dispatch일 때는 입력받은 값 사용, 자동 실행시엔 secrets 사용
+      BASTION_IP: ${{ github.event.inputs.bastion_ip || secrets.BASTION_IP }}
+      DOMAIN_NAME: ${{ github.event.inputs.domain_name || secrets.DOMAIN_NAME }}
+      SERVICE_INSTANCE_IP: ${{ github.event.inputs.service_instance_ip || secrets.SERVICE_INSTANCE_IP }}
     
     steps:
     # 소스 코드 체크아웃
@@ -65,18 +81,17 @@ jobs:
     # 기존 ECR 이미지 삭제 (용량 절약)
     - name: Delete existing ECR images (if any)
       run: |
-        echo "Deleting existing images..."
         aws ecr batch-delete-image --repository-name mt-frontend --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
         aws ecr batch-delete-image --repository-name mt-backend --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
         aws ecr batch-delete-image --repository-name mt-ai --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
         aws ecr batch-delete-image --repository-name mt-db --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
 
-    # 프론트엔드 이미지 빌드 및 푸시 (인스턴스 IP 주입)
+    # 프론트엔드 이미지 빌드 및 푸시 (도메인 기반 URL 주입)
     - name: Build and push Frontend image
       run: |
-        echo "Building Frontend with instance IP: ${{ env.INSTANCE_IP }}"
         docker build \
-          --build-arg NEXT_PUBLIC_BACKEND_URL=http://${{ env.INSTANCE_IP }}:8080 \
+          --build-arg NEXT_PUBLIC_BACKEND_URL=https://${{ env.DOMAIN_NAME }} \
+          --build-arg NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }} \
           -t ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest \
           ./frontend
         docker push ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
@@ -84,21 +99,18 @@ jobs:
     # 백엔드 이미지 빌드 및 푸시
     - name: Build and push Backend image
       run: |
-        echo "Building Backend..."
         docker build -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
         docker push ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
 
     # AI 서비스 이미지 빌드 및 푸시
     - name: Build and push AI image
       run: |
-        echo "Building AI service..."
         docker build -t ${{ secrets.ECR_REGISTRY }}/mt-ai:latest ./ai
         docker push ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
 
     # 데이터베이스 이미지 빌드 및 푸시
     - name: Build and push DB image
       run: |
-        echo "Building Database..."
         docker build -t ${{ secrets.ECR_REGISTRY }}/mt-db:latest ./db
         docker push ${{ secrets.ECR_REGISTRY }}/mt-db:latest
 
@@ -106,8 +118,8 @@ jobs:
     - name: Configure docker-compose with secrets
       run: |
         # GitHub Secrets을 사용하여 환경변수 치환
-        # Frontend 환경변수
-        sed -i "s|\${NEXT_PUBLIC_BACKEND_URL}|http://${{ env.INSTANCE_IP }}:8080|g" docker-compose.production.yml
+        # Frontend 환경변수 (ALB를 통한 도메인 기반 접근)
+        sed -i "s|\${NEXT_PUBLIC_BACKEND_URL}|https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
         
         # Backend 환경변수  
         sed -i "s|\${BACKEND_PORT}|${{ secrets.BACKEND_PORT }}|g" docker-compose.production.yml
@@ -128,6 +140,8 @@ jobs:
         sed -i "s|\${AI_SERVICE_URL}|${{ secrets.AI_SERVICE_URL }}|g" docker-compose.production.yml
         sed -i "s|\${TOSS_SECRET_KEY}|${{ secrets.TOSS_SECRET_KEY }}|g" docker-compose.production.yml
         sed -i "s|\${NEXT_PUBLIC_TOSS_CLIENT_KEY}|${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}|g" docker-compose.production.yml
+        sed -i "s|\${NAVER_API_CLIENT_ID}|${{ secrets.NAVER_API_CLIENT_ID }}|g" docker-compose.production.yml
+        sed -i "s|\${NAVER_API_CLIENT_SECRET}|${{ secrets.NAVER_API_CLIENT_SECRET }}|g" docker-compose.production.yml
         
         # AI 서비스 환경변수
         sed -i "s|\${DB_PORT}|${{ secrets.DB_PORT }}|g" docker-compose.production.yml
@@ -142,92 +156,96 @@ jobs:
         sed -i "s|\${SAMPLE_DATA_PATH}|${{ secrets.SAMPLE_DATA_PATH }}|g" docker-compose.production.yml
         sed -i "s|\${PROMPT_TEMPLATE_PATH}|${{ secrets.PROMPT_TEMPLATE_PATH }}|g" docker-compose.production.yml
         
-        echo "Configured docker-compose.production.yml with environment variables"
-        echo "Final docker-compose configuration:"
+        # OAuth2 및 Frontend URL 환경변수 (새로 추가된 변수들)
+        sed -i "s|OAUTH2_REDIRECT_URI_BASE=https://meongtory.shop|OAUTH2_REDIRECT_URI_BASE=https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
+        sed -i "s|FRONTEND_URL=https://meongtory.shop|FRONTEND_URL=https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
+        
         cat docker-compose.production.yml
 
-    # 인스턴스 정리 작업 (기존 컨테이너 중지 및 파일 삭제)
-    - name: Clean up instance
+    # Service Instance 정리 작업 (Bastion을 통한 터널링)
+    - name: Clean up service instance via bastion
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ env.INSTANCE_IP }}
+        host: ${{ env.BASTION_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         script: |
-          echo "Starting cleanup..."
           
-          # Stop existing containers
-          if [ -f docker-compose.yml ]; then
-            echo "Stopping existing containers..."
-            docker-compose down || true
-          fi
+          # Service instance SSH 키 설정
+          chmod 600 /tmp/service_key.pem
           
-          # Clean up old files
-          rm -rf docker-compose.yml init-db/
+          # Bastion에서 Service Instance로 SSH 터널링하여 정리 작업
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
+            
+            # Stop existing containers
+            if [ -f docker-compose.yml ]; then
+              docker-compose down || true
+            fi
+            
+            # Clean up old files
+            rm -rf docker-compose.yml init-db/
+            
+            # Clean up Docker resources
+            docker system prune -f || true
+            
+          EOF
           
-          # Clean up Docker resources
-          echo "Cleaning up Docker resources..."
-          docker system prune -f || true
+          # 보안을 위해 키 파일 삭제
+          rm -f /tmp/service_key.pem
 
-    # 배포 파일 인스턴스로 전송
-    - name: Copy files to instance
+    # 배포 파일을 Bastion Host에 먼저 전송
+    - name: Copy files to bastion host
       uses: appleboy/scp-action@v0.1.7
       with:
-        host: ${{ env.INSTANCE_IP }}
+        host: ${{ env.BASTION_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         source: "docker-compose.production.yml,db/init-db"
         target: "/home/ubuntu/"
 
-    # docker-compose.production.yml을 docker-compose.yml로 이름 변경
-    - name: Rename docker-compose file and start services
+    # Bastion Host에서 Service Instance로 파일 전송 및 서비스 시작
+    - name: Deploy to service instance via bastion
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ env.INSTANCE_IP }}
+        host: ${{ env.BASTION_IP }}
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         script: |
-          echo "Renaming docker-compose file..."
-          mv docker-compose.production.yml docker-compose.yml
-
-    # 인스턴스에서 서비스 시작
-    - name: Start services on instance
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ env.INSTANCE_IP }}
-        username: ubuntu
-        key: ${{ secrets.AWS_PEM_KEY }}
-        script: |
-          echo "Starting services..."
           
-          # Configure AWS CLI for ECR access
-          aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws configure set default.region ${{ secrets.AWS_REGION }}
+          # Service instance SSH 키 설정
+          chmod 600 /tmp/service_key.pem
           
-          # Login to ECR
-          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+          # 배포 파일을 service instance로 전송
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem docker-compose.production.yml ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem -r db/init-db ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
           
-          # Pull latest images
-          echo "Pulling latest images..."
-          docker pull ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
-          docker pull ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
-          docker pull ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
-          docker pull ${{ secrets.ECR_REGISTRY }}/mt-db:latest
           
-          # Start services
-          echo "Starting services with docker-compose..."
-          docker-compose up -d
+          # Service instance에서 서비스 시작
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
+            mv docker-compose.production.yml docker-compose.yml
+            
+            
+            # Configure AWS CLI for ECR access
+            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+            aws configure set default.region ${{ secrets.AWS_REGION }}
+            
+            # Login to ECR
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+            
+            # Pull latest images
+            docker pull ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
+            docker pull ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
+            docker pull ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
+            docker pull ${{ secrets.ECR_REGISTRY }}/mt-db:latest
+            
+            # Start services
+            docker-compose up -d
+            
+            # Show running containers
+            docker ps
+            
+          EOF
           
-          # Show running containers
-          echo "Deployment completed. Running containers:"
-          docker ps
-
-    # 배포 완료 상태 출력
-    - name: Deployment Status
-      run: |
-        echo "Deployment completed successfully!"
-        echo "Frontend: http://${{ env.INSTANCE_IP }}:3000"
-        echo "Backend: http://${{ env.INSTANCE_IP }}:8080"
-        echo "AI Service: http://${{ env.INSTANCE_IP }}:9000"
-        echo "Database: ${{ env.INSTANCE_IP }}:5432"
+          # 보안을 위해 키 파일 삭제
+          rm -f /tmp/service_key.pem
