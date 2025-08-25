@@ -1,4 +1,4 @@
-package com.my.backend.ai.dto;
+package com.my.backend.emotion.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

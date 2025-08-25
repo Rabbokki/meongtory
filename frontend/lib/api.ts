@@ -2,7 +2,6 @@ import axios from 'axios';
 
 // API 설정을 위한 공통 유틸리티
 export const getBackendUrl = () => {
-  console.log("Backend URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
   const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
   return url;
 };

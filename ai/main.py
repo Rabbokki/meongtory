@@ -16,6 +16,7 @@ from story.models import BackgroundStoryRequest
 from breeding.breeding import predict_breeding
 from breed.breed_api import router as breed_router
 from emotion.emotion_api import router as emotion_router
+from emotion.retrain_service import get_retrain_service
 from model import DogBreedClassifier
 from chatBot.rag_app import process_rag_query, initialize_vectorstore
 
@@ -66,6 +67,9 @@ class BackgroundStoryRequest(BaseModel):
 
 class QueryRequest(BaseModel):
     query: str
+
+class RetrainRequest(BaseModel):
+    min_feedback_count: int = 10
 
 @app.post("/predict")
 async def predict_dog_breed(file: UploadFile = File(...)):
@@ -180,6 +184,52 @@ async def chatbot_endpoint(request: QueryRequest):
     except Exception as e:
         logger.error(f"Error processing chatbot query: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chatbot endpoint failed: {str(e)}")
+
+@app.post("/api/ai/retrain-emotion-model")
+async def retrain_emotion_model(request: RetrainRequest):
+    """감정 분석 모델 재학습"""
+    try:
+        logger.info(f"감정 모델 재학습 요청 - 최소 피드백 수: {request.min_feedback_count}")
+        
+        # 재학습 서비스 실행 (환경변수에서 자동 설정)
+        retrain_service = get_retrain_service()
+        result = retrain_service.run_retrain_cycle(min_feedback_count=request.min_feedback_count)
+        
+        logger.info(f"재학습 결과: {result}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"감정 모델 재학습 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"모델 재학습 중 오류 발생: {str(e)}")
+
+@app.get("/api/ai/retrain-status")
+async def get_retrain_status():
+    """재학습 상태 및 통계 조회"""
+    try:
+        # 재학습 서비스에서 피드백 데이터 조회 (환경변수에서 자동 설정)
+        retrain_service = get_retrain_service()
+        feedback_data = retrain_service.fetch_feedback_data()
+        
+        if feedback_data:
+            return {
+                "success": True,
+                "available_feedback_count": feedback_data.get('totalCount', 0),
+                "positive_feedback_count": len(feedback_data.get('positiveFeedback', [])),
+                "negative_feedback_count": len(feedback_data.get('negativeFeedback', [])),
+                "can_retrain": feedback_data.get('totalCount', 0) >= 10,
+                "message": "재학습 상태 조회 성공"
+            }
+        else:
+            return {
+                "success": False,
+                "available_feedback_count": 0,
+                "can_retrain": False,
+                "message": "피드백 데이터를 가져올 수 없습니다"
+            }
+            
+    except Exception as e:
+        logger.error(f"재학습 상태 조회 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"재학습 상태 조회 중 오류 발생: {str(e)}")
 
 def build_story_prompt(request: BackgroundStoryRequest) -> str:
     prompt = f"""다음 정보를 바탕으로 입양 동물의 감동적인 배경 스토리를 작성해주세요:
