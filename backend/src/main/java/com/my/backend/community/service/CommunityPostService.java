@@ -31,6 +31,11 @@ public class CommunityPostService {
         return postRepository.findAllByOrderByCreatedAtDesc();
     }
 
+    // 게시글 boardType별 조회 (최신순)
+    public List<CommunityPost> getPostsByBoardType(String boardType) {
+        return postRepository.findByBoardTypeOrderByCreatedAtDesc(boardType);
+    }
+
     // 게시글 상세 조회 (조회 수 증가 포함)
     public CommunityPost getPostById(Long id) {
         CommunityPost post = postRepository.findById(id)
