@@ -34,21 +34,8 @@ public class CommunityCommentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
         Account account = userDetails.getAccount();
-        try {
-            CommunityCommentDto response = commentService.createComment(postId, dto, account);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            // 비속어 필터링 예외 처리
-            if (e.getMessage().contains("비속어가 포함되어 등록할 수 없습니다")) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", e.getMessage(), "message", e.getMessage()));
-            }
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "댓글 작성 중 오류 발생: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "댓글 작성 중 오류 발생: " + e.getMessage()));
-        }
+        CommunityCommentDto response = commentService.createComment(postId, dto, account);
+        return ResponseEntity.ok(response);
     }
 
     // 댓글 수정
@@ -59,21 +46,8 @@ public class CommunityCommentController {
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
         Account account = userDetails.getAccount();
-        try {
-            CommunityCommentDto response = commentService.updateComment(commentId, dto, account);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            // 비속어 필터링 예외 처리
-            if (e.getMessage().contains("비속어가 포함되어 등록할 수 없습니다")) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                        .body(Map.of("error", e.getMessage(), "message", e.getMessage()));
-            }
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "댓글 수정 중 오류 발생: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "댓글 수정 중 오류 발생: " + e.getMessage()));
-        }
+        CommunityCommentDto response = commentService.updateComment(commentId, dto, account);
+        return ResponseEntity.ok(response);
     }
 
     // 댓글 삭제

@@ -90,6 +90,7 @@ jobs:
     - name: Build and push Frontend image
       run: |
         docker build \
+          --no-cache \
           --build-arg NEXT_PUBLIC_BACKEND_URL=https://${{ env.DOMAIN_NAME }} \
           --build-arg NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }} \
           -t ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest \
@@ -99,19 +100,19 @@ jobs:
     # 백엔드 이미지 빌드 및 푸시
     - name: Build and push Backend image
       run: |
-        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
+        docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
         docker push ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
 
     # AI 서비스 이미지 빌드 및 푸시
     - name: Build and push AI image
       run: |
-        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-ai:latest ./ai
+        docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-ai:latest ./ai
         docker push ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
 
     # 데이터베이스 이미지 빌드 및 푸시
     - name: Build and push DB image
       run: |
-        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-db:latest ./db
+        docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-db:latest ./db
         docker push ${{ secrets.ECR_REGISTRY }}/mt-db:latest
 
     # docker-compose.production.yml에 환경변수 주입
@@ -172,6 +173,7 @@ jobs:
         script: |
           
           # Service instance SSH 키 설정
+          echo '${{ secrets.AWS_PEM_KEY }}' > /tmp/service_key.pem
           chmod 600 /tmp/service_key.pem
           
           # Bastion에서 Service Instance로 SSH 터널링하여 정리 작업
@@ -185,8 +187,8 @@ jobs:
             # Clean up old files
             rm -rf docker-compose.yml init-db/
             
-            # Clean up Docker resources
-            docker system prune -f || true
+            # Clean up Docker resources (remove all unused images)
+            docker system prune -a -f || true
             
           EOF
           
@@ -213,6 +215,7 @@ jobs:
         script: |
           
           # Service instance SSH 키 설정
+          echo '${{ secrets.AWS_PEM_KEY }}' > /tmp/service_key.pem
           chmod 600 /tmp/service_key.pem
           
           # 배포 파일을 service instance로 전송

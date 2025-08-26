@@ -25,3 +25,4 @@ matplotlib
 seaborn
 pandas
 scikit-learn
+schedule

@@ -45,7 +45,20 @@ export default function CommunityPage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<string>("전체");
   const router = useRouter();
+
+  // 카테고리 탭 목록
+  const categories = ["전체", "자유게시판", "멍스타그램", "꿀팁게시판", "Q&A"];
+
+  // Q&A <-> QNA 변환 함수
+  const convertBoardTypeForDisplay = (boardType: string): string => {
+    return boardType === "QNA" ? "Q&A" : boardType;
+  };
+
+  const convertBoardTypeForAPI = (boardType: string): string => {
+    return boardType === "Q&A" ? "QNA" : boardType;
+  };
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -64,7 +77,14 @@ export default function CommunityPage({
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        const response = await fetch(`${getBackendUrl()}/api/community/posts`, {
+        // API 요청 URL 구성
+        let url = `${getBackendUrl()}/api/community/posts`;
+        if (activeTab !== "전체") {
+          const param = convertBoardTypeForAPI(activeTab);
+          url += `?boardType=${param}`;
+        }
+
+        const response = await fetch(url, {
           method: "GET",
           headers,
         });
@@ -97,13 +117,13 @@ export default function CommunityPage({
             id: post.id,
             title: post.title || "제목 없음",
             content: post.content || "",
-            author: post.author || "익명", //  DB author 매핑
+            author: post.author || "익명",
             date: formattedDate,
             category: post.category || "",
             boardType: post.boardType || "자유게시판",
             views: post.views || 0,
             likes: post.likes || 0,
-            comments: post.comments || 0, // DB community_posts.comments (commentCount)
+            comments: post.comments || 0,
             tags: post.tags || [],
             images: post.images || [],
             ownerEmail: post.ownerEmail || "",
@@ -123,7 +143,7 @@ export default function CommunityPage({
     };
 
     fetchPosts();
-  }, []);
+  }, [activeTab]); // activeTab이 변경될 때마다 다시 fetch
 
   const filteredPosts = posts?.filter((post) => {
     const matchesSearch =
@@ -237,6 +257,23 @@ export default function CommunityPage({
           <h1 className="text-3xl font-bold text-gray-900">커뮤니티</h1>
         </div>
 
+        {/* 카테고리 탭 */}
+        <div className="flex gap-4 mb-6">
+          {categories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setActiveTab(category)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === category 
+                  ? "bg-yellow-400 text-black shadow-sm" 
+                  : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             {/* 검색 + 글쓰기 */}
@@ -266,7 +303,9 @@ export default function CommunityPage({
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
-                          <Badge variant={post.boardType === "Q&A" ? "default" : "secondary"}>{post.boardType}</Badge>
+                          <Badge variant={post.boardType === "QNA" ? "default" : "secondary"}>
+                            {convertBoardTypeForDisplay(post.boardType)}
+                          </Badge>
                           {post.sharedFromDiaryId && (
                             <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
                               🐾 성장일기 공유
@@ -342,7 +381,7 @@ export default function CommunityPage({
               ))
             ) : (
               <Card className="p-6 text-center text-gray-500">
-                <p>게시글이 없습니다.</p>
+                <p>{activeTab === "전체" ? "게시글이 없습니다." : `${activeTab} 게시글이 없습니다.`}</p>
               </Card>
             )}
           </div>
