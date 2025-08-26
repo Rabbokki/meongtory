@@ -243,14 +243,25 @@ export default function CommunityDetailPage({
         setPost({ ...post, comments: post.comments + 1 });
       }
       setNewComment("");
-    } catch (err: any) {
-      console.error("Add comment error:", err);
-      // 비속어 필터링 에러 처리
-      if (err.response?.status === 400 && err.response?.data?.error?.includes("비속어가 포함되어 등록할 수 없습니다")) {
-        toast.error("🚫 비속어를 사용하지 말아주세요.");
+    } catch (error: any) {
+      console.error("Add comment error:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response);
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
+      
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 400) {
+          // JSON 메시지 제대로 읽어서 토스트 띄우기
+          const msg = error.response.data?.message || "🚫 비속어를 사용하지 말아주세요.";
+          console.log("Toast message:", msg);
+          toast.error(msg);
+        } else {
+          toast.error("댓글 등록 중 오류가 발생했습니다 ❌");
+        }
       } else {
-        const errorMessage = err.response?.data?.error || err.response?.data?.message || "댓글 작성 실패";
-        toast.error(errorMessage);
+        toast.error("네트워크 오류 ❌");
       }
     }
   };
@@ -268,14 +279,25 @@ export default function CommunityDetailPage({
       );
       setComments(comments.map((c) => (c.id === id ? response.data : c)));
       setEditingId(null);
-    } catch (err: any) {
-      console.error("Update comment error:", err);
-      // 비속어 필터링 에러 처리
-      if (err.response?.status === 400 && err.response?.data?.error?.includes("비속어가 포함되어 등록할 수 없습니다")) {
-        toast.error("🚫 비속어를 사용하지 말아주세요.");
+    } catch (error: any) {
+      console.error("Update comment error:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response);
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
+      
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 400) {
+          // JSON 메시지 제대로 읽어서 토스트 띄우기
+          const msg = error.response.data?.message || "🚫 비속어를 사용하지 말아주세요.";
+          console.log("Toast message:", msg);
+          toast.error(msg);
+        } else {
+          toast.error("댓글 수정 중 오류가 발생했습니다 ❌");
+        }
       } else {
-        const errorMessage = err.response?.data?.error || err.response?.data?.message || "댓글 수정 실패";
-        toast.error(errorMessage);
+        toast.error("네트워크 오류 ❌");
       }
     }
   };
@@ -384,8 +406,9 @@ export default function CommunityDetailPage({
     } catch (err: any) {
       console.error("Edit error:", err.message);
       // 비속어 필터링 에러 처리
-      if (err.response?.status === 400 && err.response?.data?.error?.includes("비속어가 포함되어 등록할 수 없습니다")) {
-        toast.error("🚫 비속어를 사용하지 말아주세요.");
+      if (err.response?.status === 400) {
+        const msg = err.response?.data?.message || "🚫 비속어를 사용하지 말아주세요.";
+        toast.error(msg);
       } else {
         const errorMessage = err.response?.data?.message || err.message || "게시글 수정 실패";
         alert("게시글 수정 중 오류: " + errorMessage);

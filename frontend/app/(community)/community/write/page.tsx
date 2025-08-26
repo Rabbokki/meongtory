@@ -319,7 +319,7 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
         ownerEmail: savedPost.ownerEmail || currentUserEmail,
       };
 
-      toast.success("게시글이 작성되었습니다.");
+      toast.success("게시글이 등록되었습니다 ✅");
       setTitle("");
       setContent("");
       setImages([]);
@@ -353,7 +353,7 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
             });
             const savedPost = res.data;
             console.log("Saved Post after refresh:", savedPost);
-            toast.success("게시글이 작성되었습니다.");
+            toast.success("게시글이 등록되었습니다 ✅");
             setTitle("");
             setContent("");
             setImages([]);
@@ -378,8 +378,9 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
         }
       } else {
         // 비속어 필터링 에러 처리
-        if (err.response?.status === 400 && err.response?.data?.error?.includes("비속어가 포함되어 등록할 수 없습니다")) {
-          toast.error("🚫 비속어를 사용하지 말아주세요.");
+        if (err.response?.status === 400) {
+          const msg = err.response?.data?.message || "🚫 비속어를 사용하지 말아주세요.";
+          toast.error(msg);
         } else {
           setError(err.response?.data?.error || err.message || "게시글 작성 중 오류가 발생했습니다.");
         }
