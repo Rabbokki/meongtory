@@ -148,19 +148,29 @@ export default function InsuranceDetailPage() {
 
   // 최근 본 상품 관리 함수들
   const addToRecentProducts = async (product: InsuranceProduct) => {
-    if (typeof window === 'undefined') return
+    console.log('=== addToRecentProducts 호출 ===')
+    console.log('product:', product)
+    
+    if (typeof window === 'undefined') {
+      console.log('window가 undefined - 서버 사이드 렌더링 중')
+      return
+    }
     
     const { isLoggedIn } = useAuth()
+    console.log('isLoggedIn:', isLoggedIn)
     
     if (isLoggedIn) {
       // 로그인 시: DB에 저장
+      console.log('로그인 상태 - DB에 저장 시도')
       try {
         await recentApi.addToRecent(product.id, "insurance")
+        console.log('DB 저장 성공')
       } catch (error) {
         console.error("최근 본 상품 저장 실패:", error)
       }
     } else {
       // 비로그인 시: localStorage에 저장
+      console.log('비로그인 상태 - localStorage에 저장')
       addToLocalRecentProducts(product)
       
       // localStorage 변경 이벤트 발생 (다른 탭/컴포넌트에서 감지)
@@ -239,12 +249,12 @@ export default function InsuranceDetailPage() {
   const companyInfo = insuranceCompanySites[product.company as keyof typeof insuranceCompanySites]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 pt-20">
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 pt-20">
       {/* 귀여운 배경 장식 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 w-20 h-20 bg-pink-200 rounded-full opacity-20 animate-bounce"></div>
-        <div className="absolute top-40 right-20 w-16 h-16 bg-purple-200 rounded-full opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 bg-blue-200 rounded-full opacity-20 animate-bounce"></div>
+        <div className="absolute top-20 left-10 w-20 h-20 bg-yellow-200 rounded-full opacity-20 animate-bounce"></div>
+        <div className="absolute top-40 right-20 w-16 h-16 bg-orange-200 rounded-full opacity-20 animate-pulse"></div>
+        <div className="absolute bottom-40 left-20 w-24 h-24 bg-amber-200 rounded-full opacity-20 animate-bounce"></div>
         <div className="absolute bottom-20 right-10 w-12 h-12 bg-yellow-200 rounded-full opacity-20 animate-pulse"></div>
       </div>
 
@@ -254,7 +264,7 @@ export default function InsuranceDetailPage() {
           <Button
             onClick={handleBack}
             variant="outline"
-            className="mb-4 bg-white/80 backdrop-blur-sm border-pink-200 hover:bg-pink-50"
+            className="mb-4 bg-white/80 backdrop-blur-sm border-yellow-200 hover:bg-yellow-50"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             뒤로 가기
@@ -268,10 +278,9 @@ export default function InsuranceDetailPage() {
             <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
               <CardContent className="p-6">
                 <div className="flex items-start space-x-4">
-
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
-                      <Badge variant="secondary" className="bg-gradient-to-r from-pink-100 to-purple-100 text-pink-800 border-pink-200">
+                      <Badge variant="secondary" className="bg-gradient-to-r from-yellow-100 to-orange-100 text-yellow-800 border-yellow-200">
                         {product.company}
                       </Badge>
                     </div>
@@ -293,8 +302,8 @@ export default function InsuranceDetailPage() {
               <CardContent>
                 <div className="grid md:grid-cols-2 gap-4">
                   {product.features.map((feature, index) => (
-                    <div key={index} className="flex items-start space-x-3 p-3 bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl">
-                      <span className="text-pink-500 mt-1">✨</span>
+                    <div key={index} className="flex items-start space-x-3 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl">
+                      <span className="text-yellow-500 mt-1">✨</span>
                       <span className="text-gray-700">{feature}</span>
                     </div>
                   ))}
@@ -307,19 +316,19 @@ export default function InsuranceDetailPage() {
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Shield className="w-5 h-5 mr-2 text-blue-500" />
+                    <Shield className="w-5 h-5 mr-2 text-orange-500" />
                     보장내역
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {product.coverageDetails.map((coverage, index) => (
-                      <div key={`coverage-detail-${index}`} className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 hover:scale-105">
+                      <div key={`coverage-detail-${index}`} className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4 hover:shadow-md transition-all duration-200 hover:scale-105">
                         <div className="flex items-center mb-3">
-                          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                          <div className="w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center mr-3">
                             <Shield className="w-4 h-4 text-white" />
                           </div>
-                          <h4 className="font-semibold text-blue-800 text-sm">보장 항목 {index + 1}</h4>
+                          <h4 className="font-semibold text-orange-800 text-sm">보장 항목 {index + 1}</h4>
                         </div>
                         <p className="text-gray-700 text-sm leading-relaxed break-words">
                           {coverage}
@@ -336,26 +345,26 @@ export default function InsuranceDetailPage() {
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <Shield className="w-5 h-5 mr-2 text-blue-500" />
+                    <Shield className="w-5 h-5 mr-2 text-orange-500" />
                     보장 내용
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl">
-                      <DollarSign className="w-8 h-8 text-blue-500 mx-auto mb-2" />
+                    <div className="text-center p-4 bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl">
+                      <DollarSign className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
                       <p className="text-sm text-gray-600">최대 보장금액</p>
-                      <p className="font-bold text-blue-600">{product.coverage.maxAmount}</p>
+                      <p className="font-bold text-yellow-600">{product.coverage.maxAmount}</p>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100 rounded-xl">
-                      <Shield className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                    <div className="text-center p-4 bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl">
+                      <Shield className="w-8 h-8 text-orange-500 mx-auto mb-2" />
                       <p className="text-sm text-gray-600">보장률</p>
-                      <p className="font-bold text-green-600">{product.coverage.coverageRate}</p>
+                      <p className="font-bold text-orange-600">{product.coverage.coverageRate}</p>
                     </div>
-                    <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl">
-                      <Clock className="w-8 h-8 text-purple-500 mx-auto mb-2" />
+                    <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100 rounded-xl">
+                      <Clock className="w-8 h-8 text-amber-500 mx-auto mb-2" />
                       <p className="text-sm text-gray-600">면책금</p>
-                      <p className="font-bold text-purple-600">{product.coverage.deductible}</p>
+                      <p className="font-bold text-amber-600">{product.coverage.deductible}</p>
                     </div>
                   </div>
                 </CardContent>
@@ -367,15 +376,15 @@ export default function InsuranceDetailPage() {
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <span className="text-green-500 mr-2">✓</span>
+                    <span className="text-yellow-500 mr-2">✓</span>
                     보장 혜택
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid md:grid-cols-2 gap-4">
                     {product.benefits.map((benefit, index) => (
-                      <div key={index} className="flex items-start space-x-3 p-3 bg-gradient-to-r from-green-50 to-green-100 rounded-xl">
-                        <span className="text-green-500 mt-1">✓</span>
+                      <div key={index} className="flex items-start space-x-3 p-3 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl">
+                        <span className="text-yellow-500 mt-1">✓</span>
                         <span className="text-gray-700">{benefit}</span>
                       </div>
                     ))}
@@ -389,15 +398,15 @@ export default function InsuranceDetailPage() {
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center">
-                    <span className="text-blue-500 mr-2">📋</span>
+                    <span className="text-orange-500 mr-2">📋</span>
                     가입 조건
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid md:grid-cols-2 gap-4">
                     {product.requirements.map((requirement, index) => (
-                      <div key={index} className="flex items-start space-x-3 p-3 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl">
-                        <span className="text-blue-500 mt-1">📋</span>
+                      <div key={index} className="flex items-start space-x-3 p-3 bg-gradient-to-r from-orange-50 to-orange-100 rounded-xl">
+                        <span className="text-orange-500 mt-1">📋</span>
                         <span className="text-gray-700">{requirement}</span>
                       </div>
                     ))}
@@ -408,11 +417,11 @@ export default function InsuranceDetailPage() {
 
             {/* Crawled Information Notice */}
             {(product.benefits && product.benefits.length > 0) || (product.requirements && product.requirements.length > 0) ? (
-              <Card className="bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200">
+              <Card className="bg-gradient-to-r from-yellow-50 to-orange-100 border-yellow-200">
                 <CardContent className="p-4">
                   <div className="flex items-center space-x-2">
-                    <span className="text-blue-500">ℹ️</span>
-                    <p className="text-sm text-blue-800">
+                    <span className="text-yellow-500">ℹ️</span>
+                    <p className="text-sm text-yellow-800">
                       위 정보는 해당 보험사 공식 웹사이트에서 실시간으로 수집된 정보입니다.
                     </p>
                   </div>
@@ -438,7 +447,7 @@ export default function InsuranceDetailPage() {
                     <h4 className="font-semibold text-sm">주요 특징</h4>
                     {companyInfo.features.map((feature, index) => (
                       <div key={index} className="flex items-center text-sm">
-                        <span className="text-blue-500 mr-2">✓</span>
+                        <span className="text-yellow-500 mr-2">✓</span>
                         <span className="text-gray-700">{feature}</span>
                       </div>
                     ))}
@@ -446,7 +455,7 @@ export default function InsuranceDetailPage() {
 
                   <Button
                     onClick={() => handleGoToCompanySite(product.company)}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white rounded-full"
+                    className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-full"
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     공식 사이트 방문
@@ -471,7 +480,7 @@ export default function InsuranceDetailPage() {
                       handleGoToCompanySite(product.company)
                     }
                   }}
-                  className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-full"
+                  className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-full"
                 >
                   <ExternalLink className="w-4 h-4 mr-2" />
                   보험 가입하기
@@ -514,15 +523,13 @@ export default function InsuranceDetailPage() {
         <div className="fixed bottom-4 right-4 sm:top-20 sm:right-6 z-40">
           <Button
             onClick={handleSidebarToggle}
-            className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white shadow-xl rounded-full w-12 h-12 sm:w-16 sm:h-16 p-0 transform hover:scale-110 transition-all duration-200"
+            className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white shadow-xl rounded-full w-12 h-12 sm:w-16 sm:h-16 p-0 transform hover:scale-110 transition-all duration-200"
             title="최근 본 보험"
           >
             <Clock className="h-5 w-5 sm:h-6 sm:w-6" />
           </Button>
         </div>
       )}
-
-
     </div>
   )
 }

@@ -23,6 +23,7 @@ from emotion.performance_tracker import get_performance_tracker
 from emotion.retraining_scheduler import get_scheduler
 from model import DogBreedClassifier
 from chatBot.rag_app import process_rag_query, initialize_vectorstore
+from chatBot.insurance_rag import process_insurance_rag_query, InsuranceQueryRequest
 
 # StoreAI 서비스 import
 from store.api import app as storeai_app
@@ -210,6 +211,18 @@ async def chatbot_endpoint(request: QueryRequest):
     except Exception as e:
         logger.error(f"Error processing chatbot query: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chatbot endpoint failed: {str(e)}")
+
+@app.post("/chatbot/insurance")
+async def insurance_chatbot_endpoint(request: InsuranceQueryRequest):
+    """보험 전용 챗봇 쿼리 처리"""
+    try:
+        logger.info(f"Received insurance query: {request.query}")
+        response = await process_insurance_rag_query(request.query)
+        logger.info(f"Insurance query response: {response['answer']}")
+        return response
+    except Exception as e:
+        logger.error(f"Error processing insurance chatbot query: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Insurance chatbot endpoint failed: {str(e)}")
 
 @app.post("/api/ai/retrain-emotion-model")
 async def retrain_emotion_model(request: RetrainRequest):
@@ -730,5 +743,5 @@ async def search_embeddings(request: EmbeddingSearchRequest):
 async def root():
     return {"message": "Dog Breed Classifier API"}
 
-# 서버 시작 시 vectorstore 초기화
-initialize_vectorstore()
+# 서버 시작 시 vectorstore 초기화 제거 (보험 챗봇은 별도 처리)
+# initialize_vectorstore()
