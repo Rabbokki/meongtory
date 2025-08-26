@@ -96,6 +96,12 @@ jobs:
         docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
         docker push ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
 
+    # AI 모델 다운로드
+    - name: Download AI Model from S3
+      run: |
+        mkdir -p ./ai/emotion/checkpoints_finetune
+        aws s3 cp s3://meongtory/emotion/best_model.pth ./ai/emotion/checkpoints_finetune/best_model.pth
+
     # AI 서비스 이미지 빌드 및 푸시
     - name: Build and push AI image
       run: |
