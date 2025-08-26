@@ -78,13 +78,6 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    # 기존 ECR 이미지 삭제 (용량 절약)
-    - name: Delete existing ECR images (if any)
-      run: |
-        aws ecr batch-delete-image --repository-name mt-frontend --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
-        aws ecr batch-delete-image --repository-name mt-backend --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
-        aws ecr batch-delete-image --repository-name mt-ai --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
-        aws ecr batch-delete-image --repository-name mt-db --image-ids imageTag=latest --region ${{ secrets.AWS_REGION }} || true
 
     # 프론트엔드 이미지 빌드 및 푸시 (도메인 기반 URL 주입)
     - name: Build and push Frontend image
