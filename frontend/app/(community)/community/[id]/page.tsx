@@ -10,6 +10,7 @@ import { Edit, Trash2, X, ChevronLeft, Check } from "lucide-react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface CommunityPost {
   id: number;
@@ -18,13 +19,14 @@ interface CommunityPost {
   author: string;
   date: string;
   category: string;
-  boardType: "Q&A" | "자유게시판";
+  boardType: "자유게시판" | "멍스타그램" | "꿀팁게시판" | "QNA";
   views: number;
   likes: number;
   comments: number;
   tags: string[];
   images?: string[];
   ownerEmail: string;
+  sharedFromDiaryId?: number;
 }
 
 interface Comment {
@@ -57,6 +59,7 @@ export default function CommunityDetailPage({
   const [isEditing, setIsEditing] = useState(isEditingFromQuery);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedContent, setEditedContent] = useState("");
+  const [editedBoardType, setEditedBoardType] = useState<"자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A">("자유게시판");
   const [editedImages, setEditedImages] = useState<File[]>([]);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
@@ -68,6 +71,16 @@ export default function CommunityDetailPage({
   const [newComment, setNewComment] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+
+  // Q&A -> QNA 변환 함수
+  const convertBoardTypeForAPI = (boardType: string): string => {
+    return boardType === "Q&A" ? "QNA" : boardType;
+  };
+
+  // QNA -> Q&A 변환 함수
+  const convertBoardTypeForDisplay = (boardType: string): string => {
+    return boardType === "QNA" ? "Q&A" : boardType;
+  };
 
   const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem("accessToken");
@@ -196,6 +209,7 @@ export default function CommunityDetailPage({
           setPost(response.data);
           setEditedTitle(response.data.title);
           setEditedContent(response.data.content);
+          setEditedBoardType(convertBoardTypeForDisplay(response.data.boardType) as "자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A");
           setPreviewImages(response.data.images || []);
         } catch (err: any) {
           const errorMessage = err.response?.data?.message || err.message || "알 수 없는 오류";
@@ -209,6 +223,7 @@ export default function CommunityDetailPage({
     } else if (initialPost) {
       setEditedTitle(initialPost.title);
       setEditedContent(initialPost.content);
+      setEditedBoardType(convertBoardTypeForDisplay(initialPost.boardType) as "자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A");
       setPreviewImages(initialPost.images || []);
     }
   }, [initialPost, postId, getBackendUrl()]);
@@ -353,7 +368,7 @@ export default function CommunityDetailPage({
         title: editedTitle,
         content: editedContent,
         category: post.category,
-        boardType: post.boardType,
+        boardType: convertBoardTypeForAPI(editedBoardType),
         tags: post.tags,
         imagesToDelete,
       };
@@ -532,6 +547,19 @@ export default function CommunityDetailPage({
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-2">카테고리</label>
+                <select
+                  value={editedBoardType}
+                  onChange={(e) => setEditedBoardType(e.target.value as "자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A")}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                >
+                  <option value="자유게시판">자유게시판 (잡담/소통)</option>
+                  <option value="멍스타그램">멍스타그램 (사진/일상 공유)</option>
+                  <option value="꿀팁게시판">꿀팁게시판 (정보/후기 공유)</option>
+                  <option value="Q&A">Q&A (질문/답변)</option>
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-2">내용</label>
                 <Textarea 
                   value={editedContent} 
@@ -574,6 +602,16 @@ export default function CommunityDetailPage({
               {/* 상단 */}
               <div className="flex justify-between items-start mb-4">
                 <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant={post.boardType === "QNA" ? "default" : "secondary"}>
+                      {convertBoardTypeForDisplay(post.boardType)}
+                    </Badge>
+                    {post.sharedFromDiaryId && (
+                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                        🐾 성장일기 공유
+                      </Badge>
+                    )}
+                  </div>
                   <h1 className="text-xl font-bold mb-1">{post.title}</h1>
                   <p className="text-sm text-gray-500">{post.author} · {post.date}</p>
                 </div>

@@ -60,7 +60,7 @@ const refreshAccessToken = async () => {
 function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const boardType: "Q&A" | "자유게시판" = "자유게시판";
+  const [boardType, setBoardType] = useState<"자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A">("자유게시판");
   const [images, setImages] = useState<string[]>([]);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [error, setError] = useState("");
@@ -68,6 +68,11 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
   const [sharedFromDiary, setSharedFromDiary] = useState<any>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Q&A -> QNA 변환 함수
+  const convertBoardTypeForAPI = (boardType: string): string => {
+    return boardType === "Q&A" ? "QNA" : boardType;
+  };
 
     useEffect(() => {
     const initializePage = async () => {
@@ -279,7 +284,7 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
         title,
         content,
         category: "일반",
-        boardType,
+        boardType: convertBoardTypeForAPI(boardType),
         tags: [],
         sharedFromDiaryId: sharedFromDiary?.diaryId || undefined,
       };
@@ -336,7 +341,7 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
               title,
               content,
               category: "일반",
-              boardType,
+              boardType: convertBoardTypeForAPI(boardType),
               tags: [],
             };
             formData.append(
@@ -419,6 +424,22 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
                   required
                   disabled={!currentUserEmail}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="boardType">카테고리 선택</Label>
+                <select
+                  id="boardType"
+                  value={boardType}
+                  onChange={(e) => setBoardType(e.target.value as "자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A")}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                  disabled={!currentUserEmail}
+                >
+                  <option value="자유게시판">자유게시판 (잡담/소통)</option>
+                  <option value="멍스타그램">멍스타그램 (사진/일상 공유)</option>
+                  <option value="꿀팁게시판">꿀팁게시판 (정보/후기 공유)</option>
+                  <option value="Q&A">Q&A (질문/답변)</option>
+                </select>
               </div>
 
               <div className="space-y-2">
