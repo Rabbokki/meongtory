@@ -290,6 +290,7 @@ export default function GrowthDiaryWritePage({
           // 백엔드로 직접 전송
           const response = await fetch(`${getBackendUrl()}/api/diary/voice`, {
             method: 'POST',
+            
             headers: {
               'Access_Token': localStorage.getItem('accessToken') || '',
             },

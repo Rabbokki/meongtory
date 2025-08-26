@@ -5,6 +5,7 @@ import com.my.backend.community.dto.CommunityPostDto;
 import com.my.backend.community.entity.CommunityPost;
 import com.my.backend.community.repository.CommunityPostRepository;
 import com.my.backend.community.util.ProfanityFilter;
+import com.my.backend.global.exception.BadWordException;
 import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -48,7 +49,7 @@ public class CommunityPostService {
     public CommunityPostDto createPost(CommunityPostDto dto, List<MultipartFile> imgs, Account account) throws IOException {
         // 비속어 필터링 체크
         if (profanityFilter.containsProfanity(dto.getTitle()) || profanityFilter.containsProfanity(dto.getContent())) {
-            throw new RuntimeException("비속어가 포함되어 등록할 수 없습니다");
+            throw new BadWordException("🚫 비속어를 사용하지 말아주세요.");
         }
 
         List<String> imageUrls = new ArrayList<>();
@@ -108,7 +109,7 @@ public class CommunityPostService {
     public CommunityPost updatePost(Long id, CommunityPostDto dto, List<MultipartFile> imgs) throws IOException {
         // 비속어 필터링 체크
         if (profanityFilter.containsProfanity(dto.getTitle()) || profanityFilter.containsProfanity(dto.getContent())) {
-            throw new RuntimeException("비속어가 포함되어 등록할 수 없습니다");
+            throw new BadWordException("🚫 비속어를 사용하지 말아주세요.");
         }
 
         CommunityPost post = findPostById(id);
