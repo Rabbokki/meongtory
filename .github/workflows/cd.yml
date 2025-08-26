@@ -90,6 +90,7 @@ jobs:
     - name: Build and push Frontend image
       run: |
         docker build \
+          --no-cache \
           --build-arg NEXT_PUBLIC_BACKEND_URL=https://${{ env.DOMAIN_NAME }} \
           --build-arg NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }} \
           -t ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest \
@@ -99,19 +100,19 @@ jobs:
     # 백엔드 이미지 빌드 및 푸시
     - name: Build and push Backend image
       run: |
-        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
+        docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
         docker push ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
 
     # AI 서비스 이미지 빌드 및 푸시
     - name: Build and push AI image
       run: |
-        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-ai:latest ./ai
+        docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-ai:latest ./ai
         docker push ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
 
     # 데이터베이스 이미지 빌드 및 푸시
     - name: Build and push DB image
       run: |
-        docker build -t ${{ secrets.ECR_REGISTRY }}/mt-db:latest ./db
+        docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-db:latest ./db
         docker push ${{ secrets.ECR_REGISTRY }}/mt-db:latest
 
     # docker-compose.production.yml에 환경변수 주입
