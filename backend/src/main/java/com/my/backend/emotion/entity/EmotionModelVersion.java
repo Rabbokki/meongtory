@@ -43,26 +43,26 @@ public class EmotionModelVersion extends BaseEntity {
     private Integer feedbackSampleCount = 0;
 
     // 학습률
-    @Column(precision = 10, scale = 6)
+    @Column
     private Double learningRate;
 
     // 학습 에포크 수
     private Integer numEpochs;
 
     // 최종 학습 정확도
-    @Column(precision = 5, scale = 4)
+    @Column
     private Double finalAccuracy;
 
     // 최종 학습 손실값
-    @Column(precision = 10, scale = 6)
+    @Column
     private Double finalLoss;
 
     // 검증 정확도 (별도 검증 세트 평가 결과)
-    @Column(precision = 5, scale = 4)
+    @Column
     private Double validationAccuracy;
 
     // F1 스코어
-    @Column(precision = 5, scale = 4)
+    @Column
     private Double f1Score;
 
     // 현재 활성 모델 여부
