@@ -186,8 +186,8 @@ jobs:
             # Clean up old files
             rm -rf docker-compose.yml init-db/
             
-            # Clean up Docker resources
-            docker system prune -f || true
+            # Clean up Docker resources (remove all unused images)
+            docker system prune -a -f || true
             
           EOF
           
