@@ -158,4 +158,4 @@ async def process_rag_query(query: str):
         raise Exception(f"Query processing failed: {str(e)}")
 
 # 서버 시작 시 vectorstore 초기화
-initialize_vectorstore()
+# initialize_vectorstore()  # 샘플 데이터 로딩 비활성화

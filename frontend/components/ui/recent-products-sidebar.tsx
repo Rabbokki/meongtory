@@ -8,6 +8,7 @@ import { Clock, X, Eye, Trash2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
 import { recentApi } from "@/lib/api"
+import { useAuth } from "@/components/navigation"
 
 interface RecentProduct {
   id: number
@@ -43,26 +44,43 @@ export function RecentProductsSidebar({
   const [loading, setLoading] = useState(false)
   const [displayCount, setDisplayCount] = useState(5) // 표시할 상품 개수
 
-  // 로그인 상태 확인 (간단한 방식)
+  // 로그인 상태 확인 (useAuth 훅 대신 직접 확인)
   const isLoggedIn = typeof window !== 'undefined' && localStorage.getItem('accessToken')
 
   // 최근 본 상품 로드
   const loadRecentProducts = async () => {
+    console.log('=== RecentProductsSidebar.loadRecentProducts 시작 ===')
+    console.log('productType:', productType)
+    console.log('isLoggedIn:', isLoggedIn)
+    
     if (!isLoggedIn) {
       // 비로그인 시: localStorage에서 로드
+      console.log('비로그인 상태 - localStorage에서 로드')
       const localProducts = getLocalRecentProducts(productType)
+      console.log('localStorage에서 로드된 상품:', localProducts)
       setRecentProducts(localProducts)
       return
     }
 
     try {
+      console.log('로그인 상태 - API에서 로드 시도')
       setLoading(true)
       const data = await recentApi.getRecentProducts(productType)
+      console.log('API 응답 데이터:', data)
+      console.log('API 응답 데이터 타입:', typeof data)
+      console.log('API 응답 데이터 길이:', Array.isArray(data) ? data.length : '배열이 아님')
       setRecentProducts(data)
-    } catch (error) {
+    } catch (error: any) {
       console.error("최근 본 상품 로드 실패:", error)
+      if (error.response) {
+        console.error("에러 응답:", error.response.data)
+        console.error("에러 상태:", error.response.status)
+        console.error("에러 헤더:", error.response.headers)
+      }
       // API 실패 시 localStorage에서 로드
+      console.log('API 실패 - localStorage에서 로드')
       const localProducts = getLocalRecentProducts(productType)
+      console.log('localStorage에서 로드된 상품:', localProducts)
       setRecentProducts(localProducts)
     } finally {
       setLoading(false)

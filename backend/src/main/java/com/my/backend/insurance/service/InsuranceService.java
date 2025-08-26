@@ -41,8 +41,8 @@ public class InsuranceService {
         entity.setCompany(dto.getCompany());
         entity.setProductName(dto.getProductName());
         entity.setDescription(dto.getDescription());
-        entity.setFeatures(String.join(",", dto.getFeatures() != null ? dto.getFeatures() : List.of()));
-        entity.setCoverageDetails(String.join(",", dto.getCoverageDetails() != null ? dto.getCoverageDetails() : List.of()));
+        entity.setFeatures(String.join("|", dto.getFeatures() != null ? dto.getFeatures() : List.of()));
+        entity.setCoverageDetails(String.join("|", dto.getCoverageDetails() != null ? dto.getCoverageDetails() : List.of()));
         entity.setRedirectUrl(dto.getRedirectUrl());
 
         // 로고 URL 설정 (이모지 기반 아이콘 사용으로 단순화)
@@ -67,11 +67,11 @@ public class InsuranceService {
     private InsuranceProductDto toDto(InsuranceProduct entity) {
         List<String> features = entity.getFeatures() == null || entity.getFeatures().isBlank()
                 ? List.of()
-                : List.of(entity.getFeatures().split(","));
+                : List.of(entity.getFeatures().split("\\|"));
                 
         // 보장내역 파싱
         List<String> coverageDetails = entity.getCoverageDetails() != null && !entity.getCoverageDetails().isBlank() 
-                ? List.of(entity.getCoverageDetails().split(","))
+                ? List.of(entity.getCoverageDetails().split("\\|"))
                         .stream()
                         .map(String::trim)
                         .filter(s -> !s.isEmpty())

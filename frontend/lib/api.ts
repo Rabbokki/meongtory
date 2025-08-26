@@ -292,8 +292,26 @@ export const adoptionRequestApi = {
 export const insuranceApi = {
   // 기본 CRUD
   getAll: async (): Promise<any[]> => {
-    const response = await axios.get(`${getBackendUrl()}/api/insurance`);
-    return response.data.data;
+    const url = `${getBackendUrl()}/api/insurance`;
+    console.log('보험 API 호출 URL:', url);
+    console.log('백엔드 URL:', getBackendUrl());
+    try {
+      const response = await axios.get(url);
+      console.log('보험 API 응답:', response.data);
+      return response.data.data;
+    } catch (error) {
+      console.error('보험 API 호출 실패:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Axios 에러 상세:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url,
+          method: error.config?.method,
+        });
+      }
+      throw error;
+    }
   },
   
   getById: async (id: number): Promise<any> => {

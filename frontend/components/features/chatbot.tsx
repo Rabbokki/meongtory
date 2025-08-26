@@ -47,8 +47,15 @@ export default function Chatbot() {
 
       // 비동기적으로 챗봇 응답 처리
       try {
+        // 보험 관련 키워드 체크
+        const insuranceKeywords = ['보험', '펫보험', '동물보험', '가입', '보장', '보상', '보험료', '보험사', '상품'];
+        const isInsuranceQuery = insuranceKeywords.some(keyword => 
+          inputMessage.includes(keyword)
+        );
 
-        const response = await axios.post(`${getBackendUrl()}/api/chatbot/query`,
+        const endpoint = isInsuranceQuery ? '/api/chatbot/insurance' : '/api/chatbot/query';
+        
+        const response = await axios.post(`${getBackendUrl()}${endpoint}`,
           { query: inputMessage },
           { headers: { "Content-Type": "application/json" } }
         )
