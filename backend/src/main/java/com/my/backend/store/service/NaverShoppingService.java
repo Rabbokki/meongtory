@@ -29,6 +29,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,6 +41,7 @@ public class NaverShoppingService {
     private final RestTemplate naverRestTemplate;
     private final NaverProductRepository naverProductRepository;
     private final ProductRepository productRepository;
+    private final EmbeddingService embeddingService;
 
     @Value("${naver.api.shopping-url}")
     private String naverShoppingUrl;
@@ -504,6 +506,15 @@ public class NaverShoppingService {
             log.error("네이버 상품 삭제 중 오류 발생: {}", e.getMessage(), e);
             throw new RuntimeException("네이버 상품 삭제에 실패했습니다: " + e.getMessage());
         }
+    }
+
+
+
+    /**
+     * EmbeddingService getter
+     */
+    public EmbeddingService getEmbeddingService() {
+        return embeddingService;
     }
 
     /**
