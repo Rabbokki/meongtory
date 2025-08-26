@@ -28,6 +28,9 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
 from transcribe import transcribe_audio
 from category_classifier import CategoryClassifier
 
+# embedding_update.py 모듈 import
+from embedding_update import EmbeddingUpdater
+
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -75,6 +78,9 @@ class RetrainRequest(BaseModel):
 
 class CategoryClassificationRequest(BaseModel):
     content: str
+
+class EmbeddingUpdateRequest(BaseModel):
+    auto_mode: bool = True
 
 @app.post("/predict")
 async def predict_dog_breed(file: UploadFile = File(...)):
@@ -273,6 +279,106 @@ def build_story_prompt(request: BackgroundStoryRequest) -> str:
     6. 자연스럽고 읽기 쉬운 한국어로 작성"""
     
     return prompt
+
+import asyncio
+import threading
+
+@app.post("/update-embeddings")
+async def update_embeddings(request: EmbeddingUpdateRequest = None):
+    """임베딩 업데이트 실행"""
+    try:
+        logger.info("임베딩 업데이트 요청 받음")
+        
+        # EmbeddingUpdater 인스턴스 생성
+        updater = EmbeddingUpdater()
+        
+        # 임베딩이 없는 상품 수 확인
+        count = updater.count_products_without_embedding()
+        logger.info(f"임베딩이 없는 상품 수: {count}개")
+        
+        if count == 0:
+            logger.info("모든 상품에 임베딩이 이미 설정되어 있습니다.")
+            return {
+                "success": True,
+                "message": "모든 상품에 임베딩이 이미 설정되어 있습니다.",
+                "updated_count": 0
+            }
+        
+        # 백그라운드에서 임베딩 업데이트 실행
+        def run_embedding_update():
+            try:
+                logger.info("백그라운드에서 임베딩 업데이트 시작")
+                updater.update_all_embeddings()
+                logger.info("백그라운드 임베딩 업데이트 완료")
+            except Exception as e:
+                logger.error(f"백그라운드 임베딩 업데이트 실패: {str(e)}")
+        
+        # 별도 스레드에서 실행
+        thread = threading.Thread(target=run_embedding_update)
+        thread.daemon = True
+        thread.start()
+        
+        logger.info("임베딩 업데이트가 백그라운드에서 시작되었습니다.")
+        return {
+            "success": True,
+            "message": f"임베딩 업데이트가 백그라운드에서 시작되었습니다. 총 {count}개 상품을 처리합니다.",
+            "updated_count": count,
+            "status": "processing"
+        }
+        
+    except Exception as e:
+        logger.error(f"임베딩 업데이트 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"임베딩 업데이트 중 오류 발생: {str(e)}")
+
+@app.get("/embedding-status")
+async def get_embedding_status():
+    """임베딩 처리 상태 확인"""
+    try:
+        updater = EmbeddingUpdater()
+        total_products = updater.count_products_without_embedding()
+        
+        return {
+            "success": True,
+            "remaining_products": total_products,
+            "status": "completed" if total_products == 0 else "processing",
+            "message": "모든 임베딩이 완료되었습니다." if total_products == 0 else f"임베딩 처리 중입니다. 남은 상품: {total_products}개"
+        }
+    except Exception as e:
+        logger.error(f"임베딩 상태 확인 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"임베딩 상태 확인 중 오류 발생: {str(e)}")
+
+class EmbeddingSearchRequest(BaseModel):
+    query: str
+    limit: int = 10
+
+@app.post("/search-embeddings")
+async def search_embeddings(request: EmbeddingSearchRequest):
+    """임베딩 기반 상품 검색"""
+    try:
+        logger.info(f"임베딩 검색 요청: '{request.query}', limit: {request.limit}")
+        
+        updater = EmbeddingUpdater()
+        
+        # 검색어를 임베딩으로 변환
+        query_embedding = updater.generate_embedding(request.query)
+        if not query_embedding:
+            logger.error("검색어 임베딩 생성 실패")
+            return {"success": False, "results": [], "message": "검색어 임베딩 생성에 실패했습니다."}
+        
+        # PostgreSQL에서 cosine similarity로 유사한 상품 검색
+        similar_products = updater.search_similar_products(query_embedding, request.limit)
+        
+        logger.info(f"임베딩 검색 완료: {len(similar_products)}개 결과")
+        
+        return {
+            "success": True,
+            "results": similar_products,
+            "message": f"임베딩 검색 완료: {len(similar_products)}개 결과"
+        }
+        
+    except Exception as e:
+        logger.error(f"임베딩 검색 실패: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"임베딩 검색 중 오류 발생: {str(e)}")
 
 @app.get("/")
 async def root():

@@ -581,6 +581,23 @@ export default function ProductsTab({
       
       alert(resultMessage)
       
+      // 임베딩 업데이트 실행
+      try {
+        console.log('임베딩 업데이트 시작...')
+        const embeddingResponse = await axios.post(`${getBackendUrl()}/api/naver-shopping/update-embeddings`)
+        
+        if (embeddingResponse.data.success) {
+          console.log('임베딩 업데이트 요청 성공')
+          alert('네이버 상품 가져오기 및 임베딩 업데이트가 완료되었습니다!')
+        } else {
+          console.error('임베딩 업데이트 요청 실패:', embeddingResponse.data)
+          alert('네이버 상품은 가져왔지만 임베딩 업데이트에 실패했습니다.')
+        }
+      } catch (embeddingError) {
+        console.error('임베딩 업데이트 오류:', embeddingError)
+        alert('네이버 상품은 가져왔지만 임베딩 업데이트 중 오류가 발생했습니다.')
+      }
+      
       // 상품 목록 새로고침
       fetchProducts()
       
@@ -632,7 +649,7 @@ export default function ProductsTab({
             className="bg-blue-500 hover:bg-blue-600 text-white"
           >
             <Download className="h-4 w-4 mr-2" />
-            {naverLoading ? "가져오는 중..." : "네이버 상품 가져오기"}
+            {naverLoading ? "가져오는 중..." : "네이버 상품 + 임베딩"}
           </Button>
           <Button onClick={onNavigateToStoreRegistration} className="bg-yellow-400 hover:bg-yellow-500 text-black">
             <Plus className="h-4 w-4 mr-2" />새 상품 등록
