@@ -173,6 +173,7 @@ jobs:
         script: |
           
           # Service instance SSH 키 설정
+          echo '${{ secrets.AWS_PEM_KEY }}' > /tmp/service_key.pem
           chmod 600 /tmp/service_key.pem
           
           # Bastion에서 Service Instance로 SSH 터널링하여 정리 작업
@@ -214,6 +215,7 @@ jobs:
         script: |
           
           # Service instance SSH 키 설정
+          echo '${{ secrets.AWS_PEM_KEY }}' > /tmp/service_key.pem
           chmod 600 /tmp/service_key.pem
           
           # 배포 파일을 service instance로 전송
