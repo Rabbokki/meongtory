@@ -35,7 +35,6 @@ interface MoodAnalysisResult {
     angry: number
     relaxed: number
   }
-  recommendations: string[]
   description: string
 }
 
@@ -280,7 +279,6 @@ export default function DogResearchLabPage() {
           mood: aiResult.emotionKorean,
           confidence: Math.round(aiResult.confidence),
           emotions: aiResult.emotions || { happy: 25, sad: 25, angry: 25, relaxed: 25 }, // AI 실제 분석 결과 사용
-          recommendations: moodInfo.recommendations,
           description: moodInfo.description,
         })
       } else {
@@ -294,7 +292,6 @@ export default function DogResearchLabPage() {
             angry: 0,
             relaxed: 0,
           },
-          recommendations: ["이미지 분석에 실패했습니다. 다시 시도해주세요."],
           description: "감정 분석에 실패했습니다. 강아지의 얼굴이 명확히 보이는 사진을 업로드해주세요.",
         })
       }
@@ -309,7 +306,6 @@ export default function DogResearchLabPage() {
           angry: 0,
           relaxed: 0,
         },
-        recommendations: ["서버와 연결할 수 없습니다. 잠시 후 다시 시도해주세요."],
         description: "서버 연결 오류가 발생했습니다.",
       })
     } finally {
@@ -319,27 +315,22 @@ export default function DogResearchLabPage() {
 
   // 감정별 추천사항과 설명을 반환하는 헬퍼 함수
   const getMoodInfo = (emotion: string, emotionKorean: string) => {
-    const moodInfoMap: Record<string, { recommendations: string[], description: string }> = {
+    const moodInfoMap: Record<string, { description: string }> = {
       "happy": {
-        recommendations: ["현재 매우 좋은 상태입니다!", "놀이 시간을 늘려주세요", "간식을 주며 칭찬해주세요"],
         description: "강아지가 매우 행복하고 건강한 상태를 보이고 있습니다."
       },
       "sad": {
-        recommendations: ["부드럽게 위로해주세요", "좋아하는 장난감을 주세요", "조용한 환경을 만들어주세요"],
         description: "강아지가 슬퍼하는 것 같습니다. 관심과 사랑을 보여주세요."
       },
       "angry": {
-        recommendations: ["조용한 환경을 만들어주세요", "스트레스 요인을 제거해주세요", "수의사 상담을 고려해보세요"],
         description: "강아지가 화나거나 스트레스를 받고 있는 것 같습니다."
       },
       "relaxed": {
-        recommendations: ["현재 상태를 유지해주세요", "적당한 휴식을 취하게 해주세요", "규칙적인 생활 패턴을 유지하세요"],
         description: "강아지가 매우 편안하고 안정된 상태입니다."
       }
     }
 
     return moodInfoMap[emotion] || {
-      recommendations: ["현재 상태를 관찰해주세요", "필요시 수의사와 상담하세요"],
       description: `강아지의 감정 상태가 ${emotionKorean}로 분석되었습니다.`
     }
   }
