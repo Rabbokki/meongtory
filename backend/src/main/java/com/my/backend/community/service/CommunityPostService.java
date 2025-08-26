@@ -4,9 +4,12 @@ import com.my.backend.account.entity.Account;
 import com.my.backend.community.dto.CommunityPostDto;
 import com.my.backend.community.entity.CommunityPost;
 import com.my.backend.community.repository.CommunityPostRepository;
+import com.my.backend.community.util.ProfanityFilter;
+import com.my.backend.global.exception.BadWordException;
 import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -15,14 +18,22 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class CommunityPostService {
 
     private final CommunityPostRepository postRepository;
     private final S3Service s3Service;
+    private final ProfanityFilter profanityFilter;
+    private final AutoCommentService autoCommentService;
 
     // 게시글 전체 조회 (최신순)
     public List<CommunityPost> getAllPosts() {
         return postRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    // 게시글 boardType별 조회 (최신순)
+    public List<CommunityPost> getPostsByBoardType(String boardType) {
+        return postRepository.findByBoardTypeOrderByCreatedAtDesc(boardType);
     }
 
     // 게시글 상세 조회 (조회 수 증가 포함)
@@ -41,6 +52,11 @@ public class CommunityPostService {
 
     // 게시글 생성
     public CommunityPostDto createPost(CommunityPostDto dto, List<MultipartFile> imgs, Account account) throws IOException {
+        // 비속어 필터링 체크
+        if (profanityFilter.containsProfanity(dto.getTitle()) || profanityFilter.containsProfanity(dto.getContent())) {
+            throw new BadWordException("🚫 비속어를 사용하지 말아주세요.");
+        }
+
         List<String> imageUrls = new ArrayList<>();
         if (imgs != null && !imgs.isEmpty()) {
             for (MultipartFile file : imgs) {
@@ -65,29 +81,42 @@ public class CommunityPostService {
                 .comments(0)
                 .build();
 
-        postRepository.save(post);
+        CommunityPost savedPost = postRepository.save(post);
+
+        // 자동 댓글 생성 (비동기로 처리하여 게시글 작성 속도에 영향 없도록)
+        try {
+            autoCommentService.createAutoComment(savedPost.getId());
+        } catch (Exception e) {
+            // 자동 댓글 생성 실패는 로그만 남기고 게시글 작성은 계속 진행
+            System.err.println("자동 댓글 생성 실패: " + e.getMessage());
+        }
 
         return CommunityPostDto.builder()
-                .id(post.getId())
-                .title(post.getTitle())
-                .content(post.getContent())
-                .author(post.getAuthor())
-                .ownerEmail(post.getOwnerEmail())
-                .category(post.getCategory())
-                .boardType(post.getBoardType())
-                .tags(post.getTags())
-                .images(post.getImages())
-                .sharedFromDiaryId(post.getSharedFromDiaryId())
-                .likes(post.getLikes())
-                .views(post.getViews())
-                .comments(post.getComments())
-                .createdAt(post.getCreatedAt())
-                .updatedAt(post.getUpdatedAt())
+                .id(savedPost.getId())
+                .title(savedPost.getTitle())
+                .content(savedPost.getContent())
+                .author(savedPost.getAuthor())
+                .ownerEmail(savedPost.getOwnerEmail())
+                .category(savedPost.getCategory())
+                .boardType(savedPost.getBoardType())
+                .tags(savedPost.getTags())
+                .images(savedPost.getImages())
+                .sharedFromDiaryId(savedPost.getSharedFromDiaryId())
+                .likes(savedPost.getLikes())
+                .views(savedPost.getViews())
+                .comments(savedPost.getComments())
+                .createdAt(savedPost.getCreatedAt())
+                .updatedAt(savedPost.getUpdatedAt())
                 .build();
     }
 
     // 게시글 수정
     public CommunityPost updatePost(Long id, CommunityPostDto dto, List<MultipartFile> imgs) throws IOException {
+        // 비속어 필터링 체크
+        if (profanityFilter.containsProfanity(dto.getTitle()) || profanityFilter.containsProfanity(dto.getContent())) {
+            throw new BadWordException("🚫 비속어를 사용하지 말아주세요.");
+        }
+
         CommunityPost post = findPostById(id);
 
         // 기존 이미지 리스트 불러오기

@@ -9,6 +9,8 @@ import { getBackendUrl } from "@/lib/api";
 import { Edit, Trash2, X, ChevronLeft, Check } from "lucide-react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import axios from "axios";
+import { toast } from "react-hot-toast";
+import { Badge } from "@/components/ui/badge";
 
 interface CommunityPost {
   id: number;
@@ -17,13 +19,14 @@ interface CommunityPost {
   author: string;
   date: string;
   category: string;
-  boardType: "Q&A" | "자유게시판";
+  boardType: "자유게시판" | "멍스타그램" | "꿀팁게시판" | "QNA";
   views: number;
   likes: number;
   comments: number;
   tags: string[];
   images?: string[];
   ownerEmail: string;
+  sharedFromDiaryId?: number;
 }
 
 interface Comment {
@@ -56,6 +59,7 @@ export default function CommunityDetailPage({
   const [isEditing, setIsEditing] = useState(isEditingFromQuery);
   const [editedTitle, setEditedTitle] = useState("");
   const [editedContent, setEditedContent] = useState("");
+  const [editedBoardType, setEditedBoardType] = useState<"자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A">("자유게시판");
   const [editedImages, setEditedImages] = useState<File[]>([]);
   const [previewImages, setPreviewImages] = useState<string[]>([]);
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
@@ -67,6 +71,16 @@ export default function CommunityDetailPage({
   const [newComment, setNewComment] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+
+  // Q&A -> QNA 변환 함수
+  const convertBoardTypeForAPI = (boardType: string): string => {
+    return boardType === "Q&A" ? "QNA" : boardType;
+  };
+
+  // QNA -> Q&A 변환 함수
+  const convertBoardTypeForDisplay = (boardType: string): string => {
+    return boardType === "QNA" ? "Q&A" : boardType;
+  };
 
   const getAuthHeaders = (): Record<string, string> => {
     const token = localStorage.getItem("accessToken");
@@ -195,6 +209,7 @@ export default function CommunityDetailPage({
           setPost(response.data);
           setEditedTitle(response.data.title);
           setEditedContent(response.data.content);
+          setEditedBoardType(convertBoardTypeForDisplay(response.data.boardType) as "자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A");
           setPreviewImages(response.data.images || []);
         } catch (err: any) {
           const errorMessage = err.response?.data?.message || err.message || "알 수 없는 오류";
@@ -208,6 +223,7 @@ export default function CommunityDetailPage({
     } else if (initialPost) {
       setEditedTitle(initialPost.title);
       setEditedContent(initialPost.content);
+      setEditedBoardType(convertBoardTypeForDisplay(initialPost.boardType) as "자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A");
       setPreviewImages(initialPost.images || []);
     }
   }, [initialPost, postId, getBackendUrl()]);
@@ -242,10 +258,26 @@ export default function CommunityDetailPage({
         setPost({ ...post, comments: post.comments + 1 });
       }
       setNewComment("");
-    } catch (err: any) {
-      console.error("Add comment error:", err);
-      const errorMessage = err.response?.data?.message || "댓글 작성 실패";
-      alert(errorMessage);
+    } catch (error: any) {
+      console.error("Add comment error:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response);
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
+      
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 400) {
+          // JSON 메시지 제대로 읽어서 토스트 띄우기
+          const msg = error.response.data?.message || "🚫 비속어를 사용하지 말아주세요.";
+          console.log("Toast message:", msg);
+          toast.error(msg);
+        } else {
+          toast.error("댓글 등록 중 오류가 발생했습니다 ❌");
+        }
+      } else {
+        toast.error("네트워크 오류 ❌");
+      }
     }
   };
 
@@ -262,10 +294,26 @@ export default function CommunityDetailPage({
       );
       setComments(comments.map((c) => (c.id === id ? response.data : c)));
       setEditingId(null);
-    } catch (err: any) {
-      console.error("Update comment error:", err);
-      const errorMessage = err.response?.data?.message || "댓글 수정 실패";
-      alert(errorMessage);
+    } catch (error: any) {
+      console.error("Update comment error:", error);
+      console.error("Error type:", typeof error);
+      console.error("Error message:", error.message);
+      console.error("Error response:", error.response);
+      console.error("Error response data:", error.response?.data);
+      console.error("Error response status:", error.response?.status);
+      
+      if (axios.isAxiosError(error) && error.response) {
+        if (error.response.status === 400) {
+          // JSON 메시지 제대로 읽어서 토스트 띄우기
+          const msg = error.response.data?.message || "🚫 비속어를 사용하지 말아주세요.";
+          console.log("Toast message:", msg);
+          toast.error(msg);
+        } else {
+          toast.error("댓글 수정 중 오류가 발생했습니다 ❌");
+        }
+      } else {
+        toast.error("네트워크 오류 ❌");
+      }
     }
   };
 
@@ -320,7 +368,7 @@ export default function CommunityDetailPage({
         title: editedTitle,
         content: editedContent,
         category: post.category,
-        boardType: post.boardType,
+        boardType: convertBoardTypeForAPI(editedBoardType),
         tags: post.tags,
         imagesToDelete,
       };
@@ -372,8 +420,14 @@ export default function CommunityDetailPage({
       router.push(`/community/${post.id}`);
     } catch (err: any) {
       console.error("Edit error:", err.message);
-      const errorMessage = err.response?.data?.message || err.message || "게시글 수정 실패";
-      alert("게시글 수정 중 오류: " + errorMessage);
+      // 비속어 필터링 에러 처리
+      if (err.response?.status === 400) {
+        const msg = err.response?.data?.message || "🚫 비속어를 사용하지 말아주세요.";
+        toast.error(msg);
+      } else {
+        const errorMessage = err.response?.data?.message || err.message || "게시글 수정 실패";
+        alert("게시글 수정 중 오류: " + errorMessage);
+      }
     }
   };
 
@@ -463,164 +517,247 @@ export default function CommunityDetailPage({
   });
 
   return (
-    <div className="p-4">
-      <div className="flex items-center justify-between mb-4">
-        <Button variant="outline" onClick={() => {
-          // 브라우저 히스토리가 있으면 뒤로가기, 없으면 커뮤니티 목록으로
-          if (window.history.length > 1) {
-            router.back();
-          } else {
-            router.push("/community");
-          }
-        }}>
-          <ChevronLeft className="h-4 w-4 mr-2" /> 뒤로가기
-        </Button>
-
-        {canEditOrDelete && (
-          <div className="flex gap-2">
-            {!isEditing && (
-              <Button variant="outline" size="icon" onClick={handleEdit}>
-                <Edit className="h-4 w-4" />
-              </Button>
-            )}
-            <Button
-              variant="destructive"
-              size="icon"
-              onClick={() => {
-                console.log("Delete button clicked, postId:", post.id);
-                setShowDeleteConfirm(true);
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
+    <div className="min-h-screen bg-gray-50 pt-20">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <Button variant="ghost" onClick={() => {
+              // 브라우저 히스토리가 있으면 뒤로가기, 없으면 커뮤니티 목록으로
+              if (window.history.length > 1) {
+                router.back();
+              } else {
+                router.push("/community");
+              }
+            }} className="p-2">
+              <ChevronLeft className="w-5 h-5" />
             </Button>
-          </div>
-        )}
-      </div>
-
-      {isEditing ? (
-        <div className="space-y-4">
-          <Input value={editedTitle} onChange={(e) => setEditedTitle(e.target.value)} />
-          <Textarea value={editedContent} onChange={(e) => setEditedContent(e.target.value)} rows={6} />
-          <Input type="file" multiple accept="image/*" onChange={handleImageUpload} />
-          <div className="flex flex-wrap gap-2 mt-2">
-            {previewImages.map((src, idx) => (
-              <div key={idx} className="relative w-24 h-24">
-                <Image src={src} alt={`preview-${idx}`} fill className="object-cover rounded" />
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="icon"
-                  className="absolute top-1 right-1"
-                  onClick={() => handleRemoveImage(idx)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleEditSave} className="bg-green-500 text-white">
-              <Check className="h-4 w-4 mr-1" /> 저장
-            </Button>
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
-              취소
-            </Button>
+            <h1 className="text-2xl font-bold text-gray-900">커뮤니티</h1>
           </div>
         </div>
-      ) : (
-        <div>
-          <h1 className="text-2xl font-bold">{post.title}</h1>
-          <p className="mt-2">{post.content}</p>
-          {post.images && post.images.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4">
-              {post.images.map((src, idx) => (
-                <Image
-                  key={idx}
-                  src={src}
-                  alt={`post-img-${idx}`}
-                  width={200}
-                  height={150}
-                  className="rounded"
+
+        <div className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-sm">
+          {isEditing ? (
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium mb-2">제목</label>
+                <Input 
+                  value={editedTitle} 
+                  onChange={(e) => setEditedTitle(e.target.value)}
+                  placeholder="게시글 제목을 입력하세요"
                 />
-              ))}
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">카테고리</label>
+                <select
+                  value={editedBoardType}
+                  onChange={(e) => setEditedBoardType(e.target.value as "자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A")}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:border-transparent"
+                >
+                  <option value="자유게시판">자유게시판 (잡담/소통)</option>
+                  <option value="멍스타그램">멍스타그램 (사진/일상 공유)</option>
+                  <option value="꿀팁게시판">꿀팁게시판 (정보/후기 공유)</option>
+                  <option value="Q&A">Q&A (질문/답변)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">내용</label>
+                <Textarea 
+                  value={editedContent} 
+                  onChange={(e) => setEditedContent(e.target.value)} 
+                  rows={8}
+                  placeholder="게시글 내용을 입력하세요"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">이미지</label>
+                <Input type="file" multiple accept="image/*" onChange={handleImageUpload} />
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {previewImages.map((src, idx) => (
+                    <div key={idx} className="relative w-24 h-24">
+                      <Image src={src} alt={`preview-${idx}`} fill className="object-cover rounded-md" />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1"
+                        onClick={() => handleRemoveImage(idx)}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setIsEditing(false)}>
+                  <X className="w-4 h-4 mr-2" />취소
+                </Button>
+                <Button onClick={handleEditSave} className="bg-yellow-400 hover:bg-yellow-500 text-black">
+                  <Check className="w-4 h-4 mr-2" />저장
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              {/* 상단 */}
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Badge variant={post.boardType === "QNA" ? "default" : "secondary"}>
+                      {convertBoardTypeForDisplay(post.boardType)}
+                    </Badge>
+                    {post.sharedFromDiaryId && (
+                      <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                        🐾 성장일기 공유
+                      </Badge>
+                    )}
+                  </div>
+                  <h1 className="text-xl font-bold mb-1">{post.title}</h1>
+                  <p className="text-sm text-gray-500">{post.author} · {post.date}</p>
+                </div>
+                {canEditOrDelete && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleEdit}
+                      className="flex items-center gap-1 border px-3 py-1 rounded-md text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <Edit size={16} />
+                      수정
+                    </button>
+                    <button
+                      onClick={() => {
+                        console.log("Delete button clicked, postId:", post.id);
+                        setShowDeleteConfirm(true);
+                      }}
+                      className="flex items-center gap-1 border px-3 py-1 rounded-md text-sm text-red-500 hover:bg-red-50"
+                    >
+                      <Trash2 size={16} />
+                      삭제
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 본문 */}
+              {post.images && post.images.length > 0 && (
+                <Image
+                  src={post.images[0]}
+                  alt="게시글 이미지"
+                  width={400}
+                  height={300}
+                  className="mx-auto rounded-md shadow-sm mb-4"
+                />
+              )}
+              <p className="text-gray-700 leading-relaxed">{post.content}</p>
             </div>
           )}
         </div>
-      )}
 
-      {!isEditing && (
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold mb-4">댓글 💬 {post.comments}</h3>
-          <div className="flex gap-2 mb-4">
-            <Input
-              placeholder="댓글을 입력하세요"
-              value={newComment}
-              onChange={(e) => setNewComment(e.target.value)}
-            />
-            <Button onClick={handleAddComment}>등록</Button>
-          </div>
+        {!isEditing && (
+          <div className="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-sm mt-6">
+            <h3 className="font-semibold border-b pb-2 mb-4">댓글 💬 {post.comments}</h3>
+            <div className="flex gap-2 mb-4">
+              <Input
+                placeholder="댓글을 입력하세요"
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                className="flex-1"
+              />
+              <Button 
+                onClick={handleAddComment}
+                className="bg-yellow-400 hover:bg-yellow-500 text-black"
+              >
+                등록
+              </Button>
+            </div>
 
-          <div className="space-y-4">
-            {comments.map((c) => {
-              const canModify = currentUserEmail === c.ownerEmail || currentUserRole === "ROLE_ADMIN";
-              return (
-                <div key={c.id} className="border-b pb-2">
-                  <div className="flex items-center justify-between">
-                    <p className="font-semibold">{c.author || "익명"}</p>
-                    {canModify && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingId(c.id);
-                            setEditContent(c.content);
-                          }}
-                        >
-                          수정
-                        </Button>
-                        <Button size="sm" variant="destructive" onClick={() => handleDeleteComment(c.id)}>
-                          삭제
-                        </Button>
+            <div className="space-y-3">
+              {comments.map((c) => {
+                const canModify = currentUserEmail === c.ownerEmail || currentUserRole === "ROLE_ADMIN";
+                const isMeongtory = c.author === "Meongtory";
+                return (
+                  <div key={c.id} className={`p-4 rounded-md ${isMeongtory ? 'bg-blue-50 border-l-4 border-blue-400' : 'bg-gray-50'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <p className={`font-medium ${isMeongtory ? 'text-blue-900' : 'text-gray-900'}`}>
+                          {c.author || "익명"}
+                        </p>
+                        {isMeongtory && (
+                          <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded-full">
+                            🐾 Meongtory
+                          </span>
+                        )}
                       </div>
-                    )}
-                  </div>
-
-                  {editingId === c.id ? (
-                    <div className="flex gap-2 mt-2">
-                      <Textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} />
-                      <Button size="sm" onClick={() => handleUpdateComment(c.id)}>
-                        저장
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>
-                        취소
-                      </Button>
+                      {canModify && !isMeongtory && (
+                        <div className="flex gap-2">
+                          <button
+                            className="border px-2 py-1 text-xs rounded-md text-gray-700 hover:bg-gray-100"
+                            onClick={() => {
+                              setEditingId(c.id);
+                              setEditContent(c.content);
+                            }}
+                          >
+                            수정
+                          </button>
+                          <button 
+                            className="border px-2 py-1 text-xs rounded-md text-red-500 hover:bg-red-50"
+                            onClick={() => handleDeleteComment(c.id)}
+                          >
+                            삭제
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <p className="mt-1">{c.content}</p>
-                  )}
 
-                  <p className="text-sm text-gray-500">{c.createdAt}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                    {editingId === c.id ? (
+                      <div className="space-y-2">
+                        <Textarea 
+                          value={editContent} 
+                          onChange={(e) => setEditContent(e.target.value)}
+                          className="w-full"
+                        />
+                        <div className="flex gap-2">
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleUpdateComment(c.id)}
+                            className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                          >
+                            저장
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            onClick={() => setEditingId(null)}
+                          >
+                            취소
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-700 mb-1">{c.content}</p>
+                    )}
 
-      {showDeleteConfirm && (
-        <div className="mt-4 p-4 border rounded bg-red-50">
-          <p>정말로 삭제하시겠습니까?</p>
-          <div className="flex gap-2 mt-2">
-            <Button variant="destructive" onClick={handleDelete}>
-              삭제
-            </Button>
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
-              취소
-            </Button>
+                    <p className="text-xs text-gray-400">{c.createdAt}</p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+              <h3 className="text-lg font-bold mb-4">게시글 삭제</h3>
+              <p className="text-gray-600 mb-6">정말 삭제하시겠습니까? 복구할 수 없습니다.</p>
+              <div className="flex justify-end space-x-2">
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>취소</Button>
+                <Button onClick={handleDelete} className="bg-red-600 text-white">삭제</Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

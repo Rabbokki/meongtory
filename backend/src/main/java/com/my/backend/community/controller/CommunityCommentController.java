@@ -5,11 +5,13 @@ import com.my.backend.community.dto.CommunityCommentDto;
 import com.my.backend.community.service.CommunityCommentService;
 import com.my.backend.global.security.user.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/community/comments")
@@ -26,24 +28,26 @@ public class CommunityCommentController {
 
     // 댓글 작성
     @PostMapping("/{postId}")
-    public ResponseEntity<CommunityCommentDto> createComment(
+    public ResponseEntity<?> createComment(
             @PathVariable Long postId,
             @RequestBody CommunityCommentDto dto,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
         Account account = userDetails.getAccount();
-        return ResponseEntity.ok(commentService.createComment(postId, dto, account));
+        CommunityCommentDto response = commentService.createComment(postId, dto, account);
+        return ResponseEntity.ok(response);
     }
 
     // 댓글 수정
     @PutMapping("/{commentId}")
-    public ResponseEntity<CommunityCommentDto> updateComment(
+    public ResponseEntity<?> updateComment(
             @PathVariable Long commentId,
             @RequestBody CommunityCommentDto dto,
             @AuthenticationPrincipal UserDetailsImpl userDetails) {
 
         Account account = userDetails.getAccount();
-        return ResponseEntity.ok(commentService.updateComment(commentId, dto, account));
+        CommunityCommentDto response = commentService.updateComment(commentId, dto, account);
+        return ResponseEntity.ok(response);
     }
 
     // 댓글 삭제

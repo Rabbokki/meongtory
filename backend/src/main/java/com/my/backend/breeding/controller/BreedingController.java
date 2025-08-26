@@ -14,7 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/ai")
-@CrossOrigin(origins = {"http://localhost:3000", "http://localhost:3001"})
+@CrossOrigin(origins = {"*"})
 @RequiredArgsConstructor
 @Slf4j
 public class BreedingController {

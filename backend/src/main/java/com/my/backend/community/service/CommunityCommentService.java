@@ -6,6 +6,8 @@ import com.my.backend.community.entity.CommunityComment;
 import com.my.backend.community.entity.CommunityPost;
 import com.my.backend.community.repository.CommunityCommentRepository;
 import com.my.backend.community.repository.CommunityPostRepository;
+import com.my.backend.community.util.ProfanityFilter;
+import com.my.backend.global.exception.BadWordException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ public class CommunityCommentService {
 
     private final CommunityCommentRepository commentRepository;
     private final CommunityPostRepository postRepository;
+    private final ProfanityFilter profanityFilter;
 
     // 댓글 목록 조회
     public List<CommunityCommentDto> getCommentsByPostId(Long postId) {
@@ -31,6 +34,25 @@ public class CommunityCommentService {
 
     // 댓글 생성
     public CommunityCommentDto createComment(Long postId, CommunityCommentDto dto, Account account) {
+        System.out.println("=== 댓글 생성 시작 ===");
+        System.out.println("DTO: " + dto);
+        System.out.println("Content: " + (dto != null ? dto.getContent() : "null"));
+        
+        // NPE 방지를 위한 null 체크
+        if (dto == null || dto.getContent() == null) {
+            System.out.println("NPE 발생 - BadWordException 던짐");
+            throw new BadWordException("🚫 비속어를 사용하지 말아주세요.");
+        }
+        
+        // 비속어 필터링 체크
+        boolean containsProfanity = profanityFilter.containsProfanity(dto.getContent());
+        System.out.println("비속어 포함 여부: " + containsProfanity);
+        
+        if (containsProfanity) {
+            System.out.println("비속어 발견 - BadWordException 던짐");
+            throw new BadWordException("🚫 비속어를 사용하지 말아주세요.");
+        }
+
         CommunityPost post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
 
@@ -52,6 +74,25 @@ public class CommunityCommentService {
 
     // 댓글 수정
     public CommunityCommentDto updateComment(Long commentId, CommunityCommentDto dto, Account account) {
+        System.out.println("=== 댓글 수정 시작 ===");
+        System.out.println("DTO: " + dto);
+        System.out.println("Content: " + (dto != null ? dto.getContent() : "null"));
+        
+        // NPE 방지를 위한 null 체크
+        if (dto == null || dto.getContent() == null) {
+            System.out.println("NPE 발생 - BadWordException 던짐");
+            throw new BadWordException("🚫 비속어를 사용하지 말아주세요.");
+        }
+        
+        // 비속어 필터링 체크
+        boolean containsProfanity = profanityFilter.containsProfanity(dto.getContent());
+        System.out.println("비속어 포함 여부: " + containsProfanity);
+        
+        if (containsProfanity) {
+            System.out.println("비속어 발견 - BadWordException 던짐");
+            throw new BadWordException("🚫 비속어를 사용하지 말아주세요.");
+        }
+
         CommunityComment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("Comment not found"));
 

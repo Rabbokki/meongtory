@@ -47,10 +47,5 @@ public interface NaverProductRepository extends JpaRepository<NaverProduct, Long
     
     Page<NaverProduct> findAllByIdIn(List<Long> ids, Pageable pageable);
     
-    // 임베딩이 없는 상품 수 조회
-    long countByTitleEmbeddingIsNull();
-    
-    // 임베딩 검색을 위한 메서드 (cosine similarity)
-    @Query(value = "SELECT naver_product_id, (title_embedding <-> CAST(:embedding AS vector)) as similarity FROM naver_product WHERE title_embedding IS NOT NULL ORDER BY title_embedding <-> CAST(:embedding AS vector) LIMIT :limit", nativeQuery = true)
-    List<Object[]> findSimilarProductIdsWithSimilarity(@Param("embedding") String embedding, @Param("limit") int limit);
+
 }

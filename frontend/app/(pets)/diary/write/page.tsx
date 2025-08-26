@@ -33,6 +33,7 @@ export default function GrowthDiaryWritePage({
   const [activities, setActivities] = useState<string>(""); // 활동 상태 추가
   const [tags, setTags] = useState<string>(""); // 태그 상태 추가
   const [isUploading, setIsUploading] = useState(false); // 이미지 업로드 상태
+  const [isSubmitting, setIsSubmitting] = useState(false); // 제출 중복 방지 상태
 
   // 음성 녹음 관련 상태
   const [isRecording, setIsRecording] = useState(false);
@@ -290,6 +291,7 @@ export default function GrowthDiaryWritePage({
           // 백엔드로 직접 전송
           const response = await fetch(`${getBackendUrl()}/api/diary/voice`, {
             method: 'POST',
+            
             headers: {
               'Access_Token': localStorage.getItem('accessToken') || '',
             },

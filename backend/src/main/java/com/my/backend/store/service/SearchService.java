@@ -6,10 +6,18 @@ import com.my.backend.store.entity.NaverProduct;
 import com.my.backend.store.repository.NaverProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -19,7 +27,6 @@ import java.util.stream.Collectors;
 public class SearchService {
 
     private final NaverProductRepository naverProductRepository;
-    private final EmbeddingService embeddingService;
 
     /**
      * 검색어를 임베딩으로 변환하여 유사한 상품들을 검색
@@ -42,39 +49,12 @@ public class SearchService {
                 throw new IllegalArgumentException("검색어가 비어있습니다.");
             }
             
-            log.info("임베딩 검색 시작: '{}', limit: {}", query, limit);
+            log.info("AI 서비스 임베딩 검색 API 호출 시작: '{}', limit: {}", query, limit);
             
-            log.info("검색어 임베딩 생성 시작...");
+            // AI 서비스의 임베딩 검색 API 호출
+            List<SearchResponseDto> results = callAIServiceEmbeddingSearch(query, limit);
             
-            // 검색어를 임베딩으로 변환
-            List<Double> queryEmbedding = embeddingService.generateEmbedding(query);
-            log.info("임베딩 생성 완료: {}차원", queryEmbedding != null ? queryEmbedding.size() : 0);
-            
-            String queryVectorString = embeddingService.embeddingToVectorString(queryEmbedding);
-            log.info("벡터 문자열 변환 완료: {}", queryVectorString != null ? "성공" : "실패");
-            
-            if (queryVectorString == null) {
-                log.error("검색어 임베딩 생성에 실패했습니다.");
-                throw new RuntimeException("검색어 임베딩 생성에 실패했습니다.");
-            }
-            
-            log.info("PostgreSQL 임베딩 검색 시작 (cosine similarity)...");
-            
-            // PostgreSQL에서 cosine similarity로 유사한 상품 ID와 유사도 점수 검색
-            List<Object[]> similarProductIdsWithSimilarity = naverProductRepository
-                    .findSimilarProductIdsWithSimilarity(queryVectorString, limit);
-            
-            log.info("PostgreSQL 임베딩 검색 완료: {}개 상품 발견", similarProductIdsWithSimilarity.size());
-            
-            log.info("DTO 변환 시작...");
-            
-            // DTO로 변환 (유사도 점수 포함)
-            List<SearchResponseDto> results = similarProductIdsWithSimilarity.stream()
-                    .map(this::convertToSearchResponseDtoFromId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toList());
-            
-            log.info("임베딩 기반 유사도 검색 완료: {}개 결과", results.size());
+            log.info("AI 서비스 임베딩 검색 완료: {}개 결과", results.size());
             log.info("=== SearchService.searchByEmbedding 완료 (임베딩 기반 유사도 검색) ===");
             
             return results;
@@ -83,6 +63,98 @@ public class SearchService {
             log.error("임베딩 기반 유사도 검색 실패: {}", e.getMessage(), e);
             throw new RuntimeException("임베딩 기반 유사도 검색 중 오류가 발생했습니다: " + e.getMessage());
         }
+    }
+    
+    /**
+     * AI 서비스의 임베딩 검색 API 호출
+     */
+    private List<SearchResponseDto> callAIServiceEmbeddingSearch(String query, int limit) {
+        try {
+            String aiServiceUrl = "http://ai:9000/search-embeddings";
+            
+            // 요청 데이터 생성
+            Map<String, Object> requestData = new HashMap<>();
+            requestData.put("query", query);
+            requestData.put("limit", limit);
+            
+            // RestTemplate을 사용하여 AI 서비스 호출
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestData, headers);
+            
+            log.info("AI 서비스 호출 URL: {}", aiServiceUrl);
+            log.info("AI 서비스 요청 데이터: {}", requestData);
+            
+            ResponseEntity<Map> response = restTemplate.postForEntity(aiServiceUrl, entity, Map.class);
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                Boolean success = (Boolean) responseBody.get("success");
+                
+                if (success != null && success) {
+                    List<Map<String, Object>> results = (List<Map<String, Object>>) responseBody.get("results");
+                    log.info("AI 서비스 응답 성공: {}개 결과", results != null ? results.size() : 0);
+                    
+                    // AI 서비스 응답을 SearchResponseDto로 변환
+                    return convertAIServiceResponseToSearchResponseDto(results);
+                } else {
+                    log.warn("AI 서비스 응답 실패: {}", responseBody.get("message"));
+                    return new ArrayList<>();
+                }
+            } else {
+                log.error("AI 서비스 호출 실패: 상태 코드 {}", response.getStatusCode());
+                return new ArrayList<>();
+            }
+            
+        } catch (Exception e) {
+            log.error("AI 서비스 임베딩 검색 API 호출 실패: {}", e.getMessage(), e);
+            return new ArrayList<>();
+        }
+    }
+    
+    /**
+     * AI 서비스 응답을 SearchResponseDto로 변환
+     */
+    private List<SearchResponseDto> convertAIServiceResponseToSearchResponseDto(List<Map<String, Object>> aiResults) {
+        List<SearchResponseDto> results = new ArrayList<>();
+        
+        if (aiResults == null) {
+            return results;
+        }
+        
+        for (Map<String, Object> aiProduct : aiResults) {
+            try {
+                SearchResponseDto dto = SearchResponseDto.builder()
+                        .id(((Number) aiProduct.get("id")).longValue())
+                        .productId((String) aiProduct.get("product_id"))
+                        .title((String) aiProduct.get("title"))
+                        .description((String) aiProduct.get("description"))
+                        .price(((Number) aiProduct.get("price")).longValue())
+                        .imageUrl((String) aiProduct.get("image_url"))
+                        .mallName((String) aiProduct.get("mall_name"))
+                        .productUrl((String) aiProduct.get("product_url"))
+                        .brand((String) aiProduct.get("brand"))
+                        .maker((String) aiProduct.get("maker"))
+                        .category1((String) aiProduct.get("category1"))
+                        .category2((String) aiProduct.get("category2"))
+                        .category3((String) aiProduct.get("category3"))
+                        .category4((String) aiProduct.get("category4"))
+                        .reviewCount(((Number) aiProduct.get("review_count")).intValue())
+                        .rating(((Number) aiProduct.get("rating")).doubleValue())
+                        .searchCount(((Number) aiProduct.get("search_count")).intValue())
+                        .similarity(((Number) aiProduct.get("similarity")).doubleValue())
+                        .build();
+                
+                results.add(dto);
+                
+            } catch (Exception e) {
+                log.warn("AI 서비스 응답 변환 실패: {}", e.getMessage());
+            }
+        }
+        
+        return results;
     }
 
     /**

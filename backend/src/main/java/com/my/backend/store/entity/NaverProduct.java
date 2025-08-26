@@ -69,8 +69,7 @@ public class NaverProduct {
     @Column(nullable = true)
     private Integer searchCount;
 
-    @Column(columnDefinition = "vector(1536)")
-    private String titleEmbedding;
+
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
