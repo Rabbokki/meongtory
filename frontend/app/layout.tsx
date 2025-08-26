@@ -6,6 +6,7 @@ import "./globals.css";
 import Navigation, { AuthProvider } from "@/components/navigation";
 import Chatbot from "@/components/features/chatbot";
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as HotToaster } from "react-hot-toast";
 
 export const metadata: Metadata = {
   title: "멍토리",
@@ -36,6 +37,7 @@ export default function RootLayout({
           {children}
           <Chatbot />
           <Toaster />
+          <HotToaster position="top-center" reverseOrder={false} />
         </AuthProvider>
       </body>
     </html>

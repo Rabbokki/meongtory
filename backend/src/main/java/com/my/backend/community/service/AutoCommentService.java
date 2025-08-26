@@ -22,11 +22,9 @@ public class AutoCommentService {
 
     // 자동 댓글 멘트 리스트
     private static final List<String> AUTO_COMMENT_MESSAGES = Arrays.asList(
-        "좋은 글 감사합니다 😊",
-        "정말 공감돼요 👍",
-        "잘 읽었습니다 🙌",
-        "재밌는 글이네요 🐶",
-        "유익한 글이었어요 💡"
+        "좋은 글 감사합니다 🙌",
+        "유익한 정보네요! 👍",
+        "공감합니다 😊"
     );
 
     /**
