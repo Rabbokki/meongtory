@@ -35,11 +35,16 @@ public interface EmotionFeedbackRepository extends JpaRepository<EmotionFeedback
     // 예측된 감정별 피드백 조회
     List<EmotionFeedback> findByPredictedEmotion(String predictedEmotion);
     
-    // === 대시보드용 통계 쿼리 (주석처리) ===
-    // 전체 정확도 계산을 위한 쿼리
-    // @Query("SELECT COUNT(ef) FROM EmotionFeedback ef WHERE ef.isCorrectPrediction = true")
-    // Long countCorrectPredictions();
-    // 
-    // @Query("SELECT COUNT(ef) FROM EmotionFeedback ef")
-    // Long countTotalFeedback();
+    // === 대시보드용 통계 쿼리 ===
+    // 정확한 예측 수
+    Long countByIsCorrectPredictionTrue();
+    
+    // 부정확한 예측 수
+    Long countByIsCorrectPredictionFalse();
+    
+    // 미사용 긍정 피드백 수
+    Long countByIsCorrectPredictionTrueAndIsUsedForTrainingFalse();
+    
+    // 미사용 부정 피드백 수
+    Long countByIsCorrectPredictionFalseAndIsUsedForTrainingFalse();
 }

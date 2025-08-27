@@ -28,7 +28,8 @@ import sys
 # =========================
 # Colab에서는 절대 경로 사용
 VAL_DIR = "/content/mt/ai/emotion/val"
-BEST_MODEL_PATH = "/content/mt/ai/emotion/checkpoints_finetune/best_model.pth"
+ORIGINAL_MODEL_PATH = "/content/mt/ai/emotion/checkpoints_finetune/best_model_original.pth"
+RETRAINED_MODEL_PATH = "/content/mt/ai/emotion/checkpoints_finetune/best_model.pth"
 
 
 # =========================
@@ -137,65 +138,79 @@ def evaluate_model(model: nn.Module, loader: DataLoader, device: torch.device) -
     return acc, np.array(y_true), np.array(y_pred)
 
 
-def plot_accuracy_compare(acc_init: float, acc_finetuned: float) -> None:
-    plt.figure(figsize=(5, 4))
-    methods = ["Initial model", "Fine-tuned model"]
-    values = [acc_init * 100, acc_finetuned * 100]
-    bars = plt.bar(methods, values, color=["#9999ff", "#66cc99"])
+def plot_accuracy_compare(acc_init: float, acc_original: float, acc_retrained: float) -> None:
+    plt.figure(figsize=(8, 5))
+    methods = ["Initial model", "Original fine-tuned", "Retrained model"]
+    values = [acc_init * 100, acc_original * 100, acc_retrained * 100]
+    bars = plt.bar(methods, values, color=["#9999ff", "#66cc99", "#ff9966"])
     plt.ylabel("Accuracy (%)")
-    plt.title("Overall Accuracy Comparison")
+    plt.title("Overall Accuracy Comparison (3-Model)")
     for bar, val in zip(bars, values):
         plt.text(bar.get_x() + bar.get_width()/2.0, bar.get_height() + 0.5, f"{val:.1f}%", ha='center', va='bottom')
     plt.ylim(0, 100)
     plt.grid(axis="y", alpha=0.2)
+    plt.xticks(rotation=15)
+    plt.tight_layout()
     plt.show()
 
 
-def plot_confusion_matrices(y_true_init, y_pred_init, y_true_ft, y_pred_ft, class_names: List[str]) -> None:
+def plot_confusion_matrices(y_true_init, y_pred_init, y_true_orig, y_pred_orig, y_true_retrained, y_pred_retrained, class_names: List[str]) -> None:
     cm_init = confusion_matrix(y_true_init, y_pred_init, labels=list(range(len(class_names))))
-    cm_ft = confusion_matrix(y_true_ft, y_pred_ft, labels=list(range(len(class_names))))
+    cm_orig = confusion_matrix(y_true_orig, y_pred_orig, labels=list(range(len(class_names))))
+    cm_retrained = confusion_matrix(y_true_retrained, y_pred_retrained, labels=list(range(len(class_names))))
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+    
     sns.heatmap(cm_init, annot=True, fmt="d", cmap="Blues", ax=axes[0],
                 xticklabels=class_names, yticklabels=class_names)
-    axes[0].set_title("Initial Model Confusion Matrix")
+    axes[0].set_title("Initial Model")
     axes[0].set_xlabel("Predicted")
     axes[0].set_ylabel("Actual")
 
-    sns.heatmap(cm_ft, annot=True, fmt="d", cmap="Greens", ax=axes[1],
+    sns.heatmap(cm_orig, annot=True, fmt="d", cmap="Greens", ax=axes[1],
                 xticklabels=class_names, yticklabels=class_names)
-    axes[1].set_title("Fine-tuned Model Confusion Matrix")
+    axes[1].set_title("Original Fine-tuned")
     axes[1].set_xlabel("Predicted")
     axes[1].set_ylabel("Actual")
+
+    sns.heatmap(cm_retrained, annot=True, fmt="d", cmap="Oranges", ax=axes[2],
+                xticklabels=class_names, yticklabels=class_names)
+    axes[2].set_title("Retrained Model")
+    axes[2].set_xlabel("Predicted")
+    axes[2].set_ylabel("Actual")
 
     plt.tight_layout()
     plt.show()
 
 
-def plot_per_class_f1(y_true_init, y_pred_init, y_true_ft, y_pred_ft, class_names: List[str]) -> None:
+def plot_per_class_f1(y_true_init, y_pred_init, y_true_orig, y_pred_orig, y_true_retrained, y_pred_retrained, class_names: List[str]) -> None:
     f1_init = f1_score(y_true_init, y_pred_init, average=None, labels=list(range(len(class_names))))
-    f1_ft = f1_score(y_true_ft, y_pred_ft, average=None, labels=list(range(len(class_names))))
+    f1_orig = f1_score(y_true_orig, y_pred_orig, average=None, labels=list(range(len(class_names))))
+    f1_retrained = f1_score(y_true_retrained, y_pred_retrained, average=None, labels=list(range(len(class_names))))
 
     x = np.arange(len(class_names))
 
-    plt.figure(figsize=(8, 4))
+    plt.figure(figsize=(10, 5))
     plt.plot(x, f1_init, marker='o', linewidth=2.0, color="#5967ff", label="Initial")
-    plt.plot(x, f1_ft, marker='o', linewidth=2.0, color="#1abc9c", label="Fine-tuned")
+    plt.plot(x, f1_orig, marker='s', linewidth=2.0, color="#1abc9c", label="Original Fine-tuned")
+    plt.plot(x, f1_retrained, marker='^', linewidth=2.0, color="#ff7f0e", label="Retrained")
     plt.xticks(x, class_names)
     plt.ylim(0, 1.0)
     plt.ylabel("F1-score")
-    plt.title("Per-class F1-score Comparison")
+    plt.title("Per-class F1-score Comparison (3-Model)")
     plt.legend()
     plt.grid(axis="y", alpha=0.2)
     plt.tight_layout()
     plt.show()
 
 
-def print_reports(y_true_init, y_pred_init, y_true_ft, y_pred_ft, class_names: List[str]) -> None:
+def print_reports(y_true_init, y_pred_init, y_true_orig, y_pred_orig, y_true_retrained, y_pred_retrained, class_names: List[str]) -> None:
     print("=== Initial Model Classification Report ===")
     print(classification_report(y_true_init, y_pred_init, target_names=class_names, digits=3))
-    print("=== Fine-tuned Model Classification Report ===")
-    print(classification_report(y_true_ft, y_pred_ft, target_names=class_names, digits=3))
+    print("\n=== Original Fine-tuned Model Classification Report ===")
+    print(classification_report(y_true_orig, y_pred_orig, target_names=class_names, digits=3))
+    print("\n=== Retrained Model Classification Report ===")
+    print(classification_report(y_true_retrained, y_pred_retrained, target_names=class_names, digits=3))
 
 
 
@@ -220,37 +235,53 @@ def main() -> None:
         pin_memory=True,
     )
 
-    # 모델 준비
+    # 모델 준비 (3개 모델)
     init_model = DogEmotionModel(num_classes=4, pretrained=True, dropout_rate=0.3).to(device)
-    finetuned_model = DogEmotionModel(num_classes=4, pretrained=True, dropout_rate=0.3).to(device)
+    original_model = DogEmotionModel(num_classes=4, pretrained=True, dropout_rate=0.3).to(device)
+    retrained_model = DogEmotionModel(num_classes=4, pretrained=True, dropout_rate=0.3).to(device)
 
-    if os.path.isfile(BEST_MODEL_PATH):
-        load_finetuned_weights(finetuned_model, BEST_MODEL_PATH, device)
-        print(f"✅ 파인튜닝 가중치 로드 완료: {BEST_MODEL_PATH}")
+    # 원본 파인튜닝 모델 로드
+    if os.path.isfile(ORIGINAL_MODEL_PATH):
+        load_finetuned_weights(original_model, ORIGINAL_MODEL_PATH, device)
+        print(f"✅ 원본 파인튜닝 가중치 로드 완료: {ORIGINAL_MODEL_PATH}")
     else:
-        raise FileNotFoundError(f"best_model.pth 파일을 업로드/경로 확인하세요: {BEST_MODEL_PATH}")
+        raise FileNotFoundError(f"원본 파인튜닝 모델을 찾을 수 없습니다: {ORIGINAL_MODEL_PATH}")
+    
+    # 재학습 모델 로드
+    if os.path.isfile(RETRAINED_MODEL_PATH):
+        load_finetuned_weights(retrained_model, RETRAINED_MODEL_PATH, device)
+        print(f"✅ 재학습 가중치 로드 완료: {RETRAINED_MODEL_PATH}")
+    else:
+        raise FileNotFoundError(f"재학습 모델을 찾을 수 없습니다: {RETRAINED_MODEL_PATH}")
 
-    # 평가
+    # 평가 (3개 모델)
     print("🔍 초기 모델(사전학습만) 평가 중...")
     acc_init, y_true_init, y_pred_init = evaluate_model(init_model, val_loader, device)
     
-    print("🔍 Fine-tuned 모델 평가 중...")
-    acc_ft, y_true_ft, y_pred_ft = evaluate_model(finetuned_model, val_loader, device)
+    print("🔍 원본 파인튜닝 모델 평가 중...")
+    acc_orig, y_true_orig, y_pred_orig = evaluate_model(original_model, val_loader, device)
+    
+    print("🔍 재학습 모델 평가 중...")
+    acc_retrained, y_true_retrained, y_pred_retrained = evaluate_model(retrained_model, val_loader, device)
 
-    print("\n" + "="*50)
-    print("📊 성능 비교 결과")
-    print("="*50)
-    print(f"📌 초기 모델 정확도:     {acc_init*100:.2f}%")
-    print(f"🎯 Fine-tuned 모델 정확도: {acc_ft*100:.2f}%")
-    print(f"📈 성능 개선:           +{(acc_ft-acc_init)*100:.2f}%p")
-    print("="*50)
+    print("\n" + "="*60)
+    print("📊 3-모델 성능 비교 결과")
+    print("="*60)
+    print(f"📌 초기 모델 정확도:        {acc_init*100:.2f}%")
+    print(f"🎯 원본 파인튜닝 정확도:    {acc_orig*100:.2f}%")
+    print(f"🚀 재학습 모델 정확도:      {acc_retrained*100:.2f}%")
+    print("="*60)
+    print(f"📈 초기 → 원본 개선:       +{(acc_orig-acc_init)*100:.2f}%p")
+    print(f"🔥 원본 → 재학습 개선:     +{(acc_retrained-acc_orig)*100:.2f}%p")
+    print(f"⭐ 전체 개선 (초기→재학습): +{(acc_retrained-acc_init)*100:.2f}%p")
+    print("="*60)
 
-    # 리포트 및 시각화
+    # 리포트 및 시각화 (3개 모델)
     class_names = ['angry', 'happy', 'relaxed', 'sad']
-    print_reports(y_true_init, y_pred_init, y_true_ft, y_pred_ft, class_names)
-    plot_accuracy_compare(acc_init, acc_ft)
-    plot_per_class_f1(y_true_init, y_pred_init, y_true_ft, y_pred_ft, class_names)
-    plot_confusion_matrices(y_true_init, y_pred_init, y_true_ft, y_pred_ft, class_names)
+    print_reports(y_true_init, y_pred_init, y_true_orig, y_pred_orig, y_true_retrained, y_pred_retrained, class_names)
+    plot_accuracy_compare(acc_init, acc_orig, acc_retrained)
+    plot_per_class_f1(y_true_init, y_pred_init, y_true_orig, y_pred_orig, y_true_retrained, y_pred_retrained, class_names)
+    plot_confusion_matrices(y_true_init, y_pred_init, y_true_orig, y_pred_orig, y_true_retrained, y_pred_retrained, class_names)
 
 
 if __name__ == "__main__":

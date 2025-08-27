@@ -33,12 +33,12 @@ on:
   # main 브랜치에 push 시 자동 배포
   push:
     branches:
-      - develop
+      - main
   
   # main 브랜치로 PR이 merge될 때 자동 배포
   pull_request:
     branches:
-      - develop
+      - main
     types:
       - closed
 
@@ -149,6 +149,7 @@ jobs:
         sed -i "s|\${OPENAI_MODEL}|${{ secrets.OPENAI_MODEL }}|g" docker-compose.production.yml
         sed -i "s|\${OPENAI_IMAGE_MODEL}|${{ secrets.OPENAI_IMAGE_MODEL }}|g" docker-compose.production.yml
         sed -i "s|\${OPENAI_BREEDING_MODEL}|${{ secrets.OPENAI_BREEDING_MODEL }}|g" docker-compose.production.yml
+        sed -i "s|\${BACKEND_SERVICE_URL}|${{ secrets.BACKEND_SERVICE_URL }}|g" docker-compose.production.yml
         sed -i "s|\${EMBEDDING_MODEL_NAME}|${{ secrets.EMBEDDING_MODEL_NAME }}|g" docker-compose.production.yml
         sed -i "s|\${VECTORSTORE_COLLECTION_NAME}|${{ secrets.VECTORSTORE_COLLECTION_NAME }}|g" docker-compose.production.yml
         sed -i "s|\${VECTORSTORE_DISTANCE_STRATEGY}|${{ secrets.VECTORSTORE_DISTANCE_STRATEGY }}|g" docker-compose.production.yml
