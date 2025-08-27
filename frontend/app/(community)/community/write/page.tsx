@@ -66,6 +66,7 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
   const [error, setError] = useState("");
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const [sharedFromDiary, setSharedFromDiary] = useState<any>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -252,6 +253,8 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
     e.preventDefault();
     setError("");
 
+    if (isUploading) return; // 중복 방지
+
     if (!title.trim() || !content.trim()) {
       setError("제목과 내용을 모두 입력해주세요.");
       return;
@@ -266,6 +269,8 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
       }
       return;
     }
+
+    setIsUploading(true);
 
     try {
       let token = localStorage.getItem("accessToken");
@@ -390,6 +395,8 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
           setError(err.response?.data?.error || err.message || "게시글 작성 중 오류가 발생했습니다.");
         }
       }
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -501,10 +508,36 @@ function CommunityWritePageContent({ onShowLogin }: CommunityWritePageProps) {
 
               <Button
                 type="submit"
-                className="w-full bg-yellow-400 hover:bg-yellow-500 text-black"
-                disabled={!currentUserEmail}
+                className={`w-full flex items-center justify-center gap-2 ${
+                  isUploading 
+                    ? "opacity-50 cursor-not-allowed bg-gray-400" 
+                    : "bg-yellow-400 hover:bg-yellow-500 text-black"
+                }`}
+                disabled={!currentUserEmail || isUploading}
               >
-                작성 완료
+                {isUploading && (
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    ></path>
+                  </svg>
+                )}
+                {isUploading ? "업로드 중..." : "작성 완료"}
               </Button>
             </CardContent>
           </Card>

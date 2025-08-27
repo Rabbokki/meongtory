@@ -19,7 +19,7 @@ interface CommunityPost {
   author: string;
   date: string;
   category: string;
-  boardType: "Q&A" | "자유게시판";
+  boardType: "Q&A" | "QNA" | "자유게시판" | "멍스타그램" | "꿀팁게시판";
   views: number;
   likes: number;
   comments: number;
@@ -41,11 +41,15 @@ export default function CommunityPage({
   onUpdatePosts,
 }: CommunityPageProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [keyword, setKeyword] = useState("");
+  const [category, setCategory] = useState("");
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<string>("전체");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const router = useRouter();
 
   // 카테고리 탭 목록
@@ -77,12 +81,10 @@ export default function CommunityPage({
           headers["Authorization"] = `Bearer ${token}`;
         }
 
-        // API 요청 URL 구성
-        let url = `${getBackendUrl()}/api/community/posts`;
-        if (activeTab !== "전체") {
-          const param = convertBoardTypeForAPI(activeTab);
-          url += `?boardType=${param}`;
-        }
+        // 검색 API 사용
+        let url = `${getBackendUrl()}/api/community/posts/search?page=${currentPage}&size=7`;
+        if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+        if (category) url += `&category=${encodeURIComponent(category)}`;
 
         const response = await fetch(url, {
           method: "GET",
@@ -93,7 +95,7 @@ export default function CommunityPage({
 
         const data = await response.json();
 
-        const mappedPosts = data.map((post: any) => {
+        const mappedPosts = data.content.map((post: any) => {
           // 날짜 처리 개선
           let formattedDate = "날짜 없음";
           if (post.createdAt) {
@@ -132,6 +134,7 @@ export default function CommunityPage({
         });
 
         setPosts(mappedPosts);
+        setTotalPages(data.totalPages);
         if (typeof onUpdatePosts === "function") {
           onUpdatePosts(mappedPosts);
         }
@@ -143,7 +146,7 @@ export default function CommunityPage({
     };
 
     fetchPosts();
-  }, [activeTab]); // activeTab이 변경될 때마다 다시 fetch
+  }, [keyword, category, currentPage]); // keyword, category, currentPage가 변경될 때마다 다시 fetch
 
   const filteredPosts = posts?.filter((post) => {
     const matchesSearch =
@@ -247,6 +250,16 @@ export default function CommunityPage({
     router.push(`/community/${post.id}`);
   };
 
+  const handleSearch = () => {
+    setKeyword(searchTerm);
+    setCurrentPage(0); // 검색 시 첫 페이지로 이동
+  };
+
+  const handleCategoryChange = (selectedCategory: string) => {
+    setCategory(selectedCategory === "전체" ? "" : convertBoardTypeForAPI(selectedCategory));
+    setCurrentPage(0); // 카테고리 변경 시 첫 페이지로 이동
+  };
+
   if (loading) return <div className="min-h-screen bg-gray-50 py-8">로딩 중...</div>;
   if (error) return <div className="min-h-screen bg-gray-50 py-8">에러: {error}</div>;
 
@@ -262,7 +275,10 @@ export default function CommunityPage({
           {categories.map((category) => (
             <button
               key={category}
-              onClick={() => setActiveTab(category)}
+              onClick={() => {
+                setActiveTab(category);
+                handleCategoryChange(category);
+              }}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === category 
                   ? "bg-yellow-400 text-black shadow-sm" 
@@ -280,12 +296,17 @@ export default function CommunityPage({
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <Input
                 type="text"
-                placeholder="게시글 검색..."
+                placeholder="검색어를 입력하세요"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch();
+                  }
+                }}
                 className="flex-grow"
               />
-              <Button className="bg-yellow-400 hover:bg-yellow-500 text-black">
+              <Button onClick={handleSearch} className="bg-yellow-400 hover:bg-yellow-500 text-black">
                 <Search className="h-4 w-4 mr-2" />
                 검색
               </Button>
@@ -297,88 +318,126 @@ export default function CommunityPage({
 
             {/* 게시글 목록 */}
             {sortedPosts && sortedPosts.length > 0 ? (
-              sortedPosts.map((post) => (
-                <Card key={post.id} className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="p-6" onClick={() => handleViewPost(post)}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <Badge variant={post.boardType === "QNA" ? "default" : "secondary"}>
-                            {convertBoardTypeForDisplay(post.boardType)}
-                          </Badge>
-                          {post.sharedFromDiaryId && (
-                            <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
-                              🐾 성장일기 공유
+              <>
+                {sortedPosts.map((post) => (
+                  <Card key={post.id} className="hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-6" onClick={() => handleViewPost(post)}>
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Badge variant={post.boardType === "QNA" || post.boardType === "Q&A" ? "default" : "secondary"}>
+                              {convertBoardTypeForDisplay(post.boardType)}
                             </Badge>
-                          )}
-                          <span className="text-sm text-gray-500">{post.author}</span>
-                          <span className="text-sm text-gray-500">{post.date}</span>
+                            {post.sharedFromDiaryId && (
+                              <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                                🐾 성장일기 공유
+                              </Badge>
+                            )}
+                            <span className="text-sm text-gray-500">{post.author}</span>
+                            <span className="text-sm text-gray-500">{post.date}</span>
+                          </div>
+                          <h2 className="text-xl font-semibold mb-2">{post.title}</h2>
+                          <p className="text-gray-700 line-clamp-2 mb-4">{post.content}</p>
+                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                            <span className="flex items-center">
+                              <Eye className="h-4 w-4 mr-1" />
+                              {post.views}
+                            </span>
+                            <span className="flex items-center">
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              💬 {post.comments}
+                            </span>
+                            <button
+                              disabled={!isLoggedIn}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (isLoggedIn) handleLike(post.id);
+                              }}
+                              className={`flex items-center ${
+                                isLoggedIn ? "hover:text-red-500" : "opacity-50 cursor-not-allowed"
+                              }`}
+                            >
+                              <Heart className="h-4 w-4 mr-1" />
+                              {post.likes}
+                            </button>
+                            {/* {isLoggedIn && (
+                              <>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEdit(post);
+                                  }}
+                                  className="flex items-center hover:text-blue-500 transition-colors"
+                                >
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  수정
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDelete(post.id);
+                                  }}
+                                  className="flex items-center hover:text-red-500 transition-colors"
+                                >
+                                  <Trash className="h-4 w-4 mr-1" />
+                                  삭제
+                                </button>
+                              </>
+                            )} */}
+                          </div>
                         </div>
-                        <h2 className="text-xl font-semibold mb-2">{post.title}</h2>
-                        <p className="text-gray-700 line-clamp-2 mb-4">{post.content}</p>
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span className="flex items-center">
-                            <Eye className="h-4 w-4 mr-1" />
-                            {post.views}
-                          </span>
-                          <span className="flex items-center">
-                            <MessageSquare className="h-4 w-4 mr-1" />
-                            💬 {post.comments}
-                          </span>
-                          <button
-                            disabled={!isLoggedIn}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (isLoggedIn) handleLike(post.id);
-                            }}
-                            className={`flex items-center ${
-                              isLoggedIn ? "hover:text-red-500" : "opacity-50 cursor-not-allowed"
-                            }`}
-                          >
-                            <Heart className="h-4 w-4 mr-1" />
-                            {post.likes}
-                          </button>
-                          {/* {isLoggedIn && (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEdit(post);
-                                }}
-                                className="flex items-center hover:text-blue-500 transition-colors"
-                              >
-                                <Edit className="h-4 w-4 mr-1" />
-                                수정
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDelete(post.id);
-                                }}
-                                className="flex items-center hover:text-red-500 transition-colors"
-                              >
-                                <Trash className="h-4 w-4 mr-1" />
-                                삭제
-                              </button>
-                            </>
-                          )} */}
-                        </div>
+                        {post.images && post.images.length > 0 && (
+                          <div className="ml-4 flex-shrink-0">
+                            <Image
+                              src={post.images?.[0] || "/placeholder.svg"}
+                              alt={post.title}
+                              width={120}
+                              height={90}
+                              className="rounded-md object-cover"
+                            />
+                          </div>
+                        )}
                       </div>
-                      {post.images && post.images.length > 0 && (
-                        <div className="ml-4 flex-shrink-0">
-                          <Image
-                            src={post.images?.[0] || "/placeholder.svg"}
-                            alt={post.title}
-                            width={120}
-                            height={90}
-                            className="rounded-md object-cover"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                ))}
+                
+                {/* 페이지 네비게이션 */}
+                {totalPages > 1 && (
+                  <div className="flex justify-center mt-6 gap-2">
+                    {/* 이전 버튼 */}
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 0))}
+                      disabled={currentPage === 0}
+                      className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
+                    >
+                      ◀
+                    </button>
+
+                    {/* 페이지 번호 */}
+                    {Array.from({ length: totalPages }, (_, i) => (
+                      <button
+                        key={i}
+                        onClick={() => setCurrentPage(i)}
+                        className={`px-3 py-1 rounded ${
+                          currentPage === i ? "bg-yellow-400 text-white" : "bg-gray-200"
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+
+                    {/* 다음 버튼 */}
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages - 1))}
+                      disabled={currentPage === totalPages - 1}
+                      className="px-3 py-1 rounded bg-gray-200 disabled:opacity-50"
+                    >
+                      ▶
+                    </button>
+                  </div>
+                )}
+              </>
             ) : (
               <Card className="p-6 text-center text-gray-500">
                 <p>{activeTab === "전체" ? "게시글이 없습니다." : `${activeTab} 게시글이 없습니다.`}</p>

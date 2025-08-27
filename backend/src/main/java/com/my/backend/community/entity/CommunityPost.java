@@ -63,4 +63,11 @@ public class CommunityPost {
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    /**
+     * 조회수 증가 메서드
+     */
+    public void increaseViews() {
+        this.views++;
+    }
 }

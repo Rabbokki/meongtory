@@ -1,131 +1,110 @@
-# AI 기반 자동댓글 기능 구현
+# AI Auto Comment & Enhanced Profanity Filter
 
 ## 개요
+이 프로젝트는 커뮤니티 게시글에 자동으로 댓글을 생성하는 AI 기능과 강화된 비속어 필터링 시스템을 포함합니다.
 
-기존의 고정된 랜덤 댓글 시스템을 OpenAI API를 활용한 AI 기반 자동댓글 생성 시스템으로 개선했습니다.
+## 주요 기능
 
-## 주요 변경사항
+### 1. AI 자동 댓글 생성
+- 게시글이 작성되면 자동으로 관련성 높은 댓글을 생성
+- 비동기 처리로 게시글 작성 속도에 영향 없음
+- 실패 시에도 게시글 작성은 정상 진행
 
-### 1. 새로운 서비스 추가
+### 2. 강화된 비속어 필터링 시스템
 
-#### OpenAiService (`backend/src/main/java/com/my/backend/community/service/OpenAiService.java`)
-- OpenAI API를 직접 호출하여 게시글 내용에 맞는 댓글 생성
-- 카테고리별 맞춤형 프롬프트 구성
-- 실패 시 폴백 댓글 제공
+#### 2단계 필터링 구조
+1. **1차 필터: 정규식 기반 보조 검사**
+   - 빠르고 비용 없는 검사
+   - 기본적인 비속어 패턴 감지
+   - 특수문자나 숫자로 변형된 비속어도 감지
 
-#### 주요 기능:
-- `generateComment(String postContent, String category)`: 게시글 내용과 카테고리를 기반으로 AI 댓글 생성
-- `buildPrompt(String postContent, String category)`: 카테고리별 프롬프트 구성
-- `getFallbackComment(String category)`: AI 실패 시 기본 댓글 제공
+2. **2차 필터: OpenAI Moderation API (필수 호출)**
+   - 정규식에서 안 걸리더라도 항상 호출
+   - AI 기반 정교한 부적절한 내용 감지
+   - Moderation API 응답(flagged, categories, category_scores)을 서버 로그에 출력
+   - harassment/hate score > 0.3 시 부적절로 판단
+   - API 키가 없거나 실패 시 정규식 필터만 사용
 
-### 2. AutoCommentService 개선
+#### 지원하는 비속어 패턴 (보조 필터) - 한국 욕 + 변형
+```java
+private static final String[] BAD_WORD_PATTERNS = {
+    "개[\\W_0-9]*새[\\W_0-9]*끼",
+    "개[\\W_0-9]*같",   // 개같다, 개같은
+    "ㅅ[\\W_0-9]*ㅂ",
+    "씨[\\W_0-9]*발",
+    "병[\\W_0-9]*신",
+    "미친",
+    "좆",
+    "fuck",
+    "shit"
+};
+```
 
-#### 기존 기능 유지:
-- 게시글 작성 시 자동 댓글 생성
-- 작성자: "Meongtory"
-- 이메일: "meongtory@meongtory.com"
-- 실패 시 게시글 작성에 영향 없음
+#### 적용 범위
+- **게시글 작성/수정**: title + content 검사
+- **댓글 작성/수정**: content 검사
 
-#### 개선된 기능:
-- AI 기반 댓글 생성으로 변경
-- 게시글 내용 분석을 통한 맥락에 맞는 댓글
-- 카테고리별 맞춤형 반응
-
-### 3. 카테고리별 댓글 톤
-
-| 카테고리 | 댓글 톤 | 예시 |
-|---------|---------|------|
-| 자유게시판/멍스타그램 | 공감/축하/친근한 멘트 | "좋은 산책이었네요! 🐾" |
-| 꿀팁게시판 | 감사/추가 아이디어 제안 | "유익한 정보네요! 👍" |
-| Q&A | 간단한 조언/해결책 제안 | "도움이 되는 답변이었어요! 💡" |
+#### 에러 처리
+- 비속어 감지 시 400 Bad Request + JSON 응답
+- GlobalExceptionHandler를 통한 일관된 에러 처리
+- 프론트엔드에서 토스트 메시지로 사용자에게 알림
+- DB 저장 차단
+- 500 에러 방지
 
 ## 설정
 
-### 1. 환경변수 설정
-
-`application.yml`에 OpenAI API 설정 추가:
+### OpenAI API 키 설정
 ```yaml
+# application.yml
 openai:
   api:
     key: ${OPENAI_API_KEY}
-    url: https://api.openai.com/v1/chat/completions
-  model: ${OPENAI_MODEL:gpt-4o-mini}
 ```
 
-### 2. 필요한 환경변수
-- `OPENAI_API_KEY`: OpenAI API 키
-- `OPENAI_MODEL`: 사용할 모델 (기본값: gpt-4o-mini)
-
-## 프롬프트 구성
-
-### 시스템 프롬프트
-```
-당신은 반려견 커뮤니티에서 따뜻하고 공감하는 댓글을 작성하는 AI입니다. 
-자연스럽고 친근한 톤으로 1-2문장의 짧은 댓글을 작성해주세요.
+### 환경 변수
+```bash
+OPENAI_API_KEY=your-openai-api-key-here
 ```
 
-### 사용자 프롬프트 예시
+## 사용법
+
+### 백엔드
+비속어 필터링은 자동으로 적용되며, 별도 설정이 필요하지 않습니다.
+
+### 프론트엔드
+에러 처리는 이미 구현되어 있으며, 400 상태 코드 시 자동으로 토스트 메시지가 표시됩니다.
+
+#### 에러 처리 패턴
+```javascript
+try {
+  await axios.post('/api/community/posts/create', data);
+  toast.success("게시글이 등록되었습니다 ✅");
+} catch (error) {
+  if (error.response && error.response.status === 400) {
+    const msg = error.response.data?.message || "🚫 비속어를 사용하지 말아주세요.";
+    toast.error(msg);
+  } else {
+    toast.error("게시글 작성 중 오류가 발생했습니다 ❌");
+  }
+}
 ```
-게시글 내용: 오늘 강아지와 산책을 했어요. 정말 즐거웠습니다!
-
-위 게시글에 어울리는 댓글을 작성해주세요.
-조건:
-- 자연스러운 한국어
-- 1~2문장
-- 공감하고 축하하는 친근한 멘트
-- 따뜻하고 긍정적인 톤
-- 이모지 사용 가능
-```
-
-## 폴백 시스템
-
-AI 서비스 실패 시 카테고리별 기본 댓글로 대체:
-
-| 카테고리 | 폴백 댓글 |
-|---------|-----------|
-| 자유게시판/멍스타그램 | "좋은 글 감사합니다! 🐾" |
-| 꿀팁게시판 | "유익한 정보네요! 👍" |
-| Q&A | "도움이 되는 답변이었어요! 💡" |
-| 기타 | "좋은 글 감사합니다 🙌" |
 
 ## 테스트
-
-### 단위 테스트 추가
-- `AutoCommentServiceTest`: 자동댓글 생성 로직 테스트
-- `OpenAiServiceTest`: AI 댓글 생성 및 폴백 로직 테스트
-
-### 테스트 실행
 ```bash
-cd backend
-./gradlew test --tests "*AutoCommentServiceTest*"
-./gradlew test --tests "*OpenAiServiceTest*"
+# 비속어 필터링 테스트 실행
+./gradlew test --tests EnhancedProfanityFilterTest
 ```
 
-## 프론트엔드 연동
+## 기술 스택
+- **백엔드**: Spring Boot 3.3.2, Java 17
+- **프론트엔드**: Next.js, TypeScript
+- **AI**: OpenAI Moderation API
+- **데이터베이스**: PostgreSQL
 
-기존 프론트엔드 코드는 수정 없이 동작:
-- "🐾 Meongtory" 배지 자동 표시
-- 댓글 목록에 AI 생성 댓글 포함
-- 수정/삭제 권한 제한 (Meongtory 댓글은 수정 불가)
-
-## 제한사항 및 주의사항
-
-1. **API 키 보안**: OpenAI API 키는 환경변수로 관리
-2. **비용 관리**: OpenAI API 사용량에 따른 비용 발생 가능
-3. **응답 시간**: AI API 호출로 인한 약간의 지연 발생
-4. **실패 처리**: AI 실패 시 폴백 댓글로 대체하여 서비스 중단 방지
-
-## 로깅
-
-AI 댓글 생성 과정의 상세 로그 제공:
-- 게시글 내용 및 카테고리 로깅
-- AI API 요청/응답 로깅
-- 생성된 댓글 내용 로깅
-- 오류 발생 시 상세 로그
-
-## 향후 개선 방향
-
-1. **캐싱 시스템**: 유사한 게시글에 대한 댓글 캐싱
-2. **성능 최적화**: 비동기 처리로 응답 시간 개선
-3. **다양성 증가**: 더 다양한 댓글 패턴 생성
-4. **사용자 피드백**: AI 댓글에 대한 사용자 평가 시스템
+## 주의사항
+1. OpenAI API 키가 설정되지 않은 경우 정규식 필터만 동작합니다.
+2. API 호출 실패 시에도 정규식 필터는 정상 동작합니다.
+3. 정규식에서 걸리더라도 OpenAI Moderation API는 항상 호출됩니다.
+4. Moderation API 응답은 서버 로그에 상세히 기록됩니다.
+5. 비속어 감지 시 항상 400 Bad Request 응답을 반환합니다.
+6. 500 에러는 발생하지 않으며, 일관된 에러 처리가 보장됩니다.

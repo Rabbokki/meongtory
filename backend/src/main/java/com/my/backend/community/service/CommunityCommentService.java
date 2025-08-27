@@ -6,7 +6,7 @@ import com.my.backend.community.entity.CommunityComment;
 import com.my.backend.community.entity.CommunityPost;
 import com.my.backend.community.repository.CommunityCommentRepository;
 import com.my.backend.community.repository.CommunityPostRepository;
-import com.my.backend.community.util.ProfanityFilter;
+import com.my.backend.community.util.EnhancedProfanityFilter;
 import com.my.backend.global.exception.BadWordException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,7 +23,7 @@ public class CommunityCommentService {
 
     private final CommunityCommentRepository commentRepository;
     private final CommunityPostRepository postRepository;
-    private final ProfanityFilter profanityFilter;
+    private final EnhancedProfanityFilter profanityFilter;
 
     // 댓글 목록 조회
     public List<CommunityCommentDto> getCommentsByPostId(Long postId) {

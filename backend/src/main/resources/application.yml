@@ -95,6 +95,7 @@ logging:
     org.hibernate.SQL: DEBUG
     org.hibernate.type.descriptor.sql: TRACE
     com.meongtory: DEBUG # 추가: 애플리케이션 로그 디버깅 강화
+    com.my.backend.community.util: INFO # 비속어 필터링 로그
 
 management:
   endpoints:
