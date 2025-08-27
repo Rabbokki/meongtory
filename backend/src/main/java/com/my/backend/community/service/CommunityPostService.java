@@ -4,10 +4,12 @@ import com.my.backend.account.entity.Account;
 import com.my.backend.community.dto.CommunityPostDto;
 import com.my.backend.community.entity.CommunityPost;
 import com.my.backend.community.repository.CommunityPostRepository;
-import com.my.backend.community.util.ProfanityFilter;
+import com.my.backend.community.util.EnhancedProfanityFilter;
 import com.my.backend.global.exception.BadWordException;
 import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -23,15 +25,24 @@ public class CommunityPostService {
 
     private final CommunityPostRepository postRepository;
     private final S3Service s3Service;
-    private final ProfanityFilter profanityFilter;
+    private final EnhancedProfanityFilter profanityFilter;
     private final AutoCommentService autoCommentService;
 
-    // 게시글 전체 조회 (최신순)
+    // 게시글 전체 조회 (최신순) - 페이징 지원
+    public Page<CommunityPost> getAllPosts(Pageable pageable) {
+        return postRepository.findAll(pageable);
+    }
+
+    // 게시글 boardType별 조회 (최신순) - 페이징 지원
+    public Page<CommunityPost> getPostsByBoardType(String boardType, Pageable pageable) {
+        return postRepository.findByBoardType(boardType, pageable);
+    }
+
+    // 기존 메서드들 (하위 호환성 유지)
     public List<CommunityPost> getAllPosts() {
         return postRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    // 게시글 boardType별 조회 (최신순)
     public List<CommunityPost> getPostsByBoardType(String boardType) {
         return postRepository.findByBoardTypeOrderByCreatedAtDesc(boardType);
     }
@@ -49,6 +60,31 @@ public class CommunityPostService {
         return postRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
     }
+
+    /**
+     * 조회수 증가 메서드
+     * @param postId 게시글 ID
+     * @param currentUserEmail 현재 사용자 이메일
+     */
+    public void increaseViewCount(Long postId, String currentUserEmail) {
+        CommunityPost post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
+
+        // 작성자인 경우: 최초 1회만 증가 (조회수가 0일 때만)
+        if (currentUserEmail != null && post.getOwnerEmail().equals(currentUserEmail)) {
+            if (post.getViews() == 0) {
+                post.increaseViews();
+                postRepository.save(post);
+            }
+            return;
+        }
+
+        // 다른 사용자: 항상 증가
+        post.increaseViews();
+        postRepository.save(post);
+    }
+
+
 
     // 게시글 생성
     public CommunityPostDto createPost(CommunityPostDto dto, List<MultipartFile> imgs, Account account) throws IOException {
@@ -163,5 +199,25 @@ public class CommunityPostService {
 
     public CommunityPost save(CommunityPost post) {
         return postRepository.save(post);
+    }
+    
+    // 검색 기능
+    public Page<CommunityPost> searchPosts(String keyword, String category, Pageable pageable) {
+        if (keyword == null || keyword.isBlank()) {
+            if (category == null || category.isBlank()) {
+                return postRepository.findAll(pageable);
+            } else {
+                return postRepository.findByBoardType(category, pageable);
+            }
+        } else {
+            if (category == null || category.isBlank()) {
+                return postRepository
+                    .findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(keyword, keyword, pageable);
+            } else {
+                return postRepository
+                    .findByBoardTypeAndTitleContainingIgnoreCaseOrBoardTypeAndContentContainingIgnoreCase(
+                        category, keyword, category, keyword, pageable);
+            }
+        }
     }
 }
