@@ -790,4 +790,4 @@ async def root():
     return {"message": "Dog Breed Classifier API"}
 
 # 서버 시작 시 vectorstore 초기화 제거 (보험 챗봇은 별도 처리)
-# initialize_vectorstore()
+initialize_vectorstore()
