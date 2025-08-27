@@ -24,6 +24,7 @@ import {
   FileText,
   X,
   Download,
+  Shield,
 } from "lucide-react"
 import AnimalEditModal from "@/components/modals/animal-edit-modal"
 import type { Pet } from "@/types/pets"
@@ -766,7 +767,7 @@ export default function AdminPage({
                 <CardTitle>빠른 작업</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                   <Button
                     onClick={() => router.push('/store/register')
                     }
@@ -786,6 +787,13 @@ export default function AdminPage({
                   <Button onClick={() => router.push("/community")} className="h-20 flex flex-col items-center justify-center bg-yellow-400 hover:bg-yellow-500 text-black">
                     <MessageSquare className="h-6 w-6 mb-2" />
                     커뮤니티 관리
+                  </Button>
+                  <Button
+                    onClick={() => router.push("/feedback")}
+                    className="h-20 flex flex-col items-center justify-center bg-blue-400 hover:bg-blue-500 text-white"
+                  >
+                    <Shield className="h-6 w-6 mb-2" />
+                    AI 피드백 관리
                   </Button>
                 </div>
               </CardContent>

@@ -98,6 +98,7 @@ public class WebSecurityConfig {
                                 "/api/orders/**",
                                 "/api/diary/**",
                                 "/api/ai/**",
+                                "/api/emotion/**",
                                 "/api/community/**",
                                 "/api/carts/**",
                                 "/api/insurance/**",

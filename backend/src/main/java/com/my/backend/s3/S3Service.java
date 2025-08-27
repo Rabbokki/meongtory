@@ -347,6 +347,39 @@ public class S3Service {
         }
     }
 
+    // 감정 피드백 전용 이미지 업로드 메서드 (/emotion 폴더에 저장)
+    public String uploadEmotionFeedbackImage(MultipartFile file) {
+        try {
+            if (s3Client == null) {
+                log.warn("S3Client is null - returning mock URL");
+                String uuidFileName = generateEmotionFileName(file.getOriginalFilename());
+                return "https://mock-s3-bucket.s3.amazonaws.com/emotion/" + uuidFileName;
+            }
+
+            String originalFileName = file.getOriginalFilename();
+            byte[] fileData = file.getBytes();
+
+            String uuidFileName = generateEmotionFileName(originalFileName);
+            String emotionKey = "emotion/" + uuidFileName;
+            log.info("Uploading Emotion Feedback image: {} (UUID: {}) to S3 bucket: {} in emotion folder", originalFileName, uuidFileName, bucketName);
+
+            PutObjectRequest putObjectRequest = PutObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(emotionKey)
+                    .contentType(file.getContentType())
+                    .build();
+
+            s3Client.putObject(putObjectRequest, RequestBody.fromBytes(fileData));
+
+            String s3Url = "https://" + bucketName + ".s3." + region + ".amazonaws.com/" + emotionKey;
+            log.info("Emotion Feedback S3 업로드 성공: {}", s3Url);
+            return s3Url;
+        } catch (Exception e) {
+            log.error("Failed to upload Emotion Feedback image to S3: {}", e.getMessage());
+            throw new RuntimeException("Emotion Feedback S3 upload failed", e);
+        }
+    }
+
     // 일기용 UUID 기반 파일명 생성 메서드
     private String generateDiaryFileName(String originalFileName) {
         String extension = "";
@@ -367,6 +400,17 @@ public class S3Service {
             extension = ".webm";
         }
         return "diary/audio/" + UUID.randomUUID().toString() + extension;
+    }
+
+    // 감정 피드백용 UUID 기반 파일명 생성 메서드
+    private String generateEmotionFileName(String originalFileName) {
+        String extension = "";
+        if (originalFileName != null && originalFileName.contains(".")) {
+            extension = originalFileName.substring(originalFileName.lastIndexOf("."));
+        } else {
+            extension = ".jpg";
+        }
+        return UUID.randomUUID().toString() + extension;
     }
 
     // 기존 파일명 생성 메서드 (호환성용)

@@ -37,13 +37,8 @@ class EmotionRetrainService:
             backend_url (str): 백엔드 서버 URL (None이면 환경변수에서 자동 설정)
         """
         if backend_url is None:
-            # 환경변수에서 백엔드 URL 설정
-            frontend_url = os.getenv("NEXT_PUBLIC_BACKEND_URL")
-            # 프론트엔드 URL을 백엔드 URL로 변환 (동일한 도메인 사용)
-            if frontend_url.startswith("https://"):
-                self.backend_url = frontend_url  # ALB를 통한 라우팅
-            else:
-                self.backend_url = frontend_url or "http://localhost:8080"  # 로컬 개발환경
+            # AI → 백엔드 전용 환경변수 사용
+            self.backend_url = os.getenv("BACKEND_SERVICE_URL", "http://localhost:8080")
         else:
             self.backend_url = backend_url
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -199,7 +194,7 @@ class EmotionRetrainService:
     
     
     def retrain_model(self, images: List[torch.Tensor], labels: List[int], 
-                     learning_rate: float = 0.0001, num_epochs: int = 5) -> bool:
+                     learning_rate: float = 0.0001, num_epochs: int = 10) -> bool:
         """
         피드백 데이터로 모델 재학습
         
@@ -235,15 +230,19 @@ class EmotionRetrainService:
             model.to(self.device)
             model.train()
             
-            # 옵티마이저 및 손실함수 설정
+            # 옵티마이저, 손실함수, 스케줄러 설정 (기존 학습과 동일하게)
             optimizer = optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-4)
             criterion = nn.CrossEntropyLoss()
+            
+            # 학습률 스케줄러 추가 (기존 학습과 동일)
+            from torch.optim.lr_scheduler import ReduceLROnPlateau
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', patience=3, factor=0.5, verbose=True)
             
             # 데이터를 텐서로 변환
             image_tensors = torch.stack(images)
             label_tensors = torch.tensor(labels, dtype=torch.long)
             
-            # 배치 크기 설정 (데이터 크기에 따라 조정)
+            # 배치 크기 설정 (기존 학습과 동일하게)
             batch_size = min(16, len(images))
             
             logger.info(f"재학습 시작 - 데이터: {len(images)}개, 에포크: {num_epochs}, 학습률: {learning_rate}")
@@ -278,9 +277,21 @@ class EmotionRetrainService:
                 accuracy = 100.0 * correct / total
                 avg_loss = epoch_loss / (len(images) // batch_size + 1)
                 
-                logger.info(f"에포크 {epoch+1}/{num_epochs} - Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%")
+                # 스케줄러 업데이트 (기존 학습과 동일)
+                scheduler.step(avg_loss)
+                current_lr = optimizer.param_groups[0]['lr']
+                
+                logger.info(f"에포크 {epoch+1}/{num_epochs} - Loss: {avg_loss:.4f}, Accuracy: {accuracy:.2f}%, LR: {current_lr:.6f}")
             
             # 재학습된 모델 저장
+            logger.info(f"모델 저장 시작 - 경로: {self.current_model_path}")
+            logger.info(f"저장 디렉토리 존재 여부: {self.current_model_dir.exists()}")
+            
+            # 저장 디렉토리가 없으면 생성
+            if not self.current_model_dir.exists():
+                logger.info("저장 디렉토리 생성 중...")
+                self.current_model_dir.mkdir(parents=True, exist_ok=True)
+            
             checkpoint = {
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
@@ -294,13 +305,21 @@ class EmotionRetrainService:
                 }
             }
             
-            torch.save(checkpoint, self.current_model_path)
-            logger.info(f"재학습된 모델 저장 완료: {self.current_model_path}")
-            
-            # 백엔드에 모델 버전 정보 등록
-            version_info = self._register_model_version(len(images), learning_rate, num_epochs, accuracy, avg_loss)
-            if version_info:
-                logger.info(f"모델 버전 등록 완료: {version_info.get('version')}")
+            try:
+                # 기존 모델을 백업 (선택사항)
+                if self.current_model_path.exists():
+                    backup_path = self.current_model_dir / f"best_model_backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pth"
+                    logger.info(f"기존 모델 백업: {backup_path}")
+                    import shutil
+                    shutil.copy2(self.current_model_path, backup_path)
+                
+                torch.save(checkpoint, self.current_model_path)
+                logger.info(f"✅ 재학습된 모델 저장 완료: {self.current_model_path}")
+                logger.info(f"저장된 파일 크기: {self.current_model_path.stat().st_size} bytes")
+                
+            except Exception as save_error:
+                logger.error(f"❌ 모델 저장 실패: {save_error}")
+                raise save_error
             
             # 임시 데이터 정리
             if self.temp_data_dir.exists():
@@ -340,169 +359,6 @@ class EmotionRetrainService:
         except Exception as e:
             logger.error(f"피드백 사용 표시 중 예외 발생: {e}")
             return False
-    
-    def _register_model_version(self, sample_count: int, learning_rate: float, 
-                               num_epochs: int, accuracy: float, loss: float) -> Optional[Dict]:
-        """
-        백엔드에 새로운 모델 버전 정보 등록
-        
-        Args:
-            sample_count (int): 학습에 사용된 샘플 수
-            learning_rate (float): 학습률
-            num_epochs (int): 에포크 수
-            accuracy (float): 최종 정확도 (0-100)
-            loss (float): 최종 손실값
-            
-        Returns:
-            Dict: 등록된 모델 버전 정보 또는 None
-        """
-        try:
-            # 버전 이름 생성 (타임스탬프 기반)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            version = f"v1.0.{timestamp}"
-            
-            # 모델 파일 상대 경로
-            model_rel_path = "checkpoints_finetune/best_model.pth"
-            
-            # 성능 메트릭 정보 (JSON)
-            performance_metrics = {
-                "final_accuracy": accuracy / 100.0,  # 0-1 범위로 변환
-                "final_loss": loss,
-                "training_samples": sample_count,
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            # 학습 히스토리 정보 (JSON)
-            training_history = {
-                "learning_rate": learning_rate,
-                "num_epochs": num_epochs,
-                "sample_count": sample_count,
-                "completion_time": datetime.now().isoformat(),
-                "device": str(self.device)
-            }
-            
-            # 백엔드 API 요청 데이터
-            request_data = {
-                "version": version,
-                "modelPath": model_rel_path,
-                "description": f"피드백 {sample_count}개 샘플로 재학습된 모델",
-                "feedbackSampleCount": sample_count,
-                "learningRate": learning_rate,
-                "numEpochs": num_epochs,
-                "finalAccuracy": accuracy / 100.0,  # 0-1 범위
-                "finalLoss": loss,
-                "performanceMetrics": json.dumps(performance_metrics),
-                "trainingHistory": json.dumps(training_history)
-            }
-            
-            url = f"{self.backend_url}/api/emotion/model-version"
-            logger.info(f"모델 버전 등록 요청: {url}")
-            
-            response = requests.post(url, json=request_data, timeout=30)
-            response.raise_for_status()
-            
-            result = response.json()
-            if result.get('success', False):
-                logger.info("모델 버전 등록 성공")
-                return result.get('data')
-            else:
-                logger.warning(f"모델 버전 등록 실패: {result.get('message', 'Unknown error')}")
-                return None
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"모델 버전 등록 중 네트워크 오류: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"모델 버전 등록 중 예외 발생: {e}")
-            return None
-    
-    def activate_model_version(self, version_id: int) -> bool:
-        """
-        특정 모델 버전을 활성화
-        
-        Args:
-            version_id (int): 활성화할 모델 버전 ID
-            
-        Returns:
-            bool: 성공 여부
-        """
-        try:
-            url = f"{self.backend_url}/api/emotion/model-version/{version_id}/activate"
-            logger.info(f"모델 버전 활성화 요청: {url}")
-            
-            response = requests.post(url, timeout=30)
-            response.raise_for_status()
-            
-            result = response.json()
-            if result.get('success', False):
-                logger.info(f"모델 버전 활성화 성공: {version_id}")
-                return True
-            else:
-                logger.warning(f"모델 버전 활성화 실패: {result.get('message', 'Unknown error')}")
-                return False
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"모델 버전 활성화 중 네트워크 오류: {e}")
-            return False
-        except Exception as e:
-            logger.error(f"모델 버전 활성화 중 예외 발생: {e}")
-            return False
-    
-    def get_active_model_version(self) -> Optional[Dict]:
-        """
-        현재 활성 모델 버전 정보 조회
-        
-        Returns:
-            Dict: 활성 모델 정보 또는 None
-        """
-        try:
-            url = f"{self.backend_url}/api/emotion/model-version/active"
-            logger.info(f"활성 모델 조회 요청: {url}")
-            
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-            
-            result = response.json()
-            if result.get('success', False):
-                return result.get('data')
-            else:
-                logger.warning(f"활성 모델 조회 실패: {result.get('message', 'Unknown error')}")
-                return None
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"활성 모델 조회 중 네트워크 오류: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"활성 모델 조회 중 예외 발생: {e}")
-            return None
-    
-    def get_model_version_comparison(self) -> Optional[Dict]:
-        """
-        모델 버전 성능 비교 정보 조회
-        
-        Returns:
-            Dict: 비교 정보 또는 None
-        """
-        try:
-            url = f"{self.backend_url}/api/emotion/model-version/comparison"
-            logger.info(f"모델 성능 비교 요청: {url}")
-            
-            response = requests.get(url, timeout=30)
-            response.raise_for_status()
-            
-            result = response.json()
-            if result.get('success', False):
-                return result.get('data')
-            else:
-                logger.warning(f"모델 성능 비교 실패: {result.get('message', 'Unknown error')}")
-                return None
-                
-        except requests.exceptions.RequestException as e:
-            logger.error(f"모델 성능 비교 중 네트워크 오류: {e}")
-            return None
-        except Exception as e:
-            logger.error(f"모델 성능 비교 중 예외 발생: {e}")
-            return None
     
     def run_retrain_cycle(self, min_feedback_count: int = 10) -> Dict[str, any]:
         """

@@ -15,7 +15,13 @@ val_candidates = [
     f"{DRIVE_BASE}/emotion/val",
     f"{DRIVE_BASE}/val",
 ]
-ckpt_candidates = [
+# 기존 파인튜닝 모델과 재학습 모델 모두 찾기
+original_ckpt_candidates = [
+    f"{DRIVE_BASE}/ai/emotion/checkpoints_finetune/best_model_original.pth",
+    f"{DRIVE_BASE}/emotion/checkpoints_finetune/best_model_original.pth", 
+    f"{DRIVE_BASE}/checkpoints_finetune/best_model_original.pth",
+]
+retrained_ckpt_candidates = [
     f"{DRIVE_BASE}/ai/emotion/checkpoints_finetune/best_model.pth",
     f"{DRIVE_BASE}/emotion/checkpoints_finetune/best_model.pth",
     f"{DRIVE_BASE}/checkpoints_finetune/best_model.pth",
@@ -32,11 +38,13 @@ def first_existing(paths):
     return None
 
 src_val = first_existing(val_candidates)
-src_ckpt = first_existing(ckpt_candidates)
+src_original_ckpt = first_existing(original_ckpt_candidates)
+src_retrained_ckpt = first_existing(retrained_ckpt_candidates)
 src_script = first_existing(script_candidates)
 
 assert src_val and os.path.isdir(src_val), f"val 폴더를 찾지 못했습니다. 드라이브 경로 확인: {val_candidates}"
-assert src_ckpt and os.path.isfile(src_ckpt), f"best_model.pth를 찾지 못했습니다. 드라이브 경로 확인: {ckpt_candidates}"
+assert src_original_ckpt and os.path.isfile(src_original_ckpt), f"원본 파인튜닝 모델을 찾지 못했습니다. 드라이브 경로 확인: {original_ckpt_candidates}"
+assert src_retrained_ckpt and os.path.isfile(src_retrained_ckpt), f"재학습 모델을 찾지 못했습니다. 드라이브 경로 확인: {retrained_ckpt_candidates}"
 assert src_script and os.path.isfile(src_script), f"compare_eval_colab.py를 찾지 못했습니다. 드라이브 경로 확인: {script_candidates}"
 
 # 3) val 데이터 복사 (클래스 폴더 유지)
@@ -49,15 +57,17 @@ for cls in classes:
         if os.path.isfile(fp):
             shutil.copy2(fp, f"{TARGET_ROOT}/val/{cls}/")
 
-# 4) 체크포인트/스크립트 복사
-shutil.copy2(src_ckpt, f"{TARGET_ROOT}/checkpoints_finetune/best_model.pth")
+# 4) 체크포인트/스크립트 복사 (원본과 재학습 모델 모두)
+shutil.copy2(src_original_ckpt, f"{TARGET_ROOT}/checkpoints_finetune/best_model_original.pth")
+shutil.copy2(src_retrained_ckpt, f"{TARGET_ROOT}/checkpoints_finetune/best_model.pth")
 shutil.copy2(src_script, f"/content/mt/ai/emotion/compare_eval_colab.py")
 
 # 5) 파일 확인
 import os
 print("📁 복사된 파일 확인:")
 print(f"- val 폴더: {os.path.isdir(f'{TARGET_ROOT}/val')} ({len(os.listdir(f'{TARGET_ROOT}/val'))}개 클래스)")
-print(f"- best_model.pth: {os.path.isfile(f'{TARGET_ROOT}/checkpoints_finetune/best_model.pth')}")
+print(f"- 원본 파인튜닝 모델: {os.path.isfile(f'{TARGET_ROOT}/checkpoints_finetune/best_model_original.pth')}")
+print(f"- 재학습 모델: {os.path.isfile(f'{TARGET_ROOT}/checkpoints_finetune/best_model.pth')}")
 print(f"- 스크립트: {os.path.isfile('/content/mt/ai/emotion/compare_eval_colab.py')}")
 
 # 6) 실행
