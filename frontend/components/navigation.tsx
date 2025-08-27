@@ -43,19 +43,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(false);
   const hasCheckedLogin = useRef(false); // 초기 로그인 체크 여부 추적
-  // 수정: 무한 루프 방지를 위한 재시도 횟수 제한
   const retryCount = useRef(0);
   const MAX_RETRIES = 3;
 
   const refreshAccessToken = useCallback(async () => {
     try {
       const refreshToken = localStorage.getItem("refreshToken");
+      // 수정: 리프레시 토큰 존재 여부 및 내용 확인
+      console.log("리프레시 토큰 확인:", refreshToken ? "존재함" : "없음", "길이:", refreshToken?.length);
       if (!refreshToken) {
         console.error("리프레시 토큰이 없습니다.");
         return null;
       }
-      // 수정: 디버깅 로그 추가
-      console.log("리프레시 토큰:", refreshToken);
       const response = await axios.post(
         `${getBackendUrl()}/api/accounts/refresh`,
         { refreshToken },
@@ -63,9 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       );
       const { accessToken } = response.data.data;
       localStorage.setItem("accessToken", accessToken);
-      // 수정: 토큰 저장 후 확인 로그 추가
-      console.log("새로운 Access Token 저장:", accessToken);
-      console.log("localStorage 확인:", localStorage.getItem("accessToken"));
+      // 수정: 토큰 저장 후 즉시 확인
+      console.log("새로운 Access Token 저장됨:", accessToken);
+      console.log("localStorage 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
       return accessToken;
     } catch (err) {
       console.error("토큰 갱신 실패:", err);
@@ -79,9 +78,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const checkLoginStatus = useCallback(async () => {
-    // 수정: 재시도 횟수 체크
+    // 수정: 재시도 횟수 초과 시 즉시 종료
     if (retryCount.current >= MAX_RETRIES) {
-      console.error("최대 재시도 횟수 초과, 인증 정보 초기화");
+      console.error(`최대 재시도 횟수(${MAX_RETRIES}) 초과, 인증 정보 초기화`);
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       setIsLoggedIn(false);
@@ -93,28 +92,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     if (isCheckingLogin || hasCheckedLogin.current || typeof window === "undefined") {
-      // 수정: 스킵 조건 로그 추가
       console.log("checkLoginStatus 스킵: isCheckingLogin=", isCheckingLogin, "hasCheckedLogin=", hasCheckedLogin.current);
       return;
     }
     setIsCheckingLogin(true);
     try {
       const accessToken = localStorage.getItem("accessToken");
-      // 수정: Access Token 존재 여부 및 내용 로그 추가
-      console.log("Access Token 확인:", accessToken ? "존재함" : "없음", "길이:", accessToken?.length);
+      // 수정: 요청 전 헤더와 토큰 상태 확인
+      console.log("=== /api/accounts/me 요청 준비 ===");
+      console.log("Backend URL:", getBackendUrl());
+      console.log("Access Token:", accessToken ? "존재함" : "없음", "길이:", accessToken?.length);
+      console.log("Headers to be sent:", { Access_Token: accessToken || "undefined" });
       if (!accessToken) {
-        console.log("액세스 토큰이 없습니다.");
+        console.log("액세스 토큰이 없으므로 요청 중단");
         return;
       }
 
       const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
-        headers: { Access_Token: accessToken },
+        headers: { 
+          "Access_Token": accessToken,
+          // 수정: ALB가 소문자 헤더를 기대할 경우 대비
+          "access_token": accessToken 
+        },
         timeout: 5000,
       });
       console.log("사용자 정보 조회 성공:", response.data);
       const { id, email, name, role } = response.data.data;
 
-      // 상태 업데이트 최적화: 변경된 경우에만 set 호출
       if (!currentUser || currentUser.id !== id || currentUser.email !== email || currentUser.name !== name) {
         setCurrentUser({ id, email, name });
       }
@@ -125,19 +129,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoggedIn(true);
       }
       console.log("Initial login check successful:", { id, email, name, role });
-      hasCheckedLogin.current = true; // 체크 완료 플래그 설정
-      retryCount.current = 0; // 수정: 성공 시 재시도 카운트 초기화
+      hasCheckedLogin.current = true;
+      retryCount.current = 0;
     } catch (err: any) {
       console.error("사용자 정보 조회 실패:", err.response?.data?.message || err.message);
       if (err.response?.status === 401) {
-        // 수정: 재시도 횟수 증가
         retryCount.current += 1;
         console.log("401 에러 발생, 재시도 횟수:", retryCount.current);
         const newToken = await refreshAccessToken();
         if (newToken) {
           try {
+            console.log("=== 재시도: /api/accounts/me 요청 ===");
+            console.log("새로운 Access Token:", newToken);
+            console.log("Headers to be sent:", { Access_Token: newToken });
             const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
-              headers: { Access_Token: newToken },
+              headers: { 
+                "Access_Token": newToken,
+                "access_token": newToken // 수정: 소문자 헤더 추가
+              },
               timeout: 5000,
             });
             const { id, email, name, role } = response.data.data;
@@ -152,7 +161,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             console.log("Retry login check successful:", { id, email, name, role });
             hasCheckedLogin.current = true;
-            retryCount.current = 0; // 수정: 성공 시 재시도 카운트 초기화
+            retryCount.current = 0;
           } catch (retryErr) {
             console.error("재시도 실패:", retryErr);
             localStorage.removeItem("accessToken");
@@ -189,12 +198,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isCheckingLogin, isLoggedIn, isAdmin, currentUser, refreshAccessToken]);
 
   useEffect(() => {
-    // 수정: 환경 변수 로드 확인 로그 추가
     console.log("Backend URL:", getBackendUrl());
     if (!hasCheckedLogin.current && !isCheckingLogin) {
+      console.log("checkLoginStatus 호출");
       checkLoginStatus();
     }
-  }, [checkLoginStatus, isCheckingLogin]);
+  }, [checkLoginStatus]);
 
   return (
     <AuthContext.Provider value={{ isLoggedIn, isAdmin, currentUser, setIsLoggedIn, setIsAdmin, setCurrentUser, refreshAccessToken, checkLoginStatus }}>
@@ -337,11 +346,13 @@ export default function Navigation() {
   const handleLogout = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
+      // 수정: 로그아웃 요청 전 토큰 상태 확인
+      console.log("로그아웃 요청, Access Token:", accessToken ? "존재함" : "없음");
       if (accessToken) {
         await axios.post(
           `${getBackendUrl()}/api/accounts/logout`,
           {},
-          { headers: { "Content-Type": "application/json", Access_Token: accessToken } }
+          { headers: { "Content-Type": "application/json", Access_Token: accessToken, access_token: accessToken } }
         );
       }
       localStorage.removeItem("accessToken");
@@ -383,6 +394,10 @@ export default function Navigation() {
       setCurrentUser({ id: userId, email, name: userName });
       setIsAdmin(userRole === "ADMIN");
 
+      // 수정: 회원가입 후 토큰 저장 확인
+      console.log("회원가입 후 Access Token:", accessToken);
+      console.log("localStorage 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
+
       toast.success("회원가입 및 로그인이 완료되었습니다", { duration: 5000 });
       router.push("/");
     } catch (err: any) {
@@ -403,8 +418,11 @@ export default function Navigation() {
     }
   ) => {
     const { id, email, name, role, accessToken, refreshToken } = loginData;
-    // 로컬 스토리지에 이미 저장되었으므로 중복 저장 방지
-    // 상태 업데이트
+    // 수정: 로그인 성공 후 토큰 상태 확인
+    console.log("=== 로그인 성공 ===");
+    console.log("Access Token:", accessToken);
+    console.log("Refresh Token:", refreshToken);
+    console.log("localStorage 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
     setCurrentUser({ id, email, name });
     setIsLoggedIn(true);
     setIsAdmin(role === "ADMIN");
