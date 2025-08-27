@@ -74,7 +74,7 @@ class EmbeddingUpdater:
         vector_str = '[' + ','.join(map(str, embedding)) + ']'
         return vector_str
     
-    def get_products_without_embedding(self, limit: int = 100) -> List[tuple]:
+    def get_products_without_embedding(self, limit: int = 500) -> List[tuple]:
         """임베딩이 없는 상품들을 조회"""
         with self.get_db_connection() as conn:
             with conn.cursor() as cursor:
@@ -112,7 +112,7 @@ class EmbeddingUpdater:
                 """)
                 return cursor.fetchone()[0]
     
-    def update_all_embeddings(self, batch_size: int = 100):
+    def update_all_embeddings(self, batch_size: int = 500):
         """모든 상품의 임베딩을 업데이트"""
         print("네이버 상품 임베딩 업데이트를 시작합니다...")
         
@@ -120,7 +120,7 @@ class EmbeddingUpdater:
         total_updated = 0
         
         while True:
-            # 임베딩이 없는 상품들을 배치로 조회
+            # 임베딩이 없는 상품들을 배치로 조회 (전체 상품 처리)
             products = self.get_products_without_embedding(batch_size)
             
             if not products:
@@ -161,9 +161,78 @@ class EmbeddingUpdater:
         
         print(f"임베딩 업데이트 완료: 총 {total_processed}개 처리됨, {total_updated}개 업데이트됨")
 
+    def search_similar_products(self, query_embedding: List[float], limit: int = 10) -> List[dict]:
+        """검색어 임베딩과 유사한 상품들을 검색"""
+        try:
+            query_vector_string = self.embedding_to_vector_string(query_embedding)
+            
+            with self.get_db_connection() as conn:
+                with conn.cursor() as cursor:
+                    # cosine similarity로 유사한 상품 검색
+                    cursor.execute("""
+                        SELECT 
+                            naver_product_id,
+                            title,
+                            description,
+                            price,
+                            image_url,
+                            mall_name,
+                            product_url,
+                            brand,
+                            maker,
+                            category1,
+                            category2,
+                            category3,
+                            category4,
+                            review_count,
+                            rating,
+                            search_count,
+                            created_at,
+                            updated_at,
+                            1 - (title_embedding <=> %s::vector) as similarity
+                        FROM naver_product 
+                        WHERE title_embedding IS NOT NULL
+                        ORDER BY title_embedding <=> %s::vector
+                        LIMIT %s
+                    """, (query_vector_string, query_vector_string, limit))
+                    
+                    results = []
+                    for row in cursor.fetchall():
+                        product = {
+                            'id': row[0],
+                            'title': row[1],
+                            'description': row[2],
+                            'price': row[3],
+                            'image_url': row[4],
+                            'mall_name': row[5],
+                            'product_url': row[6],
+                            'brand': row[7],
+                            'maker': row[8],
+                            'category1': row[9],
+                            'category2': row[10],
+                            'category3': row[11],
+                            'category4': row[12],
+                            'review_count': row[13],
+                            'rating': row[14],
+                            'search_count': row[15],
+                            'created_at': row[16].isoformat() if row[16] else None,
+                            'updated_at': row[17].isoformat() if row[17] else None,
+                            'similarity': float(row[18]) if row[18] else 0.0
+                        }
+                        results.append(product)
+                    
+                    return results
+                    
+        except Exception as e:
+            print(f"임베딩 검색 실패: {e}")
+            return []
+
 def main():
     try:
         updater = EmbeddingUpdater()
+        
+        # 명령행 인수 확인 (자동 실행 모드)
+        auto_mode = len(sys.argv) > 1 and sys.argv[1] == '--auto'
         
         # 임베딩이 없는 상품 수 확인
         count = updater.count_products_without_embedding()
@@ -173,11 +242,14 @@ def main():
             print("모든 상품에 임베딩이 이미 설정되어 있습니다.")
             return
         
-        # 사용자 확인
-        response = input(f"{count}개 상품의 임베딩을 업데이트하시겠습니까? (y/N): ")
-        if response.lower() != 'y':
-            print("취소되었습니다.")
-            return
+        if auto_mode:
+            print("자동 실행 모드: 사용자 확인 없이 임베딩 업데이트를 시작합니다.")
+        else:
+            # 사용자 확인
+            response = input(f"{count}개 상품의 임베딩을 업데이트하시겠습니까? (y/N): ")
+            if response.lower() != 'y':
+                print("취소되었습니다.")
+                return
         
         # 임베딩 업데이트 실행
         updater.update_all_embeddings()

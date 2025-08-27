@@ -35,7 +35,6 @@ interface MoodAnalysisResult {
     angry: number
     relaxed: number
   }
-  recommendations: string[]
   description: string
 }
 
@@ -57,6 +56,12 @@ export default function DogResearchLabPage() {
   const [moodImage, setMoodImage] = useState<string>("")
   const [moodResult, setMoodResult] = useState<MoodAnalysisResult | null>(null)
   const [isAnalyzingMood, setIsAnalyzingMood] = useState(false)
+
+  // Feedback State
+  const [showFeedback, setShowFeedback] = useState(false)
+  const [selectedCorrectEmotion, setSelectedCorrectEmotion] = useState<string>("")
+  const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false)
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false)
 
   const handleImageUpload = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -82,6 +87,11 @@ export default function DogResearchLabPage() {
             case "mood":
               setMoodImage(result)
               setMoodResult(null)
+              // 새 이미지 업로드 시 피드백 상태 초기화
+              setShowFeedback(false)
+              setSelectedCorrectEmotion("")
+              setFeedbackSubmitted(false)
+              setIsSubmittingFeedback(false)
               break
           }
         }
@@ -99,7 +109,7 @@ export default function DogResearchLabPage() {
     try {
       const formData = new FormData()
       formData.append('image', uploadedFile)
-      const response = await axios.post(`${getBackendUrl()}/api/ai/predict-breed`, 
+      const response = await axios.post(`${getBackendUrl()}/api/breed/predict`, 
         formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -235,6 +245,11 @@ export default function DogResearchLabPage() {
     if (!moodImage) return
 
     setIsAnalyzingMood(true)
+    // 새로운 분석 시 피드백 상태 초기화
+    setShowFeedback(false)
+    setSelectedCorrectEmotion("")
+    setFeedbackSubmitted(false)
+    setIsSubmittingFeedback(false)
 
     try {
       // 사진 분석을 위한 File 객체 생성
@@ -245,7 +260,7 @@ export default function DogResearchLabPage() {
       const formData = new FormData()
       formData.append('image', file)
 
-      const apiResponse = await axios.post(`${getBackendUrl()}/api/ai/analyze-emotion`, formData, 
+      const apiResponse = await axios.post(`${getBackendUrl()}/api/emotion/analyze`, formData, 
       {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -264,7 +279,6 @@ export default function DogResearchLabPage() {
           mood: aiResult.emotionKorean,
           confidence: Math.round(aiResult.confidence),
           emotions: aiResult.emotions || { happy: 25, sad: 25, angry: 25, relaxed: 25 }, // AI 실제 분석 결과 사용
-          recommendations: moodInfo.recommendations,
           description: moodInfo.description,
         })
       } else {
@@ -278,7 +292,6 @@ export default function DogResearchLabPage() {
             angry: 0,
             relaxed: 0,
           },
-          recommendations: ["이미지 분석에 실패했습니다. 다시 시도해주세요."],
           description: "감정 분석에 실패했습니다. 강아지의 얼굴이 명확히 보이는 사진을 업로드해주세요.",
         })
       }
@@ -293,7 +306,6 @@ export default function DogResearchLabPage() {
           angry: 0,
           relaxed: 0,
         },
-        recommendations: ["서버와 연결할 수 없습니다. 잠시 후 다시 시도해주세요."],
         description: "서버 연결 오류가 발생했습니다.",
       })
     } finally {
@@ -303,28 +315,82 @@ export default function DogResearchLabPage() {
 
   // 감정별 추천사항과 설명을 반환하는 헬퍼 함수
   const getMoodInfo = (emotion: string, emotionKorean: string) => {
-    const moodInfoMap: Record<string, { recommendations: string[], description: string }> = {
+    const moodInfoMap: Record<string, { description: string }> = {
       "happy": {
-        recommendations: ["현재 매우 좋은 상태입니다!", "놀이 시간을 늘려주세요", "간식을 주며 칭찬해주세요"],
         description: "강아지가 매우 행복하고 건강한 상태를 보이고 있습니다."
       },
       "sad": {
-        recommendations: ["부드럽게 위로해주세요", "좋아하는 장난감을 주세요", "조용한 환경을 만들어주세요"],
         description: "강아지가 슬퍼하는 것 같습니다. 관심과 사랑을 보여주세요."
       },
       "angry": {
-        recommendations: ["조용한 환경을 만들어주세요", "스트레스 요인을 제거해주세요", "수의사 상담을 고려해보세요"],
         description: "강아지가 화나거나 스트레스를 받고 있는 것 같습니다."
       },
       "relaxed": {
-        recommendations: ["현재 상태를 유지해주세요", "적당한 휴식을 취하게 해주세요", "규칙적인 생활 패턴을 유지하세요"],
         description: "강아지가 매우 편안하고 안정된 상태입니다."
       }
     }
 
     return moodInfoMap[emotion] || {
-      recommendations: ["현재 상태를 관찰해주세요", "필요시 수의사와 상담하세요"],
       description: `강아지의 감정 상태가 ${emotionKorean}로 분석되었습니다.`
+    }
+  }
+
+  // 피드백 제출 처리 함수
+  const handleFeedbackSubmit = async (isCorrect: boolean) => {
+    if (!moodResult) return
+
+    setIsSubmittingFeedback(true)
+
+    try {
+      // 이미지를 base64에서 File 객체로 변환
+      const response = await fetch(moodImage)
+      const blob = await response.blob()
+      const file = new File([blob], 'emotion-feedback.jpg', { type: blob.type })
+
+      // 이미지를 다시 업로드하여 URL 받기 (실제로는 이미 분석된 이미지의 URL을 사용해야 함)
+      // 현재는 임시로 base64 URL 사용
+      const imageUrl = moodImage
+
+      const feedbackData = {
+        imageUrl: imageUrl,
+        predictedEmotion: Object.keys(moodResult.emotions).find(
+          (emotion) => moodResult.emotions[emotion as keyof typeof moodResult.emotions] === Math.max(
+            ...Object.values(moodResult.emotions)
+          )
+        ) || 'unknown',
+        correctEmotion: isCorrect ? 
+          Object.keys(moodResult.emotions).find(
+            (emotion) => moodResult.emotions[emotion as keyof typeof moodResult.emotions] === Math.max(
+              ...Object.values(moodResult.emotions)
+            )
+          ) : selectedCorrectEmotion,
+        isCorrectPrediction: isCorrect,
+        predictionConfidence: moodResult.confidence / 100.0
+      }
+
+      const apiResponse = await axios.post(
+        `${getBackendUrl()}/api/emotion/feedback`,
+        feedbackData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (apiResponse.data.success) {
+        setFeedbackSubmitted(true)
+        setShowFeedback(false)
+        setSelectedCorrectEmotion("")
+      } else {
+        console.error('피드백 제출 실패:', apiResponse.data.message)
+        alert('피드백 제출에 실패했습니다. 다시 시도해주세요.')
+      }
+    } catch (error) {
+      console.error('피드백 제출 오류:', error)
+      alert('피드백 제출 중 오류가 발생했습니다.')
+    } finally {
+      setIsSubmittingFeedback(false)
     }
   }
 
@@ -786,17 +852,84 @@ export default function DogResearchLabPage() {
                             <p className="text-gray-700 bg-white p-4 rounded-lg">{moodResult.description}</p>
                           </div>
 
-                          {/* Recommendations */}
+                          {/* Feedback Section */}
                           <div>
-                            <h4 className="font-semibold mb-2">추천 행동</h4>
-                            <div className="space-y-2">
-                              {moodResult.recommendations.map((rec, index) => (
-                                <div key={index} className="flex items-start bg-white p-3 rounded-lg">
-                                  <span className="text-green-500 mr-3 mt-1">•</span>
-                                  <span className="text-gray-700">{rec}</span>
+                            <h4 className="font-semibold mb-3">분석 정확도 피드백</h4>
+                            {!feedbackSubmitted ? (
+                              <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                <div className="mb-4">
+                                  <p className="text-gray-700 mb-3">이 감정 분석이 정확한가요?</p>
+                                  <div className="flex gap-3">
+                                    <Button
+                                      onClick={() => handleFeedbackSubmit(true)}
+                                      disabled={isSubmittingFeedback}
+                                      className="flex items-center gap-2 bg-green-500 hover:bg-green-600"
+                                    >
+                                      <Heart className="w-4 h-4" />
+                                      정확해요
+                                    </Button>
+                                    <Button
+                                      onClick={() => setShowFeedback(true)}
+                                      disabled={isSubmittingFeedback}
+                                      variant="outline"
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Smile className="w-4 h-4" />
+                                      수정하기
+                                    </Button>
+                                  </div>
                                 </div>
-                              ))}
-                            </div>
+
+                                {showFeedback && (
+                                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                                    <p className="text-sm text-gray-600 mb-2">올바른 감정을 선택해주세요:</p>
+                                    <select
+                                      value={selectedCorrectEmotion}
+                                      onChange={(e) => setSelectedCorrectEmotion(e.target.value)}
+                                      className="w-full p-2 border border-gray-300 rounded-md mb-3"
+                                      disabled={isSubmittingFeedback}
+                                    >
+                                      <option value="">감정을 선택하세요</option>
+                                      <option value="happy">행복</option>
+                                      <option value="sad">슬픔</option>
+                                      <option value="angry">화남</option>
+                                      <option value="relaxed">편안함</option>
+                                    </select>
+                                    <div className="flex gap-2">
+                                      <Button
+                                        onClick={() => handleFeedbackSubmit(false)}
+                                        disabled={!selectedCorrectEmotion || isSubmittingFeedback}
+                                        size="sm"
+                                        className="bg-blue-500 hover:bg-blue-600"
+                                      >
+                                        {isSubmittingFeedback ? "제출 중..." : "피드백 제출"}
+                                      </Button>
+                                      <Button
+                                        onClick={() => {
+                                          setShowFeedback(false)
+                                          setSelectedCorrectEmotion("")
+                                        }}
+                                        disabled={isSubmittingFeedback}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        취소
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                <div className="flex items-center gap-2 text-green-700">
+                                  <Heart className="w-5 h-5" />
+                                  <span className="font-medium">피드백을 제출해주셔서 감사합니다!</span>
+                                </div>
+                                <p className="text-green-600 text-sm mt-1">
+                                  여러분의 피드백이 AI 모델 개선에 도움이 됩니다.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </CardContent>

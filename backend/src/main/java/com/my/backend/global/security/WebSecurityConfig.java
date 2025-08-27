@@ -60,13 +60,16 @@ public class WebSecurityConfig {
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:3000",
                 "https://meongtory.shop",
-                "http://frontend:3000"));
+                "http://frontend:3000",
+                "http://localhost:*",
+                "https://localhost:*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("*", "Authorization", "Content-Type"));
-        configuration.setAllowCredentials(true);
+        configuration.setAllowedHeaders(Arrays.asList("*", "Authorization", "Content-Type", "Access_Token", "Refresh_Token"));
+        configuration.setAllowCredentials(false); // allowCredentials를 false로 변경
         configuration.addExposedHeader("Access_Token");
         configuration.addExposedHeader("Refresh_Token");
         configuration.addExposedHeader("Authorization");
+        configuration.setMaxAge(3600L); // preflight 요청 캐시 시간
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -99,6 +102,7 @@ public class WebSecurityConfig {
                                 "/api/carts/**",
                                 "/api/insurance/**",
                                 "/api/recent/**",
+                                "/api/chatbot/**",
                                 "/error",
                                 "/actuator/**",
                                 "/api/naver-shopping/**",

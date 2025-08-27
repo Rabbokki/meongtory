@@ -4,8 +4,8 @@ import { useEffect, useState } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ChevronDown, ChevronUp, Clock, Eye, Heart, PawPrint, Shield, Star, Sparkles } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Clock, Eye, Heart, PawPrint, Shield, Star, Sparkles, Search, X, Bot } from "lucide-react"
 import { insuranceApi, recentApi } from "@/lib/api"
 import { RecentProductsSidebar } from "@/components/ui/recent-products-sidebar"
 import { loadSidebarState, updateSidebarState } from "@/lib/sidebar-state"
@@ -13,14 +13,14 @@ import { useToast } from "@/components/ui/use-toast"
 
 interface InsuranceProduct {
   id: number
-  company: string
-  productName: string
-  description: string
-  features: string[]
-  coverageDetails?: string[] // 보장내역 상세 정보
-  logo: string
-  redirectUrl?: string
-  requirements?: string[] // 가입 조건 (weight, height 등)
+  company: string | null
+  productName: string | null
+  description: string | null
+  features: string[] | null
+  coverageDetails?: string[] | null
+  logo: string | null
+  redirectUrl?: string | null
+  requirements?: string[] | null
 }
 
 interface PetInsurancePageProps {
@@ -39,8 +39,13 @@ export default function PetInsurancePage({
 
   // 백엔드 보험 상품 목록 연동
   const [products, setProducts] = useState<InsuranceProduct[]>([])
+  const [filteredProducts, setFilteredProducts] = useState<InsuranceProduct[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+
+  // 검색 상태
+  const [searchQuery, setSearchQuery] = useState("")
+  const [isSearching, setIsSearching] = useState(false)
 
   // 최근 본 상품 사이드바
   const [showRecentSidebar, setShowRecentSidebar] = useState(false)
@@ -119,19 +124,27 @@ export default function PetInsurancePage({
       try {
         setLoading(true)
         setError(null)
+        console.log('=== fetchData 시작 ===')
         const data = await insuranceApi.getAll()
+        console.log('API에서 받은 원본 데이터:', data)
+        console.log('데이터 길이:', data ? data.length : 0)
+        
         const mapped: InsuranceProduct[] = (data || []).map((d: any) => ({
           id: d.id,
-          company: d.company,
-          productName: d.productName,
-          description: d.description,
-          features: d.features || [],
-          coverageDetails: d.coverageDetails || [],
-          logo: d.logoUrl || "",
-          redirectUrl: d.redirectUrl,
-          requirements: d.requirements || [],
+          company: d.company || null,
+          productName: d.productName || null,
+          description: d.description || null,
+          features: Array.isArray(d.features) ? d.features : (d.features ? d.features.split('|').map((f: string) => f.trim()).filter((f: string) => f.length > 0) : null),
+          coverageDetails: Array.isArray(d.coverageDetails) ? d.coverageDetails : (d.coverageDetails ? d.coverageDetails.split('|').map((c: string) => c.trim()).filter((c: string) => c.length > 0) : null),
+          logo: d.logoUrl || null,
+          redirectUrl: d.redirectUrl || null,
+          requirements: Array.isArray(d.requirements) ? d.requirements : (d.requirements ? d.requirements.split('|').map((r: string) => r.trim()).filter((r: string) => r.length > 0) : null),
         }))
+        console.log('매핑된 데이터:', mapped)
+        console.log('매핑된 데이터 길이:', mapped.length)
         setProducts(mapped)
+        setFilteredProducts(mapped)
+        console.log('products 상태 설정 완료')
       } catch (e) {
         setError("보험 상품을 불러오지 못했습니다.")
       } finally {
@@ -140,6 +153,169 @@ export default function PetInsurancePage({
     }
     fetchData()
   }, [])
+
+  // insurance_rag.py의 고급 필터링 시스템을 프론트엔드에서 구현
+  const filterInsuranceProducts = (products: InsuranceProduct[], query: string) => {
+    if (!query.trim()) return products
+
+    const queryLower = query.toLowerCase()
+    const filteredProducts: { score: number; product: InsuranceProduct }[] = []
+
+    // 검색 조건 정의 (insurance_rag.py와 동일한 로직)
+    const searchConditions = {
+      '보험사': {
+        '삼성화재': ['삼성', '삼성화재', 'samsung'],
+        'NH농협손해보험': ['nh', '농협', '농협손해보험', 'nh농협'],
+        'KB손해보험': ['kb', '국민', 'kb손해보험'],
+        '현대해상': ['현대', '현대해상', 'hi'],
+        '메리츠화재': ['메리츠', 'meritz'],
+        'DB손해보험': ['db', 'db손해보험'],
+        '롯데손해보험': ['롯데', 'lotte'],
+        '한화손해보험': ['한화', 'hanwha'],
+        '흥국화재': ['흥국', 'heungkuk'],
+        'AXA손해보험': ['axa', '엑사'],
+        '교보손해보험': ['교보', 'kyobo']
+      },
+      '가입조건': {
+        '나이': ['나이', '연령', '만나이', '생후', '개월', '세'],
+        '종': ['강아지', '고양이', '반려견', '반려묘', '개', '고양이', '강아지용', '고양이용'],
+        '품종': ['품종', '견종', '묘종']
+      },
+      '보장내역': {
+        '의료비': ['의료비', '치료비', '병원비', '진료비'],
+        '수술비': ['수술비', '수술', '외과'],
+        '입원': ['입원', '입원비', '입원치료'],
+        '통원': ['통원', '통원치료', '외래'],
+        '검사비': ['검사비', '검사', '진단'],
+        '약품비': ['약품비', '약', '처방'],
+        '재활치료': ['재활', '재활치료', '물리치료'],
+        '안과치료': ['안과', '눈', '시력'],
+        '치과치료': ['치과', '치아', '치료'],
+        '피부과치료': ['피부과', '피부', '알레르기'],
+        '정형외과': ['정형외과', '관절', '뼈'],
+        '내과치료': ['내과', '소화기', '호흡기'],
+        '외과치료': ['외과', '수술']
+      },
+      '특별조건': {
+        '특약': ['특약', '추가보장', '선택보장'],
+        '할인': ['할인', '혜택', '이벤트', '프로모션'],
+        '자동갱신': ['갱신', '자동갱신', '연장']
+      }
+    }
+
+    for (const product of products) {
+      let score = 0
+      const productText = [
+        product.company,
+        product.productName,
+        product.description,
+        ...(product.features || []),
+        ...(product.coverageDetails || [])
+      ].join(' ').toLowerCase()
+
+             // 1. 보험사 필터링
+       for (const [companyName, keywords] of Object.entries(searchConditions['보험사'])) {
+         if (keywords.some(keyword => queryLower.includes(keyword))) {
+           if (product.company && product.company.toLowerCase().includes(companyName.toLowerCase())) {
+             score += 10
+             break
+           }
+         }
+       }
+
+      // 2. 가입조건 필터링
+      for (const [conditionType, keywords] of Object.entries(searchConditions['가입조건'])) {
+        if (keywords.some(keyword => queryLower.includes(keyword))) {
+          if (keywords.some(keyword => productText.includes(keyword))) {
+            score += 8
+          }
+        }
+      }
+
+      // 3. 보장내역 필터링
+      for (const [coverageType, keywords] of Object.entries(searchConditions['보장내역'])) {
+        if (keywords.some(keyword => queryLower.includes(keyword))) {
+          if (keywords.some(keyword => productText.includes(keyword))) {
+            score += 6
+          }
+        }
+      }
+
+      // 4. 특별조건 필터링
+      for (const [specialType, keywords] of Object.entries(searchConditions['특별조건'])) {
+        if (keywords.some(keyword => queryLower.includes(keyword))) {
+          if (keywords.some(keyword => productText.includes(keyword))) {
+            score += 4
+          }
+        }
+      }
+
+      // 5. 일반 키워드 매칭
+      const generalKeywords = ['보험', '펫보험', '동물보험', '가입', '보장', '보상', '보험료', '상품']
+      for (const keyword of generalKeywords) {
+        if (queryLower.includes(keyword) && productText.includes(keyword)) {
+          score += 2
+        }
+      }
+
+      // 6. 정확한 문구 매칭 (높은 점수)
+      if (productText.includes(queryLower)) {
+        score += 15
+      }
+
+      // 7. 제품명 매칭
+      if (product.productName && product.productName.toLowerCase().includes(queryLower)) {
+        score += 12
+      }
+
+      // 점수가 있는 상품만 필터링
+      if (score > 0) {
+        filteredProducts.push({ score, product })
+      }
+    }
+
+    // 점수순으로 정렬
+    filteredProducts.sort((a, b) => b.score - a.score)
+
+    // 상위 6개 상품 반환
+    return filteredProducts.slice(0, 6).map(item => item.product)
+  }
+
+  // 검색 실행
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      setFilteredProducts(products)
+      return
+    }
+
+    setIsSearching(true)
+    
+    // 약간의 지연을 주어 로딩 효과 표시
+    setTimeout(() => {
+      const filtered = filterInsuranceProducts(products, searchQuery)
+      setFilteredProducts(filtered)
+      setIsSearching(false)
+    }, 500)
+  }
+
+  // 검색어 변경 시 자동 검색 (디바운싱)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.trim()) {
+        handleSearch()
+      } else {
+        setFilteredProducts(products)
+      }
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery, products])
+
+  // 검색어 초기화
+  const clearSearch = () => {
+    setSearchQuery("")
+    setFilteredProducts(products)
+  }
 
   const handleCoverageChange = (coverageId: string, checked: boolean) => {
     if (checked) {
@@ -223,50 +399,112 @@ export default function PetInsurancePage({
   const { toast } = useToast()
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 pt-20">
-      {/* 귀여운 배경 장식 */}
-      <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-20 left-10 w-20 h-20 bg-pink-200 rounded-full opacity-20 animate-bounce"></div>
-        <div className="absolute top-40 right-20 w-16 h-16 bg-purple-200 rounded-full opacity-20 animate-pulse"></div>
-        <div className="absolute bottom-40 left-20 w-24 h-24 bg-blue-200 rounded-full opacity-20 animate-bounce"></div>
-        <div className="absolute bottom-20 right-10 w-12 h-12 bg-yellow-200 rounded-full opacity-20 animate-pulse"></div>
-      </div>
-
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-amber-50 pt-20">
       <div className="container mx-auto px-4 py-8 relative z-10">
         {/* 귀여운 헤더 */}
         <div className="text-center mb-8 sm:mb-12">
           <div className="flex justify-center items-center mb-4 sm:mb-6">
-            <div className="bg-gradient-to-r from-pink-400 to-purple-500 p-3 sm:p-4 rounded-full shadow-lg">
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 p-3 sm:p-4 rounded-full shadow-lg">
               <PawPrint className="w-8 h-8 sm:w-12 sm:h-12 text-white" />
             </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent mb-2 sm:mb-4">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-2 sm:mb-4">
             🐾 우리 아이를 위한 펫보험 🐾
           </h1>
           <p className="text-sm sm:text-lg text-gray-600 mb-1 sm:mb-2">사랑하는 반려동물을 위한 특별한 보험</p>
-          <p className="text-xs sm:text-sm text-gray-500">다양한 보험사의 펫보험을 비교해보세요!</p>
+          <p className="text-xs sm:text-sm text-gray-500">자연어로 원하는 보험을 찾아보세요!</p>
+        </div>
+
+        {/* AI 검색 섹션 */}
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 mb-8 sm:mb-12 shadow-xl border border-yellow-100">
+          {/* 검색바 */}
+          <div className="relative mb-6">
+            <div className="relative">
+              <Bot className="absolute left-3 top-1/2 transform -translate-y-1/2 text-yellow-500 w-5 h-5" />
+              <Input
+                type="text"
+                placeholder="예: 삼성화재 보험 추천해줘, 강아지용 의료비 보장 좋은 보험 찾아줘, 고양이 보험 상품 알려줘..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-10 py-3 text-base border-2 border-yellow-200 focus:border-yellow-400 rounded-xl bg-white/80 backdrop-blur-sm"
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* 검색 예시 */}
+          <div className="mb-4">
+            <p className="text-sm text-gray-600 mb-2">💡 검색 예시:</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                "삼성화재 보험",
+                "강아지용 의료비",
+                "고양이 보험",
+                "수술비 보장",
+                "입원치료 보험",
+                "할인 혜택"
+              ].map((example, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSearchQuery(example)}
+                  className="text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-3 py-1 rounded-full transition-colors"
+                >
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 검색 결과 요약 */}
+          <div className="mt-4 pt-4 border-t border-yellow-200">
+            <p className="text-sm text-gray-600">
+              {isSearching ? (
+                <span className="flex items-center">
+                  <div className="w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-spin mr-2"></div>
+                  AI가 최적의 보험을 찾고 있어요...
+                </span>
+              ) : (
+                <>
+                  총 <span className="font-semibold text-yellow-600">{filteredProducts.length}</span>개의 상품이 검색되었습니다
+                  {searchQuery && (
+                    <span className="ml-2">
+                      (검색어: <span className="font-semibold text-yellow-600">"{searchQuery}"</span>)
+                    </span>
+                  )}
+                </>
+              )}
+            </p>
+          </div>
         </div>
 
         {/* 귀여운 소개 섹션 */}
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 mb-8 sm:mb-12 shadow-xl border border-pink-100">
+        <div className="bg-white/70 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 mb-8 sm:mb-12 shadow-xl border border-yellow-100">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 text-center">
             <div className="space-y-3 sm:space-y-4">
-              <div className="bg-gradient-to-br from-pink-100 to-pink-200 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto">
-                <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-pink-600" />
+              <div className="bg-gradient-to-br from-yellow-100 to-yellow-200 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto">
+                <Heart className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-600" />
               </div>
               <h3 className="font-bold text-gray-800 text-sm sm:text-base">사랑하는 마음</h3>
               <p className="text-xs sm:text-sm text-gray-600">우리 아이의 건강을 위한 최선의 선택</p>
             </div>
             <div className="space-y-3 sm:space-y-4">
-              <div className="bg-gradient-to-br from-purple-100 to-purple-200 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto">
-                <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
+              <div className="bg-gradient-to-br from-orange-100 to-orange-200 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto">
+                <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" />
               </div>
               <h3 className="font-bold text-gray-800 text-sm sm:text-base">안전한 보장</h3>
               <p className="text-xs sm:text-sm text-gray-600">다양한 질병과 사고에 대한 포괄적 보장</p>
             </div>
             <div className="space-y-3 sm:space-y-4 sm:col-span-2 lg:col-span-1">
-              <div className="bg-gradient-to-br from-blue-100 to-blue-200 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto">
-                <Star className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
+              <div className="bg-gradient-to-br from-amber-100 to-amber-200 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto">
+                <Star className="w-6 h-6 sm:w-8 sm:h-8 text-amber-600" />
               </div>
               <h3 className="font-bold text-gray-800 text-sm sm:text-base">최고의 서비스</h3>
               <p className="text-xs sm:text-sm text-gray-600">신속한 보험금 지급과 친절한 상담</p>
@@ -279,7 +517,7 @@ export default function PetInsurancePage({
           <div className="text-center mb-6 sm:mb-8">
             <Button
               onClick={handleManualCrawl}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full px-4 sm:px-6 lg:px-8 py-2 sm:py-3 shadow-lg transform hover:scale-105 transition-all duration-200 text-sm sm:text-base"
+              className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-full px-4 sm:px-6 lg:px-8 py-2 sm:py-3 shadow-lg transform hover:scale-105 transition-all duration-200 text-sm sm:text-base"
               disabled={loading}
             >
               <Sparkles className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
@@ -289,94 +527,105 @@ export default function PetInsurancePage({
         )}
 
         {/* 보험 상품 그리드 */}
-        {loading ? (
-          <div className="text-center py-8 sm:py-12">
-            <div className="inline-flex items-center space-x-2">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-pink-400 to-purple-500 rounded-full animate-spin"></div>
-              <span className="text-gray-600 font-medium text-sm sm:text-base">귀여운 보험 상품들을 불러오는 중...</span>
-            </div>
-          </div>
-        ) : error ? (
-          <div className="text-center py-8 sm:py-12">
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 sm:p-6 max-w-md mx-auto">
-              <p className="text-red-600 text-sm sm:text-base">😿 {error}</p>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-            {products.map((product, index) => (
-              <Card key={product.id} className="group bg-white/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 rounded-2xl sm:rounded-3xl overflow-hidden">
-                <CardContent className="p-4 sm:p-6 lg:p-8">
-                  {/* 상품 헤더 */}
-                  <div className="text-center mb-4 sm:mb-6">
-                    <div className="bg-gradient-to-br from-pink-100 to-purple-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
-                      <PawPrint className="w-6 h-6 sm:w-8 sm:h-8 text-pink-600" />
+        {(() => {
+          console.log('렌더링 상태 확인:', { loading, error, productsLength: filteredProducts.length })
+          if (loading) {
+            return (
+              <div className="text-center py-8 sm:py-12">
+                <div className="inline-flex items-center space-x-2">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-spin"></div>
+                  <span className="text-gray-600 font-medium text-sm sm:text-base">귀여운 보험 상품들을 불러오는 중...</span>
+                </div>
+              </div>
+            )
+          } else if (error) {
+            return (
+              <div className="text-center py-8 sm:py-12">
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 sm:p-6 max-w-md mx-auto">
+                  <p className="text-red-600 text-sm sm:text-base">😿 {error}</p>
+                </div>
+              </div>
+            )
+          } else if (filteredProducts.length === 0 && searchQuery) {
+            return (
+              <div className="text-center py-8 sm:py-12">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 sm:p-6 max-w-md mx-auto">
+                  <p className="text-yellow-600 text-sm sm:text-base">🔍 검색 조건에 맞는 보험 상품이 없습니다.</p>
+                  <p className="text-yellow-500 text-xs mt-2">다른 검색어를 시도해보세요!</p>
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs text-gray-500">💡 검색 팁:</p>
+                    <div className="text-xs text-gray-600 space-y-1">
+                      <p>• "삼성화재 보험" → 특정 보험사 검색</p>
+                      <p>• "강아지 의료비" → 반려동물 종류 + 보장내역</p>
+                      <p>• "수술비 보장" → 특정 보장내역 검색</p>
                     </div>
-                    <h3 className="font-bold text-lg sm:text-xl text-gray-900 mb-1 sm:mb-2">{product.company}</h3>
-                    <p className="text-xs sm:text-sm text-gray-600">{product.productName}</p>
                   </div>
-
-                  {/* 상품 설명 */}
-                  <p className="text-gray-700 mb-4 sm:mb-6 text-center leading-relaxed text-sm sm:text-base">{product.description}</p>
-
-                  {/* 주요 특징 */}
-                  {product.features && product.features.length > 0 && (
-                    <div className="mb-4 sm:mb-6">
-                      <h4 className="font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center text-sm sm:text-base">
-                        <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-500 mr-1 sm:mr-2" />
-                        주요 특징
-                      </h4>
-                      <div className="space-y-2">
-                        {product.features.slice(0, 4).map((feature, index) => (
-                          <div key={index} className="flex items-start text-xs sm:text-sm text-gray-600 bg-gradient-to-r from-pink-50 to-purple-50 p-2 sm:p-3 rounded-xl">
-                            <span className="text-pink-500 mr-1 sm:mr-2">✨</span>
-                            <span className="leading-relaxed">{feature}</span>
-                          </div>
-                        ))}
+                </div>
+              </div>
+            )
+          } else {
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-10">
+                {filteredProducts.map((product, index) => (
+                  <Card key={product.id} className="group bg-white/80 backdrop-blur-sm border-0 shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 rounded-2xl sm:rounded-3xl overflow-hidden">
+                    <CardContent className="p-4 sm:p-6 lg:p-8">
+                      {/* 상품 헤더 */}
+                      <div className="text-center mb-4 sm:mb-6 h-24 sm:h-28">
+                        <div className="bg-gradient-to-br from-yellow-100 to-orange-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform duration-300">
+                          <PawPrint className="w-6 h-6 sm:w-8 sm:h-8 text-yellow-600" />
+                        </div>
+                        <h3 className="font-bold text-lg sm:text-xl text-gray-900 mb-1 sm:mb-2">{product.company || "보험사명 없음"}</h3>
+                        <p className="text-xs sm:text-sm text-gray-600">{product.productName || "상품명 없음"}</p>
                       </div>
-                    </div>
-                  )}
 
-                  {/* 가입 조건 (weight, height 등) */}
-                  {product.requirements && product.requirements.length > 0 && (
-                    <div className="mb-4 sm:mb-6">
-                      <h4 className="font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center text-sm sm:text-base">
-                        <Shield className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 mr-1 sm:mr-2" />
-                        가입 조건
-                      </h4>
-                      <div className="space-y-2">
-                        {product.requirements.slice(0, 3).map((requirement, index) => (
-                          <div key={index} className="flex items-start text-xs sm:text-sm text-gray-600 bg-gradient-to-r from-blue-50 to-blue-100 p-2 sm:p-3 rounded-xl">
-                            <span className="text-blue-500 mr-1 sm:mr-2">📋</span>
-                            <span className="leading-relaxed">{requirement}</span>
-                          </div>
-                        ))}
-                        {product.requirements.length > 3 && (
-                          <div className="text-xs text-gray-500 text-center">
-                            +{product.requirements.length - 3}개 조건 더...
-                          </div>
-                        )}
+                      {/* 상품 설명 */}
+                      <div className="mb-3 sm:mb-4 h-20 sm:h-24">
+                        <p className="text-gray-700 text-center leading-relaxed text-sm sm:text-base line-clamp-2">{product.description || "상품 설명이 없습니다"}</p>
                       </div>
-                    </div>
-                  )}
 
-                  {/* 자세히 보기 버튼 */}
-                  <Button
-                    onClick={() => handleViewDetails(product)}
-                    className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-full py-2 sm:py-3 font-semibold shadow-lg transform hover:scale-105 transition-all duration-200 text-sm sm:text-base"
-                  >
-                    <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                    자세히 보기
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                      {/* 주요 특징 */}
+                      <div className="mb-4 sm:mb-6 h-36 sm:h-40">
+                        <h4 className="font-semibold text-gray-900 mb-2 sm:mb-3 flex items-center text-sm sm:text-base">
+                          <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-500 mr-1 sm:mr-2" />
+                          주요 특징
+                        </h4>
+                        <div className="space-y-2 h-28 sm:h-32 overflow-y-auto">
+                          {product.features && product.features.length > 0 ? (
+                            product.features.slice(0, 4).map((feature, index) => (
+                              <div key={index} className="flex items-start text-xs sm:text-sm text-gray-600 bg-gradient-to-r from-yellow-50 to-orange-50 p-2 sm:p-3 rounded-xl">
+                                <span className="text-yellow-500 mr-1 sm:mr-2">✨</span>
+                                <span className="leading-relaxed">{feature}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+                              주요 특징 정보가 없습니다
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* 자세히 보기 버튼 */}
+                      <div className="h-12 sm:h-14">
+                        <Button
+                          onClick={() => handleViewDetails(product)}
+                          className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white rounded-full py-2 sm:py-3 font-semibold shadow-lg transform hover:scale-105 transition-all duration-200 text-sm sm:text-base"
+                        >
+                          <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                          자세히 보기
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )
+          }
+        })()}
 
         {/* 귀여운 하단 메시지 */}
         <div className="text-center mt-12 sm:mt-16">
-          <div className="bg-white/70 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-xl border border-pink-100">
+          <div className="bg-white/70 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8 shadow-xl border border-yellow-100">
             <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800 mb-3 sm:mb-4">🐕‍🦺 우리 아이의 건강한 미래를 위해 🐈</h3>
             <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">사랑하는 반려동물과 함께하는 행복한 시간을 더 오래 누릴 수 있도록 도와드립니다.</p>
             <div className="flex justify-center space-x-2 sm:space-x-4 text-2xl sm:text-3xl lg:text-4xl">
@@ -403,7 +652,7 @@ export default function PetInsurancePage({
         <div className="fixed bottom-4 right-4 sm:top-20 sm:right-6 z-40">
           <Button
             onClick={handleSidebarToggle}
-            className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white shadow-xl rounded-full w-12 h-12 sm:w-16 sm:h-16 p-0 transform hover:scale-110 transition-all duration-200"
+            className="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white shadow-xl rounded-full w-12 h-12 sm:w-16 sm:h-16 p-0 transform hover:scale-110 transition-all duration-200"
             title="최근 본 보험"
           >
             <Clock className="h-5 w-5 sm:h-6 sm:w-6" />

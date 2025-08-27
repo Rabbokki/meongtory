@@ -2,8 +2,7 @@ import axios from 'axios';
 
 // API 설정을 위한 공통 유틸리티
 export const getBackendUrl = () => {
-  console.log("Backend URL:", process.env.NEXT_PUBLIC_BACKEND_URL);
-  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://meongtory.shop';
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
   return url;
 };
 
@@ -292,8 +291,38 @@ export const adoptionRequestApi = {
 export const insuranceApi = {
   // 기본 CRUD
   getAll: async (): Promise<any[]> => {
-    const response = await axios.get(`${getBackendUrl()}/api/insurance`);
-    return response.data.data;
+    const url = `${getBackendUrl()}/api/insurance`;
+    console.log('보험 API 호출 URL:', url);
+    console.log('백엔드 URL:', getBackendUrl());
+    try {
+      const response = await axios.get(url);
+      console.log('보험 API 응답:', response.data);
+      
+      // ResponseDto 형태로 응답이 오므로 response.data.data를 반환
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.error?.message || "API 응답이 올바르지 않습니다.");
+      }
+      
+      const products = response.data.data || [];
+      if (!Array.isArray(products)) {
+        throw new Error("보험 데이터가 배열 형식이 아닙니다.");
+      }
+      
+      console.log('Final insurance products to return:', products);
+      return products;
+    } catch (error) {
+      console.error('보험 API 호출 실패:', error);
+      if (axios.isAxiosError(error)) {
+        console.error('Axios 에러 상세:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          url: error.config?.url,
+          method: error.config?.method,
+        });
+      }
+      throw error;
+    }
   },
   
   getById: async (id: number): Promise<any> => {

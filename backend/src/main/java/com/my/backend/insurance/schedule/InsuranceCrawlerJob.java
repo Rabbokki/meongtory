@@ -229,6 +229,8 @@ public class InsuranceCrawlerJob {
         List<String> coverage = new ArrayList<>();
         String finalUrl = "https://www.kbinsure.co.kr/CG313010001.ec";
 
+        log.info("KB손해보험 크롤링 시작 - URL: {}", finalUrl);
+
         try {
             Playwright playwright = Playwright.create();
             Browser browser = playwright.chromium().launch(
@@ -240,29 +242,40 @@ public class InsuranceCrawlerJob {
             BrowserContext ctx = browser.newContext();
             Page page = ctx.newPage();
 
+            log.info("KB손해보험 페이지 로딩 시작");
             page.navigate(finalUrl, new Page.NavigateOptions().setTimeout(30000));
             page.waitForLoadState(LoadState.NETWORKIDLE, new Page.WaitForLoadStateOptions().setTimeout(20000));
+            log.info("KB손해보험 페이지 로딩 완료 - 현재 URL: {}", page.url());
 
             String[] featureSelectors = {
+                ".bulBox li", ".Gray_bul li", ".p_txt_bul li",
+                ".tb_default01 li", ".tb_default li", ".popContent li",
                 ".product-feature li", ".benefit-list li", ".coverage-item",
                 ".product-info .item", ".feature-list li", ".highlight-item"
             };
 
+            log.info("KB손해보험 특징 추출 시작");
             for (String selector : featureSelectors) {
                 try {
                     int count = page.locator(selector).count();
+                    log.info("KB손해보험 선택자 '{}' - {}개 요소 발견", selector, count);
                     
                     for (int i = 0; i < count && features.size() < 8; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
+                            log.debug("KB손해보험 원본 텍스트: {}", cleaned);
                             
-                            if (isValidKbFeature(trimmed)) {
-                                features.add(trimmed);
+                            if (isValidKbFeature(cleaned)) {
+                                features.add(cleaned);
+                                log.info("KB손해보험 특징 추가: {}", cleaned);
+                            } else {
+                                log.debug("KB손해보험 특징 검증 실패: {}", cleaned);
                             }
                         }
                     }
                     if (!features.isEmpty()) {
+                        log.info("KB손해보험 특징 추출 성공 - {}개", features.size());
                         break;
                     }
                 } catch (Exception e) {
@@ -271,25 +284,40 @@ public class InsuranceCrawlerJob {
             }
 
             String[] coverageSelectors = {
+                ".tb_default01 tr", ".tb_default tr", ".tb_wrap tr",
+                ".bulBox tr", ".Gray_bul tr", ".popContent tr",
                 ".coverage-table tr", ".benefit-table tr", ".guarantee-list li",
-                ".product-detail .item", ".coverage-detail li", ".benefit-detail"
+                ".product-detail .item", ".coverage-detail li", ".benefit-detail",
+                ".product-info table tr", ".coverage-info li"
             };
 
+            log.info("KB손해보험 보장내역 추출 시작");
             for (String selector : coverageSelectors) {
                 try {
                     int count = page.locator(selector).count();
+                    log.info("KB손해보험 보장내역 선택자 '{}' - {}개 요소 발견", selector, count);
                     
                     for (int i = 0; i < count && coverage.size() < 12; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
+                            log.debug("KB손해보험 보장내역 원본 텍스트: {}", cleaned);
                             
-                            if (isValidKbCoverage(trimmed)) {
-                                coverage.add(trimmed);
+                            if (isValidKbCoverage(cleaned)) {
+                                // 중복 제거
+                                if (!coverage.contains(cleaned)) {
+                                    coverage.add(cleaned);
+                                    log.info("KB손해보험 보장내역 추가: {}", cleaned);
+                                } else {
+                                    log.debug("KB손해보험 보장내역 중복 제거: {}", cleaned);
+                                }
+                            } else {
+                                log.debug("KB손해보험 보장내역 검증 실패: {}", cleaned);
                             }
                         }
                     }
                     if (!coverage.isEmpty()) {
+                        log.info("KB손해보험 보장내역 추출 성공 - {}개", coverage.size());
                         break;
                     }
                 } catch (Exception e) {
@@ -305,6 +333,7 @@ public class InsuranceCrawlerJob {
         }
 
         if (features.isEmpty()) {
+            log.warn("KB손해보험 특징 추출 실패 - fallback 데이터 사용");
             features = Arrays.asList(
                 "반려동물 의료비 보장",
                 "수술비 보장",
@@ -315,6 +344,7 @@ public class InsuranceCrawlerJob {
         }
 
         if (coverage.isEmpty()) {
+            log.warn("KB손해보험 보장내역 추출 실패 - fallback 데이터 사용");
             coverage = Arrays.asList(
                 "반려동물 의료비: 만 0세~만 10세",
                 "수술비 보장: 한도 내 실손보상",
@@ -366,7 +396,7 @@ public class InsuranceCrawlerJob {
         String desc = "현대해상 굿앤굿 우리펫보험 - 반려동물을 위한 맞춤형 보험 상품";
         List<String> features = new ArrayList<>();
         List<String> coverage = new ArrayList<>();
-        String finalUrl = "https://direct.hi.co.kr/product/doga/dog_insurance_introduce.jsp";
+        String finalUrl = "https://www.hi.co.kr/serviceAction.do?view=bin/SP/08/HHSP08000M";
 
         try {
             Playwright playwright = Playwright.create();
@@ -383,8 +413,11 @@ public class InsuranceCrawlerJob {
             page.waitForLoadState(LoadState.NETWORKIDLE, new Page.WaitForLoadStateOptions().setTimeout(20000));
 
             String[] featureSelectors = {
+                ".petContent li", ".insuProdContent li", ".assureDetail li",
+                ".explain li", ".detailSub li", ".cont li",
                 ".product-benefit li", ".feature-list li", ".benefit-item",
-                ".product-info .item", ".highlight-list li", ".advantage-item"
+                ".product-info .item", ".highlight-list li", ".advantage-item",
+                ".benefit li", ".feature li", ".advantage li", ".product li"
             };
 
             for (String selector : featureSelectors) {
@@ -394,10 +427,10 @@ public class InsuranceCrawlerJob {
                     for (int i = 0; i < count && features.size() < 8; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
                             
-                            if (isValidHyundaiFeature(trimmed)) {
-                                features.add(trimmed);
+                            if (isValidHyundaiFeature(cleaned)) {
+                                features.add(cleaned);
                             }
                         }
                     }
@@ -410,21 +443,38 @@ public class InsuranceCrawlerJob {
             }
 
             String[] coverageSelectors = {
+                ".petContent tr", ".insuProdContent tr", ".assureDetail tr",
+                ".explain tr", ".detailSub tr", ".cont tr",
                 ".coverage-table tr", ".benefit-table tr", ".guarantee-list li",
-                ".product-detail .item", ".coverage-detail li", ".benefit-detail"
+                ".product-detail .item", ".coverage-detail li", ".benefit-detail",
+                ".coverage tr", ".benefit tr", ".guarantee li", ".product tr",
+                "table tr", ".table tr", ".content table tr", ".main table tr",
+                ".product table tr", ".detail table tr", ".info table tr",
+                ".petContent table tr", ".insuProdContent table tr", ".assureDetail table tr"
             };
 
             for (String selector : coverageSelectors) {
                 try {
                     int count = page.locator(selector).count();
+                    log.debug("현대해상 보장내역 선택자 '{}'에서 {}개 요소 발견", selector, count);
                     
                     for (int i = 0; i < count && coverage.size() < 12; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
                             
-                            if (isValidHyundaiCoverage(trimmed)) {
-                                coverage.add(trimmed);
+                            log.debug("현대해상 보장내역 원본 텍스트: {}", cleaned);
+                            
+                            if (isValidHyundaiCoverage(cleaned)) {
+                                // 중복 제거
+                                if (!coverage.contains(cleaned)) {
+                                    coverage.add(cleaned);
+                                    log.info("현대해상 보장내역 추가: {}", cleaned);
+                                } else {
+                                    log.debug("현대해상 보장내역 중복 제거: {}", cleaned);
+                                }
+                            } else {
+                                log.debug("현대해상 보장내역 검증 실패: {}", cleaned);
                             }
                         }
                     }
@@ -507,6 +557,8 @@ public class InsuranceCrawlerJob {
         List<String> coverage = new ArrayList<>();
         String finalUrl = "https://nhfire.co.kr/product/retrieveProduct.nhfire?pdtCd=D314511";
 
+        log.info("NH농협손해보험 크롤링 시작 - URL: {}", finalUrl);
+
         try {
             Playwright playwright = Playwright.create();
             Browser browser = playwright.chromium().launch(
@@ -518,30 +570,41 @@ public class InsuranceCrawlerJob {
             BrowserContext ctx = browser.newContext();
             Page page = ctx.newPage();
 
+            log.info("NH농협손해보험 페이지 로딩 시작");
             page.navigate(finalUrl, new Page.NavigateOptions().setTimeout(30000));
             page.waitForLoadState(LoadState.NETWORKIDLE, new Page.WaitForLoadStateOptions().setTimeout(20000));
+            log.info("NH농협손해보험 페이지 로딩 완료 - 현재 URL: {}", page.url());
 
             String[] featureSelectors = {
+                ".ProTable li", ".Titext1 li", ".Titext2 li",
+                ".Rcon li", ".allMenuList li", ".allnavCon li",
                 ".product-benefit li", ".feature-list li", ".benefit-item",
                 ".product-info .item", ".highlight-list li", ".advantage-item",
                 ".product-detail li", ".coverage-item"
             };
 
+            log.info("NH농협손해보험 특징 추출 시작");
             for (String selector : featureSelectors) {
                 try {
                     int count = page.locator(selector).count();
+                    log.info("NH농협손해보험 선택자 '{}' - {}개 요소 발견", selector, count);
                     
                     for (int i = 0; i < count && features.size() < 8; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
+                            log.debug("NH농협손해보험 원본 텍스트: {}", cleaned);
                             
-                            if (isValidNhFeature(trimmed)) {
-                                features.add(trimmed);
+                            if (isValidNhFeature(cleaned)) {
+                                features.add(cleaned);
+                                log.info("NH농협손해보험 특징 추가: {}", cleaned);
+                            } else {
+                                log.debug("NH농협손해보험 특징 검증 실패: {}", cleaned);
                             }
                         }
                     }
                     if (!features.isEmpty()) {
+                        log.info("NH농협손해보험 특징 추출 성공 - {}개", features.size());
                         break;
                     }
                 } catch (Exception e) {
@@ -550,26 +613,40 @@ public class InsuranceCrawlerJob {
             }
 
             String[] coverageSelectors = {
+                ".ProTable tr", ".Titext1 tr", ".Titext2 tr",
+                ".Rcon tr", ".allMenuList tr", ".allnavCon tr",
                 ".coverage-table tr", ".benefit-table tr", ".guarantee-list li",
                 ".product-detail .item", ".coverage-detail li", ".benefit-detail",
                 ".product-info table tr", ".coverage-info li"
             };
 
+            log.info("NH농협손해보험 보장내역 추출 시작");
             for (String selector : coverageSelectors) {
                 try {
                     int count = page.locator(selector).count();
+                    log.info("NH농협손해보험 보장내역 선택자 '{}' - {}개 요소 발견", selector, count);
                     
                     for (int i = 0; i < count && coverage.size() < 12; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
+                            log.debug("NH농협손해보험 보장내역 원본 텍스트: {}", cleaned);
                             
-                            if (isValidNhCoverage(trimmed)) {
-                                coverage.add(trimmed);
+                            if (isValidNhCoverage(cleaned)) {
+                                // 중복 제거
+                                if (!coverage.contains(cleaned)) {
+                                    coverage.add(cleaned);
+                                    log.info("NH농협손해보험 보장내역 추가: {}", cleaned);
+                                } else {
+                                    log.debug("NH농협손해보험 보장내역 중복 제거: {}", cleaned);
+                                }
+                            } else {
+                                log.debug("NH농협손해보험 보장내역 검증 실패: {}", cleaned);
                             }
                         }
                     }
                     if (!coverage.isEmpty()) {
+                        log.info("NH농협손해보험 보장내역 추출 성공 - {}개", coverage.size());
                         break;
                     }
                 } catch (Exception e) {
@@ -663,9 +740,10 @@ public class InsuranceCrawlerJob {
             page.waitForLoadState(LoadState.NETWORKIDLE, new Page.WaitForLoadStateOptions().setTimeout(20000));
 
             String[] featureSelectors = {
-                ".product-benefit li", ".feature-list li", ".benefit-item",
-                ".product-info .item", ".highlight-list li", ".advantage-item",
-                ".product-detail li", ".coverage-item", ".pet-benefit li"
+                ".main_container li", ".skip-nav li", ".product-benefit li", 
+                ".feature-list li", ".benefit-item", ".product-info .item", 
+                ".highlight-list li", ".advantage-item", ".product-detail li", 
+                ".coverage-item", ".pet-benefit li"
             };
 
             for (String selector : featureSelectors) {
@@ -675,10 +753,10 @@ public class InsuranceCrawlerJob {
                     for (int i = 0; i < count && features.size() < 8; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
                             
-                            if (isValidMeritzFeature(trimmed)) {
-                                features.add(trimmed);
+                            if (isValidMeritzFeature(cleaned)) {
+                                features.add(cleaned);
                             }
                         }
                     }
@@ -691,9 +769,10 @@ public class InsuranceCrawlerJob {
             }
 
             String[] coverageSelectors = {
-                ".coverage-table tr", ".benefit-table tr", ".guarantee-list li",
-                ".product-detail .item", ".coverage-detail li", ".benefit-detail",
-                ".product-info table tr", ".coverage-info li", ".pet-coverage li"
+                ".main_container tr", ".skip-nav tr", ".coverage-table tr", 
+                ".benefit-table tr", ".guarantee-list li", ".product-detail .item", 
+                ".coverage-detail li", ".benefit-detail", ".product-info table tr", 
+                ".coverage-info li", ".pet-coverage li"
             };
 
             for (String selector : coverageSelectors) {
@@ -703,10 +782,13 @@ public class InsuranceCrawlerJob {
                     for (int i = 0; i < count && coverage.size() < 12; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
                             
-                            if (isValidMeritzCoverage(trimmed)) {
-                                coverage.add(trimmed);
+                            if (isValidMeritzCoverage(cleaned)) {
+                                // 중복 제거
+                                if (!coverage.contains(cleaned)) {
+                                    coverage.add(cleaned);
+                                }
                             }
                         }
                     }
@@ -1020,9 +1102,9 @@ public class InsuranceCrawlerJob {
                 };
             case "현대해상":
                 return new String[]{
-                    ".product-detail li", ".coverage-info li", ".benefit-detail li",
-                    ".feature-list li", ".insurance-benefit li",
-                    "ul li:has-text('보장')", "ul li:has-text('치료')"
+                    ".product-benefit li", ".feature-list li", ".benefit-item",
+                    ".product-info .item", ".highlight-list li", ".advantage-item",
+                    ".benefit li", ".feature li", ".advantage li", ".product li"
                 };
             case "NH농협손해보험":
                 return new String[]{
@@ -1032,9 +1114,10 @@ public class InsuranceCrawlerJob {
                 };
             case "DB손해보험":
                 return new String[]{
-                    ".product-feature li", ".coverage-detail li", ".benefit-list li",
-                    ".feature-item", ".insurance-benefit li",
-                    "ul li:has-text('보장')", "ul li:has-text('치료')"
+                    ".insurance li", ".insurance-wrap li", ".event-wrap li",
+                    ".product-benefit li", ".feature-list li", ".benefit-item",
+                    ".product-info .item", ".highlight-list li", ".advantage-item",
+                    ".product-detail li", ".coverage-item", ".pet-benefit li"
                 };
             default:
                 return new String[]{
@@ -1049,6 +1132,12 @@ public class InsuranceCrawlerJob {
         if (text.matches(".*[0-9]{4,}.*")) return false; // 너무 긴 숫자 제외
         if (text.contains("원") && text.length() < 10) return false; // 단순 가격 정보 제외
         if (text.contains("%") && text.length() < 8) return false; // 단순 퍼센트 제외
+        
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "보장내용", "하나", "둘", "셋", "넷", "다섯", "여섯", "일", "이", "삼", "사", "오", "POINT", "POINT 01", "POINT 02", "POINT 03"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
         
         // 유용한 키워드 포함 여부
         String[] usefulKeywords = {"보장", "치료", "질병", "상해", "수술", "진료", "응급", "입원", "통원", "검사", "약품"};
@@ -1178,6 +1267,12 @@ public class InsuranceCrawlerJob {
     private boolean isValidSamsungFeature(String text) {
         if (text == null || text.length() < 3 || text.length() > 100) return false;
         
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "보장내용", "하나", "둘", "셋", "넷", "다섯", "여섯", "일", "이", "삼", "사", "오"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
+        
         // 유용한 키워드 포함 여부
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도"};
         for (String keyword : keywords) {
@@ -1199,8 +1294,30 @@ public class InsuranceCrawlerJob {
         return false;
     }
 
+    /**
+     * 텍스트를 정제하는 유틸리티 메서드
+     * 줄바꿈을 공백으로 변환하고 연속된 공백을 정리
+     */
+    private String cleanText(String text) {
+        if (text == null || text.isBlank()) return "";
+        
+        // 줄바꿈을 공백으로 변환
+        String cleaned = text.replaceAll("\\s+", " ");
+        
+        // 앞뒤 공백 제거
+        cleaned = cleaned.trim();
+        
+        return cleaned;
+    }
+
     private boolean isValidKbFeature(String text) {
         if (text == null || text.length() < 3 || text.length() > 100) return false;
+        
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "보장내용", "하나", "둘", "셋", "넷", "다섯", "여섯", "일", "이", "삼", "사", "오"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
         
         // KB손해보험 특화 키워드
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "반려동물", "펫"};
@@ -1214,6 +1331,12 @@ public class InsuranceCrawlerJob {
     private boolean isValidKbCoverage(String text) {
         if (text == null || text.length() < 5 || text.length() > 150) return false;
         
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "대출금액", "대출원금", "납입방법", "기간", "현재가치", "보장항목"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
+        
         // KB손해보험 보장 관련 키워드
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "만원", "%", "반려동물"};
         for (String keyword : keywords) {
@@ -1226,8 +1349,14 @@ public class InsuranceCrawlerJob {
     private boolean isValidHyundaiFeature(String text) {
         if (text == null || text.length() < 3 || text.length() > 100) return false;
         
-        // 현대해상 특화 키워드
-        String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "반려동물", "펫", "굿앤굿"};
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "보장내용", "하나", "둘", "셋", "넷", "다섯", "여섯", "일", "이", "삼", "사", "오"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
+        
+        // 현대해상 특화 키워드 (제외 추가)
+        String[] keywords = {"보장", "치료", "수술", "입원", "-" ,"통원", "검사", "의료", "비용", "한도", "반려동물", "펫", "굿앤굿", "제외"};
         for (String keyword : keywords) {
             if (text.contains(keyword)) return true;
         }
@@ -1237,6 +1366,12 @@ public class InsuranceCrawlerJob {
 
     private boolean isValidHyundaiCoverage(String text) {
         if (text == null || text.length() < 5 || text.length() > 150) return false;
+        
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "대출금액", "대출원금", "납입방법", "기간", "현재가치", "보장항목", "하나", "둘", "셋", "넷", "다섯"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
         
         // 현대해상 보장 관련 키워드
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "만원", "%", "반려동물"};
@@ -1250,8 +1385,14 @@ public class InsuranceCrawlerJob {
     private boolean isValidNhFeature(String text) {
         if (text == null || text.length() < 3 || text.length() > 100) return false;
         
-        // NH농협손해보험 특화 키워드
-        String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "반려동물", "펫", "헤아림"};
+        // 제외할 텍스트들 (POINT 제거)
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "보장내용", "하나", "둘", "셋", "넷", "다섯", "여섯", "일", "이", "삼", "사", "오", "POINT"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
+        
+        // NH농협손해보험 특화 키워드 (POINT 추가)
+        String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "반려동물", "펫", "헤아림", "POINT"};
         for (String keyword : keywords) {
             if (text.contains(keyword)) return true;
         }
@@ -1261,6 +1402,12 @@ public class InsuranceCrawlerJob {
 
     private boolean isValidNhCoverage(String text) {
         if (text == null || text.length() < 5 || text.length() > 150) return false;
+        
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "대출금액", "대출원금", "납입방법", "기간", "현재가치", "보장항목", "하나", "둘", "셋", "넷", "다섯"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
         
         // NH농협손해보험 보장 관련 키워드
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "만원", "%", "반려동물"};
@@ -1274,6 +1421,12 @@ public class InsuranceCrawlerJob {
     private boolean isValidMeritzFeature(String text) {
         if (text == null || text.length() < 3 || text.length() > 100) return false;
         
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "보장내용", "하나", "둘", "셋", "넷", "다섯", "여섯", "일", "이", "삼", "사", "오"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
+        
         // 메리츠화재 특화 키워드
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "반려동물", "펫", "강아지"};
         for (String keyword : keywords) {
@@ -1286,6 +1439,12 @@ public class InsuranceCrawlerJob {
     private boolean isValidMeritzCoverage(String text) {
         if (text == null || text.length() < 5 || text.length() > 150) return false;
         
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "대출금액", "대출원금", "납입방법", "기간", "현재가치", "보장항목", "하나", "둘", "셋", "넷", "다섯"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
+        
         // 메리츠화재 보장 관련 키워드
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "만원", "%", "반려동물"};
         for (String keyword : keywords) {
@@ -1297,10 +1456,10 @@ public class InsuranceCrawlerJob {
 
     public InsuranceProductDto crawlDbInsuranceDirect() {
         String name = "DB손해보험 펫보험";
-        String desc = "어떤 할인 혜택과 이벤트를 받을 수 있나요?";
+        String desc = "반려동물을 위한 맞춤형 보험 상품으로 안전한 보장을 제공합니다.";
         List<String> features = new ArrayList<>();
         List<String> coverage = new ArrayList<>();
-        String finalUrl = "https://directidb.co.kr/l_pet/index.html";
+        String finalUrl = "https://www.dbins.co.kr/product/pet/";
 
         try {
             Playwright playwright = Playwright.create();
@@ -1319,20 +1478,27 @@ public class InsuranceCrawlerJob {
             String[] featureSelectors = {
                 ".product-benefit li", ".feature-list li", ".benefit-item",
                 ".product-info .item", ".highlight-list li", ".advantage-item",
-                ".product-detail li", ".coverage-item", ".pet-benefit li"
+                ".product-detail li", ".coverage-item", ".pet-benefit li",
+                ".list li", ".insurance-wrap li", ".insurance li"
             };
 
             for (String selector : featureSelectors) {
                 try {
                     int count = page.locator(selector).count();
+                    log.debug("DB손해보험 선택자 '{}'에서 {}개 요소 발견", selector, count);
                     
                     for (int i = 0; i < count && features.size() < 8; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
                             
-                            if (isValidDbFeature(trimmed)) {
-                                features.add(trimmed);
+                            log.debug("DB손해보험 원본 텍스트: {}", cleaned);
+                            
+                            if (isValidDbFeature(cleaned) && !features.contains(cleaned)) {
+                                features.add(cleaned);
+                                log.info("DB손해보험 특징 추가: {}", cleaned);
+                            } else {
+                                log.debug("DB손해보험 특징 검증 실패 또는 중복: {}", cleaned);
                             }
                         }
                     }
@@ -1347,20 +1513,27 @@ public class InsuranceCrawlerJob {
             String[] coverageSelectors = {
                 ".coverage-table tr", ".benefit-table tr", ".guarantee-list li",
                 ".product-detail .item", ".coverage-detail li", ".benefit-detail",
-                ".product-info table tr", ".coverage-info li", ".pet-coverage li"
+                ".product-info table tr", ".coverage-info li", ".pet-coverage li",
+                ".insurance tr", ".insurance-wrap tr", ".event-wrap tr"
             };
 
             for (String selector : coverageSelectors) {
                 try {
                     int count = page.locator(selector).count();
+                    log.debug("DB손해보험 보장내역 선택자 '{}'에서 {}개 요소 발견", selector, count);
                     
                     for (int i = 0; i < count && coverage.size() < 12; i++) {
                         String text = page.locator(selector).nth(i).innerText();
                         if (text != null && !text.isBlank()) {
-                            String trimmed = text.trim();
+                            String cleaned = cleanText(text);
                             
-                            if (isValidDbCoverage(trimmed)) {
-                                coverage.add(trimmed);
+                            log.debug("DB손해보험 보장내역 원본 텍스트: {}", cleaned);
+                            
+                            if (isValidDbCoverage(cleaned) && !coverage.contains(cleaned)) {
+                                coverage.add(cleaned);
+                                log.info("DB손해보험 보장내역 추가: {}", cleaned);
+                            } else {
+                                log.debug("DB손해보험 보장내역 검증 실패 또는 중복: {}", cleaned);
                             }
                         }
                     }
@@ -1372,65 +1545,38 @@ public class InsuranceCrawlerJob {
                 }
             }
 
-            ctx.close();
-            browser.close();
-
-        } catch (Exception ex) {
-            log.error("DB손해보험 Playwright 크롤링 실패: {}", ex.getMessage(), ex);
+        } catch (Exception e) {
+            log.error("DB손해보험 크롤링 실패: {}", e.getMessage());
         }
 
+        // 기본 특징 추가 (크롤링 실패 시)
         if (features.isEmpty()) {
-            features = Arrays.asList(
-                "반려동물 의료비 보장",
-                "수술비 보장",
-                "입원/통원 치료비 보장",
-                "검사비 보장",
-                "약품비 보장"
-            );
+            features.addAll(List.of(
+                "질병/상해 치료비 보장",
+                "응급진료비 보장",
+                "간편 온라인 가입",
+                "24시간 상담 서비스"
+            ));
         }
 
+        // 기본 보장내역 추가 (크롤링 실패 시)
         if (coverage.isEmpty()) {
-            coverage = Arrays.asList(
-                "반려동물 의료비: 만 0세~만 10세",
-                "수술비 보장: 한도 내 실손보상",
-                "입원/통원 치료비: 의료기관에서 발생한 비용",
-                "검사비: 진단을 위한 검사 비용",
-                "약품비: 처방된 약품 비용"
-            );
+            coverage.addAll(List.of(
+                "질병 치료비",
+                "상해 치료비",
+                "수술비",
+                "입원비"
+            ));
         }
 
-        List<String> limitedFeatures = new ArrayList<>();
-        int featureCount = 0;
-        for (String feature : features) {
-            if (featureCount >= 5) break;
-            if (feature.length() > 100) {
-                limitedFeatures.add(feature.substring(0, 97) + "...");
-            } else {
-                limitedFeatures.add(feature);
-            }
-            featureCount++;
-        }
-
-        List<String> limitedCoverage = new ArrayList<>();
-        int coverageCount = 0;
-        for (String item : coverage) {
-            if (coverageCount >= 5) break;
-            if (item.length() > 100) {
-                limitedCoverage.add(item.substring(0, 97) + "...");
-            } else {
-                limitedCoverage.add(item);
-            }
-            coverageCount++;
-        }
-
-        log.info("DB손해보험 크롤링 완료 - 특징: {}개, 보장내역: {}개", limitedFeatures.size(), limitedCoverage.size());
+        log.info("DB손해보험 크롤링 완료 - 특징: {}개, 보장내역: {}개", features.size(), coverage.size());
 
         return InsuranceProductDto.builder()
                 .company("DB손해보험")
                 .productName(name)
                 .description(desc)
-                .features(limitedFeatures)
-                .coverageDetails(limitedCoverage)
+                .features(features)
+                .coverageDetails(coverage)
                 .logoUrl("")
                 .redirectUrl(finalUrl)
                 .build();
@@ -1438,6 +1584,12 @@ public class InsuranceCrawlerJob {
 
     private boolean isValidDbFeature(String text) {
         if (text == null || text.length() < 3 || text.length() > 100) return false;
+        
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "보장내용", "하나", "둘", "셋", "넷", "다섯", "여섯", "일", "이", "삼", "사", "오"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
         
         // DB손해보험 특화 키워드
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "반려동물", "펫"};
@@ -1450,6 +1602,12 @@ public class InsuranceCrawlerJob {
 
     private boolean isValidDbCoverage(String text) {
         if (text == null || text.length() < 5 || text.length() > 150) return false;
+        
+        // 제외할 텍스트들
+        String[] excludeKeywords = {"구분", "보장명", "적용이율", "대출금액", "대출원금", "납입방법", "기간", "현재가치", "보장항목", "하나", "둘", "셋", "넷", "다섯"};
+        for (String excludeKeyword : excludeKeywords) {
+            if (text.contains(excludeKeyword)) return false;
+        }
         
         // DB손해보험 보장 관련 키워드
         String[] keywords = {"보장", "치료", "수술", "입원", "통원", "검사", "의료", "비용", "한도", "만원", "%", "반려동물"};

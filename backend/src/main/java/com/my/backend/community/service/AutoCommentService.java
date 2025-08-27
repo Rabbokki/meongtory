@@ -5,6 +5,7 @@ import com.my.backend.community.entity.CommunityPost;
 import com.my.backend.community.repository.CommunityCommentRepository;
 import com.my.backend.community.repository.CommunityPostRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,38 +16,42 @@ import java.util.Random;
 @Service
 @RequiredArgsConstructor
 @Transactional
+@Slf4j
 public class AutoCommentService {
 
     private final CommunityCommentRepository commentRepository;
     private final CommunityPostRepository postRepository;
+    private final OpenAiService openAiService;
 
-    // 자동 댓글 멘트 리스트
-    private static final List<String> AUTO_COMMENT_MESSAGES = Arrays.asList(
-        "좋은 글 감사합니다 😊",
-        "정말 공감돼요 👍",
-        "잘 읽었습니다 🙌",
-        "재밌는 글이네요 🐶",
-        "유익한 글이었어요 💡"
+    // 기존 랜덤 댓글 멘트 (AI 실패 시 폴백용)
+    private static final List<String> FALLBACK_COMMENT_MESSAGES = Arrays.asList(
+        "좋은 글 감사합니다 🙌",
+        "유익한 정보네요! 👍",
+        "공감합니다 😊"
     );
 
     /**
-     * 게시글 작성 후 자동 댓글 생성
+     * 게시글 작성 후 AI 기반 자동 댓글 생성
      * @param postId 게시글 ID
      */
     public void createAutoComment(Long postId) {
         try {
+            log.info("=== 자동 댓글 생성 시작 - postId: {} ===", postId);
+            
             CommunityPost post = postRepository.findById(postId)
                     .orElseThrow(() -> new RuntimeException("Post not found"));
 
-            // 랜덤 멘트 선택
-            String randomMessage = getRandomMessage();
+            // AI 기반 댓글 생성 시도
+            String aiComment = openAiService.generateComment(post.getContent(), post.getCategory());
+            
+            log.info("AI 댓글 생성 완료: {}", aiComment);
 
             // 자동 댓글 생성
             CommunityComment autoComment = CommunityComment.builder()
                     .post(post)
                     .author("Meongtory")
                     .ownerEmail("meongtory@meongtory.com") // Meongtory의 고유 식별자
-                    .content(randomMessage)
+                    .content(aiComment)
                     .build();
 
             commentRepository.save(autoComment);
@@ -55,20 +60,22 @@ public class AutoCommentService {
             post.setComments(post.getComments() + 1);
             postRepository.save(post);
 
+            log.info("자동 댓글 저장 완료 - 댓글 ID: {}", autoComment.getId());
+
         } catch (Exception e) {
             // 자동 댓글 생성 실패는 로그만 남기고 예외를 던지지 않음
             // (게시글 작성 자체는 성공해야 하므로)
-            System.err.println("자동 댓글 생성 실패: " + e.getMessage());
+            log.error("자동 댓글 생성 실패: {}", e.getMessage(), e);
         }
     }
 
     /**
-     * 랜덤 멘트 선택
+     * 폴백용 랜덤 멘트 선택 (AI 실패 시 사용)
      * @return 선택된 멘트
      */
-    private String getRandomMessage() {
+    private String getRandomFallbackMessage() {
         Random random = new Random();
-        int index = random.nextInt(AUTO_COMMENT_MESSAGES.size());
-        return AUTO_COMMENT_MESSAGES.get(index);
+        int index = random.nextInt(FALLBACK_COMMENT_MESSAGES.size());
+        return FALLBACK_COMMENT_MESSAGES.get(index);
     }
 }

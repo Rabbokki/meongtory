@@ -6,6 +6,7 @@ import com.my.backend.store.dto.NaverProductDto;
 import com.my.backend.store.dto.NaverShoppingSearchRequestDto;
 import com.my.backend.store.service.CartService;
 import com.my.backend.store.service.NaverShoppingService;
+import com.my.backend.store.service.EmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -13,6 +14,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.my.backend.global.security.user.UserDetailsImpl;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 @RequestMapping("/api/naver-shopping")
@@ -307,4 +310,35 @@ public class NaverShoppingController {
             return ResponseEntity.badRequest().body(ResponseDto.fail("DELETE_FAILED", "네이버 상품 삭제에 실패했습니다: " + e.getMessage()));
         }
     }
+
+    /**
+     * 임베딩 업데이트 실행
+     */
+    @PostMapping("/update-embeddings")
+    public ResponseEntity<ResponseDto> updateEmbeddings() {
+        try {
+            log.info("=== 임베딩 업데이트 요청 시작 ===");
+            log.info("요청 URL: /api/naver-shopping/update-embeddings");
+            log.info("요청 메서드: POST");
+            
+            // EmbeddingService 가져오기
+            EmbeddingService embeddingService = naverShoppingService.getEmbeddingService();
+            log.info("EmbeddingService 가져오기 성공: {}", embeddingService != null);
+            
+            // 비동기로 임베딩 업데이트 실행
+            CompletableFuture<String> future = embeddingService.updateEmbeddingsAsync();
+            log.info("임베딩 업데이트 비동기 작업 시작됨");
+            
+            // 즉시 응답 (백그라운드에서 실행)
+            log.info("=== 임베딩 업데이트 요청 완료 ===");
+            return ResponseEntity.ok(ResponseDto.success("임베딩 업데이트가 백그라운드에서 시작되었습니다."));
+            
+        } catch (Exception e) {
+            log.error("=== 임베딩 업데이트 요청 실패 ===");
+            log.error("오류 메시지: {}", e.getMessage());
+            log.error("오류 스택 트레이스:", e);
+            return ResponseEntity.badRequest().body(ResponseDto.fail("EMBEDDING_UPDATE_FAILED", "임베딩 업데이트 요청에 실패했습니다: " + e.getMessage()));
+        }
+    }
+
 }

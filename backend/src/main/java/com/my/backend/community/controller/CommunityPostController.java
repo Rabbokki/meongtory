@@ -32,9 +32,16 @@ public class CommunityPostController {
     private final CommunityPostService postService;
 
     @GetMapping
-    public List<CommunityPostDto> getAllPosts() {
-        logger.info("Fetching all community posts");
-        List<CommunityPost> posts = postService.getAllPosts();
+    public List<CommunityPostDto> getAllPosts(@RequestParam(required = false) String boardType) {
+        logger.info("Fetching community posts with boardType: {}", boardType);
+        List<CommunityPost> posts;
+        
+        if (boardType != null && !boardType.trim().isEmpty()) {
+            posts = postService.getPostsByBoardType(boardType);
+        } else {
+            posts = postService.getAllPosts();
+        }
+        
         logger.info("Retrieved {} posts", posts.size());
         return posts.stream().map(post -> CommunityPostDto.builder()
                 .id(post.getId())
@@ -51,6 +58,7 @@ public class CommunityPostController {
                 .images(post.getImages())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())
+                .sharedFromDiaryId(post.getSharedFromDiaryId())
                 .build()).collect(Collectors.toList());
     }
 

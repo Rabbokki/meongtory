@@ -53,4 +53,37 @@ public class ChatbotService {
             return new ChatbotResponse("챗봇 요청 처리 중 오류 발생: " + e.getMessage());
         }
     }
+
+    public ChatbotResponse queryInsuranceAI(ChatbotRequest request) {
+        try {
+            String aiServiceUrl = "http://ai:9000/chatbot/insurance";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON, MediaType.APPLICATION_JSON_UTF8));
+            HttpEntity<ChatbotRequest> entity = new HttpEntity<>(request, headers);
+
+            System.out.println("Sending insurance request to AI service: " + aiServiceUrl + " with query: " + request.getQuery());
+
+            ResponseEntity<String> rawResponse = restTemplate.exchange(
+                    aiServiceUrl,
+                    HttpMethod.POST,
+                    entity,
+                    String.class
+            );
+
+            System.out.println("Raw insurance AI service response: " + rawResponse.getBody());
+
+            ObjectMapper mapper = new ObjectMapper();
+            JsonNode jsonNode = mapper.readTree(rawResponse.getBody());
+            String answer = jsonNode.get("answer").asText();
+
+            ChatbotResponse response = new ChatbotResponse(answer);
+            System.out.println("Parsed insurance response from AI service: " + response.getAnswer());
+            return response;
+        } catch (Exception e) {
+            System.err.println("Error in insurance AI service request: " + e.getMessage());
+            e.printStackTrace();
+            return new ChatbotResponse("보험 챗봇 요청 처리 중 오류 발생: " + e.getMessage());
+        }
+    }
 }
