@@ -15,12 +15,14 @@ interface SignupModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSignup: (userData: {
+    id?: number;
     name: string;
     email: string;
     password: string;
     petType?: string;
     petAge?: string;
     petBreed?: string;
+    role?: string;
   }) => void;
   onSwitchToLogin: () => void;
 }
@@ -61,7 +63,6 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
     setIsLoading(true);
 
     try {
-
       // PetType 매핑
       const petMapping: { [key: string]: string } = {
         DOG: "강아지",
@@ -100,12 +101,14 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
       if (response.status >= 200 && response.status < 300) {
         console.log("회원가입 성공:", response.data);
         onSignup({
+          id: response.data.data.id, // 백엔드에서 받은 id
           name,
           email,
           password,
           petType,
           petAge,
           petBreed,
+          role: response.data.data.role, // 백엔드에서 받은 role
         });
         onClose();
       } else {
@@ -120,10 +123,10 @@ export default function SignupModal({ isOpen, onClose, onSignup, onSwitchToLogin
           data: err.response.data,
         } : null,
       });
-      if (err.response) {
-        setError(err.response.data?.message || `회원가입 중 오류가 발생했습니다: ${err.response.status}`);
+      if (err.response?.data?.error === "EMAIL_ALREADY_TAKEN") {
+        setError("이미 사용 중인 이메일입니다.");
       } else {
-        setError("서버와 연결할 수 없습니다: " + err.message);
+        setError(err.response?.data?.message || `회원가입 중 오류가 발생했습니다: ${err.response?.status}`);
       }
     } finally {
       setIsLoading(false);
