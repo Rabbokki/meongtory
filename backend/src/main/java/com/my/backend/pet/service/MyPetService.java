@@ -5,6 +5,7 @@ import com.my.backend.account.repository.AccountRepository;
 import com.my.backend.pet.dto.MyPetListResponseDto;
 import com.my.backend.pet.dto.MyPetRequestDto;
 import com.my.backend.pet.dto.MyPetResponseDto;
+import com.my.backend.pet.dto.MyPetSearchDto;
 import com.my.backend.pet.entity.MyPet;
 import com.my.backend.pet.repository.MyPetRepository;
 import com.my.backend.s3.S3Service;
@@ -99,6 +100,24 @@ public class MyPetService {
         return s3Service.uploadMyPetImage(file);
     }
 
+    // MyPet 검색 (자동완성용)
+    @Transactional(readOnly = true)
+    public List<MyPetSearchDto> searchMyPets(Long ownerId, String keyword) {
+        List<MyPet> myPets;
+        
+        if (keyword == null || keyword.trim().isEmpty()) {
+            // 빈 키워드일 때는 모든 MyPet 반환
+            myPets = myPetRepository.findByOwnerIdOrderByCreatedAtDesc(ownerId);
+        } else {
+            // 키워드가 있을 때는 이름으로 검색
+            myPets = myPetRepository.findByOwnerIdAndNameContaining(ownerId, keyword.trim());
+        }
+        
+        return myPets.stream()
+                .map(this::convertToSearchDto)
+                .collect(Collectors.toList());
+    }
+
     // DTO 변환
     private MyPetResponseDto convertToResponseDto(MyPet myPet) {
         return MyPetResponseDto.builder()
@@ -112,6 +131,17 @@ public class MyPetService {
                 .imageUrl(myPet.getImageUrl())
                 .createdAt(myPet.getCreatedAt())
                 .updatedAt(myPet.getUpdatedAt())
+                .build();
+    }
+
+    // 검색용 DTO 변환
+    private MyPetSearchDto convertToSearchDto(MyPet myPet) {
+        return MyPetSearchDto.builder()
+                .myPetId(myPet.getMyPetId())
+                .name(myPet.getName())
+                .breed(myPet.getBreed())
+                .type(myPet.getType())
+                .imageUrl(myPet.getImageUrl())
                 .build();
     }
 } 

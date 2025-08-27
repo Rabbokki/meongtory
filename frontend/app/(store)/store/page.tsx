@@ -122,6 +122,12 @@ export default function StorePage({
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState<"popular" | "latest" | "lowPrice" | "highPrice" | "similarity">("popular")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  
+  // @MyPet 자동완성 관련 상태
+  const [petSuggestions, setPetSuggestions] = useState<any[]>([])
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [cursorPosition, setCursorPosition] = useState(0)
+  const [selectedPetId, setSelectedPetId] = useState<number | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [naverProducts, setNaverProducts] = useState<NaverProduct[]>([])
   const [loading, setLoading] = useState(true)
@@ -484,18 +490,100 @@ export default function StorePage({
     }
   };
 
+  // @태그 감지 및 MyPet 자동완성
+  const handleSearchInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value
+    const position = e.target.selectionStart || 0
+    
+    setSearchQuery(value)
+    setCursorPosition(position)
+
+    // @ 태그 검출
+    const beforeCursor = value.substring(0, position)
+    const match = beforeCursor.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]*)$/)
+    
+    if (match) {
+      const keyword = match[1]
+      if (keyword.length >= 0) {
+        try {
+          const token = localStorage.getItem('accessToken')
+          if (token) {
+            const response = await axios.get(
+              `${getBackendUrl()}/api/mypet/search?keyword=${keyword}`,
+              { headers: { 
+                Authorization: `Bearer ${token}`,
+                'Access_Token': token
+              } }
+            )
+            if (response.data.success) {
+              setPetSuggestions(response.data.data || [])
+              setShowSuggestions(true)
+            }
+          }
+        } catch (error) {
+          console.error('MyPet 검색 실패:', error)
+          setPetSuggestions([])
+        }
+      }
+    } else {
+      setShowSuggestions(false)
+      setPetSuggestions([])
+    }
+  }
+
+  // MyPet 선택 처리
+  const selectPet = (pet: any) => {
+    const beforeCursor = searchQuery.substring(0, cursorPosition)
+    const afterCursor = searchQuery.substring(cursorPosition)
+    
+    const beforeAt = beforeCursor.substring(0, beforeCursor.lastIndexOf('@'))
+    const newQuery = beforeAt + `@${pet.name} ` + afterCursor
+    
+    setSearchQuery(newQuery)
+    setSelectedPetId(pet.myPetId)
+    setShowSuggestions(false)
+    setPetSuggestions([])
+  }
+
   // 통합 검색 함수 (우리 스토어 + DB에 저장된 네이버 상품 + 임베딩 검색)
   const handleUnifiedSearch = async () => {
     // 검색 시 페이지 초기화
     setCurrentPageState(0)
     setHasMore(true)
     setNaverProducts([])
+    setShowSuggestions(false) // 자동완성 숨기기
     
     if (!searchQuery.trim()) {
       // 검색어가 없으면 모든 상품 표시
       await fetchProducts();
       await loadSavedNaverProducts();
       return;
+    }
+
+    // @MyPet이 있는 경우 백엔드 통합 검색 API 호출
+    const petMatches = searchQuery.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g)
+    if (petMatches && selectedPetId) {
+      try {
+        const response = await axios.get(`${getBackendUrl()}/api/global-search`, {
+          params: {
+            query: searchQuery,
+            petId: selectedPetId,
+            searchType: "store"
+          }
+        });
+        
+        if (response.data.success) {
+          const searchResults = response.data.data;
+          // 검색 결과를 상품 목록에 적용
+          setProducts(searchResults.results || []);
+          // 추천 상품이 있으면 별도 표시 (향후 구현)
+          console.log('MyPet 기반 추천:', searchResults.recommendations);
+          return;
+        }
+      } catch (error) {
+        console.error('MyPet 기반 검색 실패:', error);
+        // 실패 시 일반 검색으로 폴백
+      }
     }
     
     setNaverSearchLoading(true);
@@ -1195,25 +1283,76 @@ export default function StorePage({
         {/* 통합 검색 바 */}
         <div className="flex justify-center mb-8">
           <div className="relative w-full max-w-md">
-            <Input
-              type="text"
-              placeholder="상품 검색"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-4 pr-12 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleUnifiedSearch();
-                }
-              }}
-            />
-            <Button
-              size="sm"
-              onClick={handleUnifiedSearch}
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-full p-2"
-            >
-              <Search className="w-4 h-4" />
-            </Button>
+            {/* MyPet 자동완성 드롭다운 */}
+            {showSuggestions && petSuggestions.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
+                {petSuggestions.map((pet) => (
+                  <div
+                    key={pet.myPetId}
+                    onClick={() => selectPet(pet)}
+                    className="flex items-center p-3 hover:bg-gray-100 cursor-pointer"
+                  >
+                    {pet.imageUrl && (
+                      <img 
+                        src={pet.imageUrl} 
+                        alt={pet.name}
+                        className="w-8 h-8 rounded-full mr-3 object-cover"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <div className="text-sm font-medium">@{pet.name}</div>
+                      <div className="text-xs text-gray-500">{pet.breed} • {pet.type}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <div className="relative flex-1 max-w-2xl mx-auto">
+              <Input
+                type="text"
+                placeholder="상품 검색"
+                value={searchQuery}
+                onChange={handleSearchInputChange}
+                className="w-full pl-4 pr-14 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleUnifiedSearch();
+                  }
+                }}
+                style={{
+                  color: searchQuery.includes('@') ? 'transparent' : 'inherit',
+                  caretColor: 'black'
+                }}
+              />
+              {/* MyPet 태그 오버레이 */}
+              {searchQuery && (
+                <div 
+                  className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center"
+                  style={{
+                    paddingLeft: '16px',
+                    paddingRight: '56px',
+                    fontSize: '16px',
+                    lineHeight: '24px'
+                  }}
+                >
+                  {searchQuery.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
+                    if (part.startsWith('@') && part.length > 1) {
+                      return <span key={index} style={{ color: '#2563eb', fontWeight: '500' }}>{part}</span>;
+                    }
+                    return <span key={index} style={{ color: 'black' }}>{part}</span>;
+                  })}
+                </div>
+              )}
+              {/* 검색 버튼을 오버레이 안에 배치 */}
+              <Button
+                size="sm"
+                onClick={handleUnifiedSearch}
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-full p-2 z-10"
+              >
+                <Search className="w-4 h-4" />
+              </Button>
+            </div>
           </div>
         </div>
 
