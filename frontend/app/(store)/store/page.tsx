@@ -120,7 +120,7 @@ export default function StorePage({
   setCurrentPage,
 }: StorePageProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"popular" | "latest" | "lowPrice" | "highPrice" | "similarity">("popular")
+  const [sortBy, setSortBy] = useState<"latest" | "lowPrice" | "highPrice" | "similarity">("latest")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [products, setProducts] = useState<Product[]>([])
   const [naverProducts, setNaverProducts] = useState<NaverProduct[]>([])
@@ -1061,11 +1061,6 @@ export default function StorePage({
           return a.price - b.price;
         case "highPrice":
           return b.price - a.price;
-        case "popular":
-          // 인기순은 기본적으로 최신순으로 처리
-          const popDateA = a.registrationDate ? new Date(a.registrationDate).getTime() : new Date(a.createdAt).getTime();
-          const popDateB = b.registrationDate ? new Date(b.registrationDate).getTime() : new Date(b.createdAt).getTime();
-          return popDateB - popDateA;
         case "similarity":
           // 유사도 점수 기준 정렬 (높은 순)
           const similarityA = a.similarity || 0;
@@ -1200,7 +1195,7 @@ export default function StorePage({
               placeholder="상품 검색"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-4 pr-12 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
+              className="pl-4 pr-10 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
                   handleUnifiedSearch();
@@ -1210,9 +1205,9 @@ export default function StorePage({
             <Button
               size="sm"
               onClick={handleUnifiedSearch}
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-full p-2"
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-full w-10 h-10 p-0 flex items-center justify-center"
             >
-              <Search className="w-4 h-4" />
+              <Search className="w-5 h-5" />
             </Button>
           </div>
         </div>
@@ -1263,16 +1258,10 @@ export default function StorePage({
         <div className="flex justify-end mb-6">
           <div className="flex items-center space-x-4 text-sm">
             <button
-              onClick={() => setSortBy("popular")}
-              className={`font-medium ${sortBy === "popular" ? "text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              ● 인기순
-            </button>
-            <button
               onClick={() => setSortBy("latest")}
               className={`font-medium ${sortBy === "latest" ? "text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
             >
-              최신순
+              ● 최신순
             </button>
             <button
               onClick={() => setSortBy("lowPrice")}
@@ -1288,14 +1277,7 @@ export default function StorePage({
             >
               높은 가격순
             </button>
-            <button
-              onClick={() => setSortBy("similarity")}
-              className={`font-medium ${
-                sortBy === "similarity" ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              유사도순
-            </button>
+        
           </div>
         </div>
 

@@ -118,13 +118,7 @@ export function RecentProductsSidebar({
   const displayedProducts = recentProducts.slice(0, displayCount)
   const hasMore = recentProducts.length > displayCount
   
-  // 디버깅용 로그
-  console.log('RecentProductsSidebar Debug:', {
-    totalProducts: recentProducts.length,
-    displayCount,
-    displayedProducts: displayedProducts.length,
-    hasMore
-  })
+  // 디버깅용 로그 제거
 
   // 상품 클릭 시 상세 페이지로 이동
   const handleProductClick = (product: RecentProduct) => {

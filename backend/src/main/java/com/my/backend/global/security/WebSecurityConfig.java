@@ -65,7 +65,7 @@ public class WebSecurityConfig {
                 "https://localhost:*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*", "Authorization", "Content-Type", "Access_Token", "Refresh_Token"));
-        configuration.setAllowCredentials(false); // allowCredentials를 false로 변경
+        configuration.setAllowCredentials(true); // allowCredentials를 true로 변경
         configuration.addExposedHeader("Access_Token");
         configuration.addExposedHeader("Refresh_Token");
         configuration.addExposedHeader("Authorization");
@@ -86,6 +86,10 @@ public class WebSecurityConfig {
                                 "/api/accounts/login",
                                 "/api/accounts/refresh",
                                 "/api/verifyAmount",
+                                "/api/confirm",
+                                "/api/saveAmount",
+                                "/api/cancel",
+                                "/api/payment/**",
                                 "/api/accounts/me",
                                 "/login/**",
                                 "/oauth2/**",
