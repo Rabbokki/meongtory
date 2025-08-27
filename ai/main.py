@@ -1,13 +1,15 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 import io
-import tempfile
+import base64
+import logging
 import sys
 import os
-import logging
-
+import tempfile
+import asyncio
+import threading
 
 # AI 서비스 모듈들 import
 from contract.service import ContractAIService
@@ -29,6 +31,7 @@ from store.api import app as storeai_app
 sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
 from transcribe import transcribe_audio
 from category_classifier import CategoryClassifier
+from diary.diary_image_classifier import DiaryImageClassifier
 
 # embedding_update.py 모듈 import
 from embedding_update import EmbeddingUpdater
@@ -39,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
+classifier = DiaryImageClassifier(use_finetuned=False)  # Zero-shot CLIP
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,7 +65,7 @@ if not client.api_key:
 # 서비스 인스턴스 생성
 story_service = StoryAIService()
 contract_service = ContractAIService()
-classifier = DogBreedClassifier()
+dog_breed_classifier = DogBreedClassifier()  # Renamed to avoid conflict
 category_classifier = CategoryClassifier()
 
 class BackgroundStoryRequest(BaseModel):
@@ -90,7 +94,7 @@ class EmbeddingUpdateRequest(BaseModel):
 async def predict_dog_breed(file: UploadFile = File(...)):
     try:
         image_bytes = io.BytesIO(await file.read())
-        result = classifier.predict(image_bytes)
+        result = dog_breed_classifier.predict(image_bytes)
         return result
     except Exception as e:
         logger.error(f"Dog breed prediction failed: {str(e)}")
@@ -297,8 +301,50 @@ def build_story_prompt(request: BackgroundStoryRequest) -> str:
     
     return prompt
 
-import asyncio
-import threading
+@app.post("/classify-image")
+async def classify_image(file: UploadFile = File(...)):
+    """
+    이미지 업로드 후 CLIP으로 분류, LLM으로 보완
+    """
+    try:
+        image_bytes = await file.read()
+        # CLIP 분류
+        result = classifier.classify_image(image_bytes)
+        category = result["category"]
+        confidence = result["confidence"]
+        
+        # LLM으로 결과 보완
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        prompt = f"""
+        다음 이미지는 펫 용품입니다. CLIP 모델이 '{category}'로 분류했습니다 (확률: {confidence:.4f}).
+        이미지를 보고 해당 용품이 다음 카테고리 중 어디에 속하는지 확인하고, 간단한 설명을 제공해주세요:
+        - 강아지 약
+        - 사료
+        - 장난감
+        - 옷
+        - 용품
+        - 간식
+        """
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                ]}
+            ],
+            max_tokens=200
+        )
+        llm_result = response.choices[0].message.content.strip()
+        
+        logger.info(f"Image classified: CLIP={result}, LLM={llm_result}")
+        return {
+            "clip_result": result,
+            "llm_result": llm_result
+        }
+    except Exception as e:
+        logger.error(f"Image classification endpoint failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"이미지 분류 중 오류 발생: {str(e)}")
 
 @app.post("/update-embeddings")
 async def update_embeddings(request: EmbeddingUpdateRequest = None):
@@ -402,4 +448,4 @@ async def root():
     return {"message": "Dog Breed Classifier API"}
 
 # 서버 시작 시 vectorstore 초기화 제거 (보험 챗봇은 별도 처리)
-# initialize_vectorstore()
+initialize_vectorstore()

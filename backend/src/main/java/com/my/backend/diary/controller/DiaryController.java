@@ -107,4 +107,31 @@ public class DiaryController {
             return ResponseEntity.badRequest().body("오디오 업로드에 실패했습니다: " + e.getMessage());
         }
     }
+    @PostMapping("/upload")
+    public ResponseEntity<DiaryResponseDto> uploadDiary(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("title") String title,
+            @RequestParam(value = "text", required = false) String text,
+            @RequestParam(value = "audio", required = false) MultipartFile audioFile) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        Long userId = userDetails.getAccount().getId();
+
+        DiaryRequestDto dto = new DiaryRequestDto();
+        dto.setUserId(userId);
+        dto.setTitle(title);
+        dto.setText(text);
+
+        if (audioFile != null && !audioFile.isEmpty()) {
+            String audioUrl = diaryService.uploadAudio(audioFile);
+            dto.setAudioUrl(audioUrl);
+        }
+
+        if (file != null && !file.isEmpty()) {
+            String imageUrl = diaryService.uploadImage(file);
+            dto.setImageUrl(imageUrl);
+        }
+
+        return ResponseEntity.ok(diaryService.createDiary(dto));
+    }
 }
