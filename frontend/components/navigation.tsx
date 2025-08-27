@@ -10,7 +10,6 @@ import Image from "next/image";
 import LoginModal from "@/components/modals/login-modal";
 import SignupModal from "@/components/modals/signup-modal";
 import PasswordRecoveryModal from "@/components/modals/password-recovery-modal";
-import { getBackendUrl } from "@/lib/api";
 
 // AuthContext 타입 정의
 interface AuthContextType {
@@ -51,10 +50,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.error("리프레시 토큰이 없습니다.");
         return null;
       }
+      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
       const response = await axios.post(
-        `${getBackendUrl()}/api/accounts/refresh`,
-        { refreshToken },
-        { headers: { "Content-Type": "application/json" } }
+          `${API_BASE_URL}/api/accounts/refresh`,
+          { refreshToken },
+          { headers: { "Content-Type": "application/json" } }
       );
       const { accessToken } = response.data.data;
       localStorage.setItem("accessToken", accessToken);
@@ -78,7 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const accessToken = localStorage.getItem("accessToken");
       if (!accessToken) return;
 
-      const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+      const response = await axios.get(`${API_BASE_URL}/api/accounts/me`, {
         headers: { Access_Token: accessToken },
         timeout: 5000,
       });
@@ -102,7 +103,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const newToken = await refreshAccessToken();
         if (newToken) {
           try {
-            const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+            const response = await axios.get(`${API_BASE_URL}/api/accounts/me`, {
               headers: { Access_Token: newToken },
               timeout: 5000,
             });
@@ -155,9 +157,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [checkLoginStatus]);
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, isAdmin, currentUser, setIsLoggedIn, setIsAdmin, setCurrentUser, refreshAccessToken, checkLoginStatus }}>
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider value={{ isLoggedIn, isAdmin, currentUser, setIsLoggedIn, setIsAdmin, setCurrentUser, refreshAccessToken, checkLoginStatus }}>
+        {children}
+      </AuthContext.Provider>
   );
 }
 
@@ -170,105 +172,105 @@ interface NavigationHeaderProps {
 }
 
 function NavigationHeader({
-  currentPage,
-  onNavigate,
-  onLogin,
-  onLogout,
-}: NavigationHeaderProps) {
+                            currentPage,
+                            onNavigate,
+                            onLogin,
+                            onLogout,
+                          }: NavigationHeaderProps) {
   const { isLoggedIn, isAdmin } = useAuth();
 
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          <button onClick={() => onNavigate("home")} className="flex items-center space-x-2">
-            <Image src="/KakaoTalk_20250729_160046076.png" alt="멍토리 로고" width={100} height={40} className="h-auto" />
-          </button>
-          <nav className="hidden md:flex items-center space-x-8">
-            <button
-              onClick={() => onNavigate("adoption")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "adoption" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              입양
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            <button onClick={() => onNavigate("home")} className="flex items-center space-x-2">
+              <Image src="/KakaoTalk_20250729_160046076.png" alt="멍토리 로고" width={100} height={40} className="h-auto" />
             </button>
-            <button
-              onClick={() => onNavigate("insurance")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "insurance" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              펫보험
-            </button>
-            <button
-              onClick={() => onNavigate("diary")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "diary" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              성장일기
-            </button>
-            <button
-              onClick={() => onNavigate("community")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "community" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              커뮤니티
-            </button>
-            <button
-              onClick={() => onNavigate("store")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "store" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              스토어
-            </button>
-            <button
-              onClick={() => onNavigate("research")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "research" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              강아지 연구소
-            </button>
-            {isLoggedIn && (
+            <nav className="hidden md:flex items-center space-x-8">
               <button
-                onClick={() => onNavigate("my")}
-                className={`text-sm font-medium transition-colors ${
-                  currentPage === "my" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-                }`}
+                  onClick={() => onNavigate("adoption")}
+                  className={`text-sm font-medium transition-colors ${
+                      currentPage === "adoption" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                  }`}
               >
-                마이페이지
+                입양
               </button>
-            )}
-            {isAdmin && (
               <button
-                onClick={() => onNavigate("admin")}
-                className={`text-sm font-medium transition-colors ${
-                  currentPage === "admin" ? "text-red-600" : "text-red-700 hover:text-red-600"
-                }`}
+                  onClick={() => onNavigate("insurance")}
+                  className={`text-sm font-medium transition-colors ${
+                      currentPage === "insurance" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                  }`}
               >
-                관리자
+                펫보험
               </button>
-            )}
-          </nav>
-          <div className="flex items-center space-x-3">
-            {isLoggedIn ? (
-              <Button onClick={onLogout} variant="outline" size="sm" className="text-sm bg-transparent">
-                로그아웃
-              </Button>
-            ) : (
-              <Button onClick={() => { console.log("로그인 버튼 클릭"); onLogin(); }} variant="outline" size="sm" className="text-sm bg-transparent">
-                <User className="w-4 h-4 mr-1" />
-                로그인
-              </Button>
-            )}
+              <button
+                  onClick={() => onNavigate("diary")}
+                  className={`text-sm font-medium transition-colors ${
+                      currentPage === "diary" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                  }`}
+              >
+                성장일기
+              </button>
+              <button
+                  onClick={() => onNavigate("community")}
+                  className={`text-sm font-medium transition-colors ${
+                      currentPage === "community" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                  }`}
+              >
+                커뮤니티
+              </button>
+              <button
+                  onClick={() => onNavigate("store")}
+                  className={`text-sm font-medium transition-colors ${
+                      currentPage === "store" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                  }`}
+              >
+                스토어
+              </button>
+              <button
+                  onClick={() => onNavigate("research")}
+                  className={`text-sm font-medium transition-colors ${
+                      currentPage === "research" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                  }`}
+              >
+                강아지 연구소
+              </button>
+              {isLoggedIn && (
+                  <button
+                      onClick={() => onNavigate("myPage")}
+                      className={`text-sm font-medium transition-colors ${
+                          currentPage === "myPage" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                      }`}
+                  >
+                    마이페이지
+                  </button>
+              )}
+              {isAdmin && (
+                  <button
+                      onClick={() => onNavigate("admin")}
+                      className={`text-sm font-medium transition-colors ${
+                          currentPage === "admin" ? "text-red-600" : "text-red-700 hover:text-red-600"
+                      }`}
+                  >
+                    관리자
+                  </button>
+              )}
+            </nav>
+            <div className="flex items-center space-x-3">
+              {isLoggedIn ? (
+                  <Button onClick={onLogout} variant="outline" size="sm" className="text-sm bg-transparent">
+                    로그아웃
+                  </Button>
+              ) : (
+                  <Button onClick={() => { console.log("로그인 버튼 클릭"); onLogin(); }} variant="outline" size="sm" className="text-sm bg-transparent">
+                    <User className="w-4 h-4 mr-1" />
+                    로그인
+                  </Button>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </header>
+      </header>
   );
 }
 
@@ -295,10 +297,12 @@ export default function Navigation() {
   const handleLogout = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
+      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
       if (accessToken) {
-        await axios.post(`${getBackendUrl()}/api/accounts/logout`,
-          {},
-          { headers: { "Content-Type": "application/json", "Access_Token": accessToken } }
+        await axios.post(
+            `${API_BASE_URL}/api/accounts/logout`,
+            {},
+            { headers: { "Content-Type": "application/json", Access_Token: accessToken } }
         );
       }
       localStorage.removeItem("accessToken");
@@ -320,9 +324,11 @@ export default function Navigation() {
   // 회원가입 핸들러
   const handleSignup = async (userData: any) => {
     try {
-      const response = await axios.post(`${getBackendUrl()}/api/accounts/register`,
-        userData,
-        { headers: { "Content-Type": "application/json" } }
+      const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
+      const response = await axios.post(
+          `${API_BASE_URL}/api/accounts/register`,
+          userData,
+          { headers: { "Content-Type": "application/json" } }
       );
       const { id, email, name, role } = response.data.data;
       setCurrentUser({ id, email, name });
@@ -338,51 +344,51 @@ export default function Navigation() {
   };
 
   return (
-    <>
-      <NavigationHeader
-        currentPage={currentPage}
-        onNavigate={(page) => router.push(`/${page === "home" ? "" : page}`)}
-        onLogin={() => {
-          console.log("onLogin 호출됨");
-          setShowLoginModal(true);
-        }}
-        onLogout={handleLogout}
-      />
-      {showLoginModal && (
-        <LoginModal
-          isOpen={showLoginModal}
-          onClose={() => setShowLoginModal(false)}
-          onSwitchToSignup={() => {
-            setShowLoginModal(false);
-            setShowSignupModal(true);
-          }}
-          onLoginSuccess={() => {
-            setShowLoginModal(false);
-            checkLoginStatus();
-          }}
+      <>
+        <NavigationHeader
+            currentPage={currentPage}
+            onNavigate={(page) => router.push(`/${page === "home" ? "" : page}`)}
+            onLogin={() => {
+              console.log("onLogin 호출됨");
+              setShowLoginModal(true);
+            }}
+            onLogout={handleLogout}
         />
-      )}
-      {showSignupModal && (
-        <SignupModal
-          isOpen={showSignupModal}
-          onClose={() => setShowSignupModal(false)}
-          onSignup={handleSignup}
-          onSwitchToLogin={() => {
-            setShowSignupModal(false);
-            setShowLoginModal(true);
-          }}
-        />
-      )}
-      {showPasswordRecovery && (
-        <PasswordRecoveryModal
-          onClose={() => setShowPasswordRecovery(false)}
-          onRecover={(email) => {
-            console.log("비밀번호 복구:", email);
-            toast.success("비밀번호 복구 이메일이 전송되었습니다", { duration: 5000 });
-            setShowPasswordRecovery(false);
-          }}
-        />
-      )}
-    </>
+        {showLoginModal && (
+            <LoginModal
+                isOpen={showLoginModal}
+                onClose={() => setShowLoginModal(false)}
+                onSwitchToSignup={() => {
+                  setShowLoginModal(false);
+                  setShowSignupModal(true);
+                }}
+                onLoginSuccess={() => {
+                  setShowLoginModal(false);
+                  checkLoginStatus();
+                }}
+            />
+        )}
+        {showSignupModal && (
+            <SignupModal
+                isOpen={showSignupModal}
+                onClose={() => setShowSignupModal(false)}
+                onSignup={handleSignup}
+                onSwitchToLogin={() => {
+                  setShowSignupModal(false);
+                  setShowLoginModal(true);
+                }}
+            />
+        )}
+        {showPasswordRecovery && (
+            <PasswordRecoveryModal
+                onClose={() => setShowPasswordRecovery(false)}
+                onRecover={(email) => {
+                  console.log("비밀번호 복구:", email);
+                  toast.success("비밀번호 복구 이메일이 전송되었습니다", { duration: 5000 });
+                  setShowPasswordRecovery(false);
+                }}
+            />
+        )}
+      </>
   );
 }
