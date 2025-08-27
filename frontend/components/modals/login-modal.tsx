@@ -61,6 +61,8 @@ export default function LoginModal({
         { headers: { "Content-Type": "application/json" } }
       );
 
+      // 수정: 로그인 요청 URL 로그 추가
+      console.log("로그인 요청 URL:", `${getBackendUrl()}/api/accounts/login`);
       console.log("로그인 응답:", response.data);
 
       const { data } = response.data;
@@ -73,6 +75,7 @@ export default function LoginModal({
       localStorage.setItem("nickname", name);
       localStorage.setItem("role", role);
 
+      // 수정: 토큰 저장 후 확인 로그 강화
       console.log("=== 로그인 모달에서 토큰 저장 ===");
       console.log("저장된 Access Token:", accessToken ? "존재함" : "없음");
       console.log("저장된 Refresh Token:", refreshToken ? "존재함" : "없음");
@@ -103,6 +106,13 @@ export default function LoginModal({
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // 수정: OAuth 요청 URL 디버깅 함수 추가
+  const handleOAuthLogin = (provider: string) => {
+    const oauthUrl = `${getBackendUrl()}/oauth2/authorization/${provider}`;
+    console.log(`${provider} OAuth 요청 URL:`, oauthUrl);
+    window.location.href = oauthUrl;
   };
 
   if (!isOpen) return null;
@@ -179,7 +189,7 @@ export default function LoginModal({
           <div className="space-y-3">
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/google`)}
+              onClick={() => handleOAuthLogin("google")} // 수정: handleOAuthLogin 사용
               className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -204,7 +214,7 @@ export default function LoginModal({
             </Button>
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/kakao`)}
+              onClick={() => handleOAuthLogin("kakao")} // 수정: handleOAuthLogin 사용
               className="w-full bg-yellow-400 text-black hover:bg-yellow-500"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -217,7 +227,7 @@ export default function LoginModal({
             </Button>
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/naver`)}
+              onClick={() => handleOAuthLogin("naver")} // 수정: handleOAuthLogin 사용
               className="w-full bg-green-500 text-white hover:bg-green-600"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">

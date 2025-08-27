@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.Optional;
 
 
@@ -50,6 +51,17 @@ public class JwtUtil {
     // 헤더에서 토큰 가져오기
     public String getHeaderToken(HttpServletRequest request, String headerName) {
         String token = request.getHeader(headerName);
+        if (token == null) {
+            // 대소문자 구분 없이 헤더를 다시 확인
+            Enumeration<String> headerNames = request.getHeaderNames();
+            while (headerNames.hasMoreElements()) {
+                String name = headerNames.nextElement();
+                if (name.equalsIgnoreCase(headerName)) {
+                    token = request.getHeader(name);
+                    break;
+                }
+            }
+        }
         log.info("Header {} value: {}", headerName, token);
         return token;
     }
