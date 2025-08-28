@@ -45,17 +45,19 @@ public class WebSecurityConfig {
 
     @Bean
     public WebSecurityCustomizer ignoringCustomizer() {
+        log.info("Configuring ignored paths for WebSecurity");
         return (web) -> web.ignoring().requestMatchers(
                 "/h2-console/**",
-                "/api/health", // 추가: ELB HealthChecker용
-                "/actuator/**", // 추가: Actuator 엔드포인트
-                "/oauth2/**", // 추가: OAuth2 요청
-                "/login/oauth2/**" // 추가: OAuth2 리다이렉트
+                "/api/health",
+                "/actuator/**",
+                "/oauth2/**",
+                "/login/oauth2/**"
         );
     }
 
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
+        log.info("Configuring CORS for allowed origins");
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOriginPatterns(Arrays.asList(
                 "http://localhost:3000",
@@ -65,11 +67,11 @@ public class WebSecurityConfig {
                 "https://localhost:*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*", "Authorization", "Content-Type", "Access_Token", "Refresh_Token"));
-        configuration.setAllowCredentials(false); // allowCredentials를 false로 변경
+        configuration.setAllowCredentials(false);
         configuration.addExposedHeader("Access_Token");
         configuration.addExposedHeader("Refresh_Token");
         configuration.addExposedHeader("Authorization");
-        configuration.setMaxAge(3600L); // preflight 요청 캐시 시간
+        configuration.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -77,6 +79,7 @@ public class WebSecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity httpSecurity) throws Exception {
+        log.info("Configuring SecurityFilterChain for OAuth2 and JWT");
         httpSecurity
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
@@ -134,7 +137,7 @@ public class WebSecurityConfig {
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                         .successHandler(oauth2SuccessHandler)
                         .failureHandler((request, response, exception) -> {
-                            log.error("OAuth2 authentication failed: {}", exception.getMessage());
+                            log.error("OAuth2 authentication failed for URI {}: {}", request.getRequestURI(), exception.getMessage());
                             response.setStatus(HttpStatus.UNAUTHORIZED.value());
                             response.setContentType("application/json");
                             response.getWriter().write("{\"error\": \"OAuth2 authentication failed\", \"message\": \"" + exception.getMessage() + "\"}");
