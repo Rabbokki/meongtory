@@ -18,9 +18,9 @@ public class EmotionFeedbackStatsDto {
     
     private Boolean shouldRetrain; // 재학습이 필요한지 여부
     
-    // === 대시보드용 통계 (주석처리) ===
-    // private Long totalFeedback; // 전체 피드백 수
-    // private Long correctPredictions; // 정확한 예측 수
-    // private Long incorrectPredictions; // 부정확한 예측 수
-    // private Double overallAccuracy; // 전체 정확도 (%)
+    // === 대시보드용 통계 ===
+    private Long totalFeedback; // 전체 피드백 수
+    private Long correctPredictions; // 정확한 예측 수
+    private Long incorrectPredictions; // 부정확한 예측 수
+    private Double overallAccuracy; // 전체 정확도 (%)
 }

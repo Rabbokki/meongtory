@@ -416,52 +416,52 @@ def filter_insurance_products(products, query):
         product_text = product.page_content.lower()
         metadata = product.metadata
         
-        # 1. 보험사 필터링
+        # 1. 보험사 필터링 (가장 높은 우선순위)
         company = metadata.get('company', '').lower()
         for company_name, keywords in search_conditions['보험사'].items():
             if any(keyword in query_lower for keyword in keywords):
                 if company_name.lower() in company:
-                    score += 10  # 높은 점수
+                    score += 20  # 매우 높은 점수
                     break
         
-        # 2. 가입조건 필터링
-        for condition_type, keywords in search_conditions['가입조건'].items():
-            if any(keyword in query_lower for keyword in keywords):
-                if any(keyword in product_text for keyword in keywords):
-                    score += 8
-        
-        # 3. 보장내역 필터링
-        for coverage_type, keywords in search_conditions['보장내역'].items():
-            if any(keyword in query_lower for keyword in keywords):
-                if any(keyword in product_text for keyword in keywords):
-                    score += 6
-        
-        # 4. 의료기록관련 필터링
+        # 2. 의료기록관련 필터링 (펫 정보 기반)
         for medical_type, keywords in search_conditions['의료기록관련'].items():
             if any(keyword in query_lower for keyword in keywords):
                 if any(keyword in product_text for keyword in keywords):
-                    score += 5
+                    score += 15  # 높은 점수
+        
+        # 3. 가입조건 필터링
+        for condition_type, keywords in search_conditions['가입조건'].items():
+            if any(keyword in query_lower for keyword in keywords):
+                if any(keyword in product_text for keyword in keywords):
+                    score += 10
+        
+        # 4. 보장내역 필터링
+        for coverage_type, keywords in search_conditions['보장내역'].items():
+            if any(keyword in query_lower for keyword in keywords):
+                if any(keyword in product_text for keyword in keywords):
+                    score += 8
         
         # 5. 특별조건 필터링
         for special_type, keywords in search_conditions['특별조건'].items():
             if any(keyword in query_lower for keyword in keywords):
                 if any(keyword in product_text for keyword in keywords):
-                    score += 4
+                    score += 6
         
-        # 6. 일반 키워드 매칭
+        # 6. 정확한 문구 매칭 (높은 점수)
+        if query_lower in product_text:
+            score += 25
+        
+        # 7. 제품명 매칭
+        product_name = metadata.get('product_name', '').lower()
+        if query_lower in product_name:
+            score += 18
+        
+        # 8. 일반 키워드 매칭 (낮은 점수)
         general_keywords = ['보험', '펫보험', '동물보험', '가입', '보장', '보상', '보험료', '상품']
         for keyword in general_keywords:
             if keyword in query_lower and keyword in product_text:
-                score += 2
-        
-        # 7. 정확한 문구 매칭 (높은 점수)
-        if query_lower in product_text:
-            score += 15
-        
-        # 8. 제품명 매칭
-        product_name = metadata.get('product_name', '').lower()
-        if query_lower in product_name:
-            score += 12
+                score += 3
         
         # 점수가 있는 상품만 필터링
         if score > 0:
@@ -470,8 +470,15 @@ def filter_insurance_products(products, query):
     # 점수순으로 정렬
     filtered_products.sort(key=lambda x: x[0], reverse=True)
     
-    # 상위 3개 상품 반환
-    return [product for score, product in filtered_products[:3]]
+    # 최소 점수 기준 적용 (더 엄격한 필터링)
+    min_score = 10  # 최소 점수 기준
+    high_score_products = [product for score, product in filtered_products if score >= min_score]
+    
+    # 높은 점수 상품이 있으면 그것만 반환, 없으면 상위 1개만 반환
+    if high_score_products:
+        return high_score_products[:2]  # 최대 2개만 반환
+    else:
+        return [product for score, product in filtered_products[:1]]  # 상위 1개만 반환
 
 # 서버 시작 시 보험 벡터스토어 초기화
 initialize_insurance_vectorstore() 

@@ -71,6 +71,9 @@ export default function CommunityDetailPage({
   const [newComment, setNewComment] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [isCommentUploading, setIsCommentUploading] = useState(false);
+  const [isCommentUpdating, setIsCommentUpdating] = useState(false);
 
   // Q&A -> QNA 변환 함수
   const convertBoardTypeForAPI = (boardType: string): string => {
@@ -242,6 +245,9 @@ export default function CommunityDetailPage({
 
   const handleAddComment = async () => {
     if (!newComment.trim()) return;
+    if (isCommentUploading) return; // 중복 방지
+    
+    setIsCommentUploading(true);
     try {
       const response = await axios.post(`${getBackendUrl()}/api/community/comments/${postId}`, 
         { content: newComment },
@@ -278,10 +284,15 @@ export default function CommunityDetailPage({
       } else {
         toast.error("네트워크 오류 ❌");
       }
+    } finally {
+      setIsCommentUploading(false);
     }
   };
 
   const handleUpdateComment = async (id: number) => {
+    if (isCommentUpdating) return; // 중복 방지
+    
+    setIsCommentUpdating(true);
     try {
       const response = await axios.put(`${getBackendUrl()}/api/community/comments/${id}`, 
         { content: editContent },
@@ -314,6 +325,8 @@ export default function CommunityDetailPage({
       } else {
         toast.error("네트워크 오류 ❌");
       }
+    } finally {
+      setIsCommentUpdating(false);
     }
   };
 
@@ -356,6 +369,9 @@ export default function CommunityDetailPage({
 
   const handleEditSave = async () => {
     if (!post) return;
+    if (isUploading) return; // 중복 방지
+    
+    setIsUploading(true);
     try {
       let token = localStorage.getItem("accessToken");
       console.log("Access Token for Edit:", token);
@@ -407,16 +423,26 @@ export default function CommunityDetailPage({
         }
       }
 
-      const updatedPost = response.data;
-      setPost({
-        ...post,
-        title: updatedPost.title,
-        content: updatedPost.content,
-        images: updatedPost.images || [],
+      // 수정 성공 후 최신 글 다시 불러오기
+      const res = await axios.get(`${getBackendUrl()}/api/community/posts/${post.id}`, {
+        headers: { Access_Token: token },
       });
-      if (onUpdatePost) onUpdatePost(updatedPost);
+      
+      const latestPost = res.data;
+      setPost(latestPost);
+      
+      // 편집 상태 초기화
+      setEditedTitle(latestPost.title);
+      setEditedContent(latestPost.content);
+      setEditedBoardType(convertBoardTypeForDisplay(latestPost.boardType) as "자유게시판" | "멍스타그램" | "꿀팁게시판" | "Q&A");
+      setPreviewImages(latestPost.images || []);
+      setEditedImages([]);
+      
+      if (onUpdatePost) onUpdatePost(latestPost);
       setIsEditing(false);
       setImagesToDelete([]);
+      
+      toast.success("게시글이 수정되었습니다 ✅");
       router.push(`/community/${post.id}`);
     } catch (err: any) {
       console.error("Edit error:", err.message);
@@ -428,6 +454,8 @@ export default function CommunityDetailPage({
         const errorMessage = err.response?.data?.message || err.message || "게시글 수정 실패";
         alert("게시글 수정 중 오류: " + errorMessage);
       }
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -592,8 +620,43 @@ export default function CommunityDetailPage({
                 <Button variant="outline" onClick={() => setIsEditing(false)}>
                   <X className="w-4 h-4 mr-2" />취소
                 </Button>
-                <Button onClick={handleEditSave} className="bg-yellow-400 hover:bg-yellow-500 text-black">
-                  <Check className="w-4 h-4 mr-2" />저장
+                <Button 
+                  onClick={handleEditSave} 
+                  disabled={isUploading}
+                  className={`flex items-center gap-2 ${
+                    isUploading 
+                      ? "opacity-50 cursor-not-allowed bg-gray-400" 
+                      : "bg-yellow-400 hover:bg-yellow-500 text-black"
+                  }`}
+                >
+                  {isUploading && (
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                      ></path>
+                    </svg>
+                  )}
+                  {isUploading ? "업로드 중..." : (
+                    <>
+                      <Check className="w-4 h-4" />
+                      저장
+                    </>
+                  )}
                 </Button>
               </div>
             </div>
@@ -665,9 +728,36 @@ export default function CommunityDetailPage({
               />
               <Button 
                 onClick={handleAddComment}
-                className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                disabled={isCommentUploading}
+                className={`flex items-center gap-2 ${
+                  isCommentUploading 
+                    ? "opacity-50 cursor-not-allowed bg-gray-400" 
+                    : "bg-yellow-400 hover:bg-yellow-500 text-black"
+                }`}
               >
-                등록
+                {isCommentUploading && (
+                  <svg
+                    className="animate-spin h-4 w-4 text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                    ></path>
+                  </svg>
+                )}
+                {isCommentUploading ? "업로드 중..." : "등록"}
               </Button>
             </div>
 
@@ -720,9 +810,36 @@ export default function CommunityDetailPage({
                           <Button 
                             size="sm" 
                             onClick={() => handleUpdateComment(c.id)}
-                            className="bg-yellow-400 hover:bg-yellow-500 text-black"
+                            disabled={isCommentUpdating}
+                            className={`flex items-center gap-1 ${
+                              isCommentUpdating 
+                                ? "opacity-50 cursor-not-allowed bg-gray-400" 
+                                : "bg-yellow-400 hover:bg-yellow-500 text-black"
+                            }`}
                           >
-                            저장
+                            {isCommentUpdating && (
+                              <svg
+                                className="animate-spin h-3 w-3 text-white"
+                                xmlns="http://www.w3.org/2000/svg"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                              >
+                                <circle
+                                  className="opacity-25"
+                                  cx="12"
+                                  cy="12"
+                                  r="10"
+                                  stroke="currentColor"
+                                  strokeWidth="4"
+                                ></circle>
+                                <path
+                                  className="opacity-75"
+                                  fill="currentColor"
+                                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                                ></path>
+                              </svg>
+                            )}
+                            {isCommentUpdating ? "저장 중..." : "저장"}
                           </Button>
                           <Button 
                             size="sm" 

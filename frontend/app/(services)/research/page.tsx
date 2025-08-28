@@ -347,33 +347,33 @@ export default function DogResearchLabPage() {
       const blob = await response.blob()
       const file = new File([blob], 'emotion-feedback.jpg', { type: blob.type })
 
-      // 이미지를 다시 업로드하여 URL 받기 (실제로는 이미 분석된 이미지의 URL을 사용해야 함)
-      // 현재는 임시로 base64 URL 사용
-      const imageUrl = moodImage
+      // FormData 생성 (백엔드가 multipart/form-data를 받으므로)
+      const formData = new FormData()
+      
+      // 예측된 감정 (가장 높은 확률의 감정)
+      const predictedEmotion = Object.keys(moodResult.emotions).find(
+        (emotion) => moodResult.emotions[emotion as keyof typeof moodResult.emotions] === Math.max(
+          ...Object.values(moodResult.emotions)
+        )
+      ) || 'unknown'
 
-      const feedbackData = {
-        imageUrl: imageUrl,
-        predictedEmotion: Object.keys(moodResult.emotions).find(
-          (emotion) => moodResult.emotions[emotion as keyof typeof moodResult.emotions] === Math.max(
-            ...Object.values(moodResult.emotions)
-          )
-        ) || 'unknown',
-        correctEmotion: isCorrect ? 
-          Object.keys(moodResult.emotions).find(
-            (emotion) => moodResult.emotions[emotion as keyof typeof moodResult.emotions] === Math.max(
-              ...Object.values(moodResult.emotions)
-            )
-          ) : selectedCorrectEmotion,
-        isCorrectPrediction: isCorrect,
-        predictionConfidence: moodResult.confidence / 100.0
+      // FormData에 필드 추가
+      formData.append('image', file)
+      formData.append('predictedEmotion', predictedEmotion)
+      formData.append('isCorrectPrediction', isCorrect.toString())
+      formData.append('predictionConfidence', (moodResult.confidence / 100.0).toString())
+      
+      // 틀렸다고 할 때만 correctEmotion 추가
+      if (!isCorrect && selectedCorrectEmotion) {
+        formData.append('correctEmotion', selectedCorrectEmotion)
       }
 
       const apiResponse = await axios.post(
         `${getBackendUrl()}/api/emotion/feedback`,
-        feedbackData,
+        formData,
         {
           headers: {
-            'Content-Type': 'application/json',
+            'Content-Type': 'multipart/form-data',
           },
         }
       )

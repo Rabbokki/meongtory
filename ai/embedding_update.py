@@ -11,7 +11,7 @@ import psycopg2
 import requests
 import json
 import httpx
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Tuple, Any
 from dotenv import load_dotenv
 
 # 환경변수 로드
@@ -80,8 +80,8 @@ class EmbeddingUpdater:
         vector_str = '[' + ','.join(map(str, embedding)) + ']'
         return vector_str
     
-    def get_products_without_embedding(self, limit: int = 500) -> List[tuple]:
-        """임베딩이 없는 상품들을 조회"""
+    def get_naver_products_without_embedding(self, limit: int = 500) -> List[tuple]:
+        """임베딩이 없는 네이버 상품들을 조회"""
         with self.get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -94,8 +94,22 @@ class EmbeddingUpdater:
                 """, (limit,))
                 return cursor.fetchall()
     
-    def update_product_embedding(self, product_id: int, embedding_vector: str):
-        """상품의 임베딩을 업데이트"""
+    def get_regular_products_without_embedding(self, limit: int = 500) -> List[tuple]:
+        """임베딩이 없는 일반 상품들을 조회"""
+        with self.get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT product_id, name 
+                    FROM product 
+                    WHERE name_embedding IS NULL 
+                    AND name IS NOT NULL 
+                    AND name != ''
+                    LIMIT %s
+                """, (limit,))
+                return cursor.fetchall()
+    
+    def update_naver_product_embedding(self, product_id: int, embedding_vector: str):
+        """네이버 상품의 임베딩을 업데이트"""
         with self.get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -105,8 +119,19 @@ class EmbeddingUpdater:
                 """, (embedding_vector, product_id))
                 conn.commit()
     
-    def count_products_without_embedding(self) -> int:
-        """임베딩이 없는 상품 수 조회"""
+    def update_regular_product_embedding(self, product_id: int, embedding_vector: str):
+        """일반 상품의 임베딩을 업데이트"""
+        with self.get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    UPDATE product 
+                    SET name_embedding = %s::vector
+                    WHERE product_id = %s
+                """, (embedding_vector, product_id))
+                conn.commit()
+    
+    def count_naver_products_without_embedding(self) -> int:
+        """임베딩이 없는 네이버 상품 수 조회"""
         with self.get_db_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
@@ -118,22 +143,35 @@ class EmbeddingUpdater:
                 """)
                 return cursor.fetchone()[0]
     
-    def update_all_embeddings(self, batch_size: int = 500):
-        """모든 상품의 임베딩을 업데이트"""
+    def count_regular_products_without_embedding(self) -> int:
+        """임베딩이 없는 일반 상품 수 조회"""
+        with self.get_db_connection() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*) 
+                    FROM product 
+                    WHERE name_embedding IS NULL 
+                    AND name IS NOT NULL 
+                    AND name != ''
+                """)
+                return cursor.fetchone()[0]
+    
+    def update_naver_embeddings(self, batch_size: int = 500):
+        """네이버 상품들의 임베딩을 업데이트"""
         print("네이버 상품 임베딩 업데이트를 시작합니다...")
         
         total_processed = 0
         total_updated = 0
         
         while True:
-            # 임베딩이 없는 상품들을 배치로 조회 (전체 상품 처리)
-            products = self.get_products_without_embedding(batch_size)
+            # 임베딩이 없는 네이버 상품들을 배치로 조회
+            products = self.get_naver_products_without_embedding(batch_size)
             
             if not products:
-                print("더 이상 업데이트할 상품이 없습니다.")
+                print("더 이상 업데이트할 네이버 상품이 없습니다.")
                 break
             
-            print(f"배치 처리 중: {len(products)}개 상품")
+            print(f"네이버 상품 배치 처리 중: {len(products)}개 상품")
             
             for product_id, title in products:
                 try:
@@ -145,12 +183,12 @@ class EmbeddingUpdater:
                         vector_string = self.embedding_to_vector_string(embedding)
                         
                         # DB 업데이트
-                        self.update_product_embedding(product_id, vector_string)
+                        self.update_naver_product_embedding(product_id, vector_string)
                         
                         total_updated += 1
-                        print(f"✓ 상품 ID {product_id}: '{title[:50]}...' 임베딩 업데이트 완료")
+                        print(f"✓ 네이버 상품 ID {product_id}: '{title[:50]}...' 임베딩 업데이트 완료")
                     else:
-                        print(f"✗ 상품 ID {product_id}: 임베딩 생성 실패")
+                        print(f"✗ 네이버 상품 ID {product_id}: 임베딩 생성 실패")
                     
                     total_processed += 1
                     
@@ -158,14 +196,88 @@ class EmbeddingUpdater:
                     time.sleep(0.35)
                     
                 except Exception as e:
-                    print(f"✗ 상품 ID {product_id} 처리 실패: {e}")
+                    print(f"✗ 네이버 상품 ID {product_id} 처리 실패: {e}")
                     total_processed += 1
             
             # 진행 상황 출력
-            print(f"진행 상황: {total_processed}개 처리됨, {total_updated}개 업데이트됨")
+            print(f"네이버 상품 진행 상황: {total_processed}개 처리됨, {total_updated}개 업데이트됨")
             print("-" * 50)
         
-        print(f"임베딩 업데이트 완료: 총 {total_processed}개 처리됨, {total_updated}개 업데이트됨")
+        print(f"네이버 상품 임베딩 업데이트 완료: 총 {total_processed}개 처리됨, {total_updated}개 업데이트됨")
+        return total_processed, total_updated
+    
+    def update_regular_embeddings(self, batch_size: int = 500):
+        """일반 상품들의 임베딩을 업데이트"""
+        print("일반 상품 임베딩 업데이트를 시작합니다...")
+        
+        total_processed = 0
+        total_updated = 0
+        
+        while True:
+            # 임베딩이 없는 일반 상품들을 배치로 조회
+            products = self.get_regular_products_without_embedding(batch_size)
+            
+            if not products:
+                print("더 이상 업데이트할 일반 상품이 없습니다.")
+                break
+            
+            print(f"일반 상품 배치 처리 중: {len(products)}개 상품")
+            
+            for product_id, name in products:
+                try:
+                    # 임베딩 생성
+                    embedding = self.generate_embedding(name)
+                    
+                    if embedding:
+                        # PostgreSQL vector 형식으로 변환
+                        vector_string = self.embedding_to_vector_string(embedding)
+                        
+                        # DB 업데이트
+                        self.update_regular_product_embedding(product_id, vector_string)
+                        
+                        total_updated += 1
+                        print(f"✓ 일반 상품 ID {product_id}: '{name[:50]}...' 임베딩 업데이트 완료")
+                    else:
+                        print(f"✗ 일반 상품 ID {product_id}: 임베딩 생성 실패")
+                    
+                    total_processed += 1
+                    
+                    # API 호출 제한을 위한 딜레이 (초당 3회 제한)
+                    time.sleep(0.35)
+                    
+                except Exception as e:
+                    print(f"✗ 일반 상품 ID {product_id} 처리 실패: {e}")
+                    total_processed += 1
+            
+            # 진행 상황 출력
+            print(f"일반 상품 진행 상황: {total_processed}개 처리됨, {total_updated}개 업데이트됨")
+            print("-" * 50)
+        
+        print(f"일반 상품 임베딩 업데이트 완료: 총 {total_processed}개 처리됨, {total_updated}개 업데이트됨")
+        return total_processed, total_updated
+    
+    def update_all_embeddings(self, batch_size: int = 500):
+        """모든 상품의 임베딩을 업데이트 (네이버 + 일반)"""
+        print("모든 상품 임베딩 업데이트를 시작합니다...")
+        
+        # 네이버 상품 임베딩 업데이트
+        naver_processed, naver_updated = self.update_naver_embeddings(batch_size)
+        
+        print("\n" + "="*60 + "\n")
+        
+        # 일반 상품 임베딩 업데이트
+        regular_processed, regular_updated = self.update_regular_embeddings(batch_size)
+        
+        # 총계 출력
+        total_processed = naver_processed + regular_processed
+        total_updated = naver_updated + regular_updated
+        
+        print("\n" + "="*60)
+        print(f"전체 임베딩 업데이트 완료:")
+        print(f"  - 네이버 상품: {naver_processed}개 처리, {naver_updated}개 업데이트")
+        print(f"  - 일반 상품: {regular_processed}개 처리, {regular_updated}개 업데이트")
+        print(f"  - 총계: {total_processed}개 처리, {total_updated}개 업데이트")
+        print("="*60)
 
     async def get_mypet_info(self, pet_id: int) -> Optional[Dict[str, Any]]:
         """백엔드에서 MyPet 정보를 가져오는 함수 (내부 통신)"""
@@ -404,14 +516,17 @@ class EmbeddingUpdater:
             
             with self.get_db_connection() as conn:
                 with conn.cursor() as cursor:
+                    # 네이버 상품과 일반 상품을 모두 검색
                     cursor.execute("""
-                        SELECT 
-                            naver_product_id,
-                            title,
+                        (SELECT 
+                            'naver' as type,
+                            naver_product_id as id,
+                            product_id,
+                            title as name,
                             description,
                             price,
                             image_url,
-                            mall_name,
+                            mall_name as seller,
                             product_url,
                             brand,
                             maker,
@@ -426,33 +541,65 @@ class EmbeddingUpdater:
                             updated_at,
                             1 - (title_embedding <=> %s::vector) as similarity
                         FROM naver_product 
-                        WHERE title_embedding IS NOT NULL
-                        ORDER BY title_embedding <=> %s::vector
+                        WHERE title_embedding IS NOT NULL)
+                        
+                        UNION ALL
+                        
+                        (SELECT 
+                            'regular' as type,
+                            product_id as id,
+                            CAST(product_id AS VARCHAR) as product_id,
+                            name,
+                            description,
+                            price,
+                            image_url,
+                            registered_by as seller,
+                            NULL as product_url,
+                            NULL as brand,
+                            NULL as maker,
+                            category,
+                            NULL as category2,
+                            NULL as category3,
+                            NULL as category4,
+                            0 as review_count,
+                            0 as rating,
+                            0 as search_count,
+                            registration_date as created_at,
+                            registration_date as updated_at,
+                            1 - (name_embedding <=> %s::vector) as similarity
+                        FROM product 
+                        WHERE name_embedding IS NOT NULL)
+                        
+                        ORDER BY similarity DESC
                         LIMIT %s
                     """, (query_vector_string, query_vector_string, search_limit))
                     
                     results = []
                     for row in cursor.fetchall():
                         product = {
-                            'id': row[0],
-                            'title': row[1],
-                            'description': row[2],
-                            'price': row[3],
-                            'image_url': row[4],
-                            'mall_name': row[5],
-                            'product_url': row[6],
-                            'brand': row[7],
-                            'maker': row[8],
-                            'category1': row[9],
-                            'category2': row[10],
-                            'category3': row[11],
-                            'category4': row[12],
-                            'review_count': row[13],
-                            'rating': row[14],
-                            'search_count': row[15],
-                            'created_at': row[16].isoformat() if row[16] else None,
-                            'updated_at': row[17].isoformat() if row[17] else None,
-                            'similarity': float(row[18]) if row[18] else 0.0
+                            'type': row[0],
+                            'id': row[1],
+                            'product_id': row[2],
+                            'title': row[3],  # name을 title로 변경
+                            'name': row[3],   # 기존 name도 유지
+                            'description': row[4],
+                            'price': row[5],
+                            'image_url': row[6],
+                            'mall_name': row[7],  # seller를 mall_name으로 변경
+                            'seller': row[7],     # 기존 seller도 유지
+                            'product_url': row[8],
+                            'brand': row[9],
+                            'maker': row[10],
+                            'category1': row[11],
+                            'category2': row[12],
+                            'category3': row[13],
+                            'category4': row[14],
+                            'review_count': row[15],
+                            'rating': row[16],
+                            'search_count': row[17],
+                            'created_at': row[18].isoformat() if row[18] else None,
+                            'updated_at': row[19].isoformat() if row[19] else None,
+                            'similarity': float(row[20]) if row[20] else 0.0
                         }
                         results.append(product)
             
@@ -476,6 +623,24 @@ class EmbeddingUpdater:
         pet_gender = pet_info.get('gender', 'N/A')
         pet_type = pet_info.get('type', 'N/A')
         pet_weight = pet_info.get('weight', 'N/A')
+        pet_microchip = pet_info.get('microchipId', 'N/A')
+        
+        # 의료기록 정보
+        medical_history = pet_info.get('medicalHistory', '')
+        vaccinations = pet_info.get('vaccinations', '')
+        special_needs = pet_info.get('specialNeeds', '')
+        notes = pet_info.get('notes', '')
+        
+        # 의료기록 정보 구성
+        medical_info = ""
+        if medical_history and medical_history != "없음":
+            medical_info += f"의료기록: {medical_history}, "
+        if vaccinations and vaccinations != "없음":
+            medical_info += f"예방접종: {vaccinations}, "
+        if special_needs and special_needs != "없음":
+            medical_info += f"특별관리: {special_needs}, "
+        if notes and notes != "없음":
+            medical_info += f"메모: {notes}, "
         
         # 카테고리별 특화 키워드 추가
         category_specific = ""
@@ -488,7 +653,53 @@ class EmbeddingUpdater:
         elif '장난감' in category_keywords:
             category_specific = f"{pet_breed} {pet_type} 장난감"
         
-        enhanced_query = f"{query} {category_specific} {pet_breed} {pet_type}"
+        # 나이별 특화 키워드
+        age_specific = ""
+        if pet_age and pet_age != 'N/A':
+            try:
+                age_num = int(pet_age)
+                if age_num <= 1:
+                    age_specific = "퍼피 키튼 어린 유아"
+                elif age_num >= 7:
+                    age_specific = "시니어 노령 어덜트"
+                else:
+                    age_specific = "어덜트 성견"
+            except:
+                age_specific = ""
+        
+        # 체중별 특화 키워드
+        weight_specific = ""
+        if pet_weight and pet_weight != 'N/A':
+            try:
+                weight_num = float(pet_weight)
+                if weight_num < 10:
+                    weight_specific = "소형 미니 스몰"
+                elif weight_num > 25:
+                    weight_specific = "대형 라지 자이언트"
+                else:
+                    weight_specific = "중형 미디엄"
+            except:
+                weight_specific = ""
+        
+        # 의료기록 기반 특화 키워드
+        medical_specific = ""
+        if medical_history and medical_history != "없음":
+            if "알레르기" in medical_history or "알러지" in medical_history:
+                medical_specific += "알레르기 하이포알러지 저알러지 "
+            if "관절" in medical_history or "슬관절" in medical_history:
+                medical_specific += "관절 슬관절 글루코사민 "
+            if "피부" in medical_history:
+                medical_specific += "피부 모질 피부건강 "
+            if "중성화" in medical_history:
+                medical_specific += "중성화 완료 "
+        
+        # 종합적인 강화 쿼리 생성
+        enhanced_query = f"{query} {category_specific} {pet_breed} {pet_type} {age_specific} {weight_specific} {medical_specific}"
+        
+        # 의료기록 정보가 있으면 추가
+        if medical_info:
+            enhanced_query += f" ({medical_info.strip(', ')})"
+        
         return enhanced_query.strip()
     
     def filter_products_by_pet_and_category(self, products: List[Dict[str, Any]], pet_info: Dict[str, Any], category_keywords: List[str], original_query: str) -> List[Dict[str, Any]]:
@@ -501,6 +712,12 @@ class EmbeddingUpdater:
             pet_type = pet_info.get('type', '').lower()
             weight = pet_info.get('weight', 0)
             
+            # 의료기록 정보
+            medical_history = pet_info.get('medicalHistory', '').lower()
+            vaccinations = pet_info.get('vaccinations', '').lower()
+            special_needs = pet_info.get('specialNeeds', '').lower()
+            notes = pet_info.get('notes', '').lower()
+            
             # 카테고리별 필터링 키워드
             category_filters = {
                 '의류': ['옷', '의류', 'clothes', 'wear', '티셔츠', '나시', '실내복', '올인원', '코트', '패딩', '조끼'],
@@ -512,9 +729,18 @@ class EmbeddingUpdater:
                 '미용': ['미용', 'grooming', '샴푸', '브러시', '가위', '클리퍼']
             }
             
+            # 의료기록 기반 필터링 키워드
+            medical_filters = {
+                '알레르기': ['알레르기', '알러지', '하이포알러지', '저알러지', 'hypoallergenic'],
+                '관절': ['관절', '슬관절', '글루코사민', '콘드로이틴', 'joint'],
+                '피부': ['피부', '모질', '피부건강', 'skin', 'coat'],
+                '중성화': ['중성화', '불임수술', 'neutered', 'spayed'],
+                '예방접종': ['예방접종', '백신', 'vaccine', '접종']
+            }
+            
             filtered_products = []
             for product in products:
-                title = product['title'].lower()
+                title = product['name'].lower()
                 description = product.get('description', '').lower()
                 
                 score = 0
@@ -556,7 +782,20 @@ class EmbeddingUpdater:
                     if any(word in title for word in ['어덜트', '성견']):
                         score += 2
                 
-                # 5. 기본 유사도 점수
+                # 5. 의료기록 기반 매칭 점수 (높은 우선순위)
+                for medical_type, keywords in medical_filters.items():
+                    # 의료기록에 해당 정보가 있고, 상품 제목/설명에 관련 키워드가 있으면 높은 점수
+                    if any(keyword in medical_history for keyword in keywords):
+                        if any(keyword in title for keyword in keywords):
+                            score += 4  # 높은 점수
+                        if any(keyword in description for keyword in keywords):
+                            score += 2
+                
+                # 6. 특별관리사항 매칭
+                if special_needs and any(word in title for word in special_needs.split()):
+                    score += 3
+                
+                # 7. 기본 유사도 점수
                 score += product.get('similarity', 0) * 10
                 
                 if score > 0:
@@ -586,14 +825,18 @@ class EmbeddingUpdater:
             
             with self.get_db_connection() as conn:
                 with conn.cursor() as cursor:
+
+                    # 네이버 상품과 일반 상품을 모두 검색
                     cursor.execute("""
-                        SELECT 
-                            naver_product_id,
-                            title,
+                        (SELECT 
+                            'naver' as type,
+                            naver_product_id as id,
+                            product_id,
+                            title as name,
                             description,
                             price,
                             image_url,
-                            mall_name,
+                            mall_name as seller,
                             product_url,
                             brand,
                             maker,
@@ -608,33 +851,63 @@ class EmbeddingUpdater:
                             updated_at,
                             1 - (title_embedding <=> %s::vector) as similarity
                         FROM naver_product 
-                        WHERE title_embedding IS NOT NULL
-                        ORDER BY title_embedding <=> %s::vector
+                        WHERE title_embedding IS NOT NULL)
+                        
+                        UNION ALL
+                        
+                        (SELECT 
+                            'regular' as type,
+                            product_id as id,
+                            CAST(product_id AS VARCHAR) as product_id,
+                            name,
+                            description,
+                            price,
+                            image_url,
+                            registered_by as seller,
+                            NULL as product_url,
+                            NULL as brand,
+                            NULL as maker,
+                            category,
+                            NULL as category2,
+                            NULL as category3,
+                            NULL as category4,
+                            0 as review_count,
+                            0 as rating,
+                            0 as search_count,
+                            registration_date as created_at,
+                            registration_date as updated_at,
+                            1 - (name_embedding <=> %s::vector) as similarity
+                        FROM product 
+                        WHERE name_embedding IS NOT NULL)
+                        
+                        ORDER BY similarity DESC
                         LIMIT %s
                     """, (query_vector_string, query_vector_string, limit))
                     
                     results = []
                     for row in cursor.fetchall():
                         product = {
-                            'id': row[0],
-                            'title': row[1],
-                            'description': row[2],
-                            'price': row[3],
-                            'image_url': row[4],
-                            'mall_name': row[5],
-                            'product_url': row[6],
-                            'brand': row[7],
-                            'maker': row[8],
-                            'category1': row[9],
-                            'category2': row[10],
-                            'category3': row[11],
-                            'category4': row[12],
-                            'review_count': row[13],
-                            'rating': row[14],
-                            'search_count': row[15],
-                            'created_at': row[16].isoformat() if row[16] else None,
-                            'updated_at': row[17].isoformat() if row[17] else None,
-                            'similarity': float(row[18]) if row[18] else 0.0
+                            'type': row[0],
+                            'id': row[1],
+                            'product_id': row[2],
+                            'name': row[3],
+                            'description': row[4],
+                            'price': row[5],
+                            'image_url': row[6],
+                            'seller': row[7],
+                            'product_url': row[8],
+                            'brand': row[9],
+                            'maker': row[10],
+                            'category1': row[11],
+                            'category2': row[12],
+                            'category3': row[13],
+                            'category4': row[14],
+                            'review_count': row[15],
+                            'rating': row[16],
+                            'search_count': row[17],
+                            'created_at': row[18].isoformat() if row[18] else None,
+                            'updated_at': row[19].isoformat() if row[19] else None,
+                            'similarity': float(row[20]) if row[20] else 0.0
                         }
                         results.append(product)
             
@@ -650,60 +923,44 @@ async def main():
         updater = EmbeddingUpdater()
         
         # 명령행 인수 확인
-        if len(sys.argv) > 1:
-            if sys.argv[1] == '--auto':
-                # 자동 실행 모드 (임베딩 업데이트)
-                auto_mode = True
-                search_mode = False
-            elif sys.argv[1] == '--search':
-                # 검색 모드 (MyPet 태깅 검색 테스트)
-                auto_mode = False
-                search_mode = True
-            else:
-                auto_mode = False
-                search_mode = False
-        else:
-            auto_mode = False
-            search_mode = False
+
+        auto_mode = len(sys.argv) > 1 and sys.argv[1] == '--auto'
+        product_type = len(sys.argv) > 2 and sys.argv[2]  # 'naver', 'regular', 'all'
         
-        if search_mode:
-            # MyPet 태깅 검색 테스트
-            test_query = input("검색어를 입력하세요 (예: @정혜선 강아지 사료): ")
-            pet_id = input("petId를 입력하세요 (선택사항, Enter로 건너뛰기): ")
-            
-            pet_id = int(pet_id) if pet_id.strip() else None
-            
-            results = await updater.search_similar_products_with_pet(test_query, pet_id, limit=5)
-            
-            print(f"\n검색 결과 ({len(results)}개):")
-            for i, product in enumerate(results, 1):
-                print(f"{i}. {product['title']}")
-                print(f"   유사도: {product.get('similarity', 0):.3f}")
-                print(f"   펫 점수: {product.get('pet_score_boost', 0):.3f}")
-                print(f"   가격: {product.get('price', 0):,}원")
-                print()
-            
-            return
+        # 기본값 설정
+        if not product_type:
+            product_type = 'all'
         
-        # 기존 임베딩 업데이트 로직
-        count = updater.count_products_without_embedding()
-        print(f"임베딩이 없는 상품 수: {count}개")
+        # 임베딩이 없는 상품 수 확인
+        naver_count = updater.count_naver_products_without_embedding()
+        regular_count = updater.count_regular_products_without_embedding()
+        total_count = naver_count + regular_count
         
-        if count == 0:
+        print(f"임베딩이 없는 상품 수:")
+        print(f"  - 네이버 상품: {naver_count}개")
+        print(f"  - 일반 상품: {regular_count}개")
+        print(f"  - 총계: {total_count}개")
+        
+        if total_count == 0:
             print("모든 상품에 임베딩이 이미 설정되어 있습니다.")
             return
         
         if auto_mode:
-            print("자동 실행 모드: 사용자 확인 없이 임베딩 업데이트를 시작합니다.")
+            print(f"자동 실행 모드: {product_type} 상품의 임베딩 업데이트를 시작합니다.")
         else:
             # 사용자 확인
-            response = input(f"{count}개 상품의 임베딩을 업데이트하시겠습니까? (y/N): ")
+            response = input(f"{total_count}개 상품의 임베딩을 업데이트하시겠습니까? (y/N): ")
             if response.lower() != 'y':
                 print("취소되었습니다.")
                 return
         
         # 임베딩 업데이트 실행
-        updater.update_all_embeddings()
+        if product_type == 'naver':
+            updater.update_naver_embeddings()
+        elif product_type == 'regular':
+            updater.update_regular_embeddings()
+        else:  # 'all'
+            updater.update_all_embeddings()
         
     except Exception as e:
         print(f"오류 발생: {e}")

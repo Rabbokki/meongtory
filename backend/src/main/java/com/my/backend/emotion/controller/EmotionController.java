@@ -3,6 +3,7 @@ package com.my.backend.emotion.controller;
 import lombok.RequiredArgsConstructor;
 import com.my.backend.emotion.dto.EmotionAnalysisResponseDto;
 import com.my.backend.emotion.dto.EmotionFeedbackRequestDto;
+import com.my.backend.emotion.dto.EmotionFeedbackStatsDto;
 import com.my.backend.emotion.dto.FeedbackForTrainingDto;
 import com.my.backend.emotion.service.EmotionService;
 import com.my.backend.global.dto.ResponseDto;
@@ -33,12 +34,31 @@ public class EmotionController {
     
     // === 피드백 관련 API ===
     
-    // 1. 피드백 제출 (사용자용)
+    // 1. 피드백 제출 (사용자용 - 이미지 필수)
     @PostMapping("/feedback")
     public ResponseEntity<ResponseDto<String>> submitFeedback(
-            @RequestBody EmotionFeedbackRequestDto feedbackRequest) {
+            @RequestParam("predictedEmotion") String predictedEmotion,
+            @RequestParam("isCorrectPrediction") Boolean isCorrectPrediction,
+            @RequestParam("predictionConfidence") Float predictionConfidence,
+            @RequestParam(value = "correctEmotion", required = false) String correctEmotion,
+            @RequestParam("image") MultipartFile image) {
         try {
-            emotionService.saveFeedback(feedbackRequest);
+            // 이미지 필수 체크
+            if (image == null || image.isEmpty()) {
+                return ResponseEntity.badRequest()
+                    .body(ResponseDto.fail("IMAGE_REQUIRED", "피드백 저장을 위해 이미지가 필요합니다"));
+            }
+            
+            // DTO 생성
+            EmotionFeedbackRequestDto feedbackRequest = new EmotionFeedbackRequestDto();
+            feedbackRequest.setPredictedEmotion(predictedEmotion);
+            feedbackRequest.setIsCorrectPrediction(isCorrectPrediction);
+            feedbackRequest.setPredictionConfidence(predictionConfidence);
+            feedbackRequest.setCorrectEmotion(correctEmotion);
+            
+            // S3에 이미지 업로드하고 피드백 저장
+            emotionService.saveFeedback(feedbackRequest, image);
+            
             return ResponseEntity.ok(ResponseDto.success("피드백이 저장되었습니다"));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
@@ -67,6 +87,46 @@ public class EmotionController {
         } catch (Exception e) {
             return ResponseEntity.badRequest()
                 .body(ResponseDto.fail("MARK_USED_ERROR", "피드백 사용 표시 실패: " + e.getMessage()));
+        }
+    }
+    
+    // === 대시보드용 API ===
+    
+    // 4. 피드백 통계 조회 (관리자 대시보드용)
+    @GetMapping("/feedback/stats")
+    public ResponseEntity<ResponseDto<EmotionFeedbackStatsDto>> getFeedbackStats() {
+        try {
+            EmotionFeedbackStatsDto stats = emotionService.getFeedbackStats();
+            return ResponseEntity.ok(ResponseDto.success(stats));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ResponseDto.fail("STATS_ERROR", "피드백 통계 조회 실패: " + e.getMessage()));
+        }
+    }
+    
+    // === AI 모델 재학습 API ===
+    
+    // 5. AI 모델 재학습 시작 (관리자용)
+    @PostMapping("/retrain")
+    public ResponseEntity<ResponseDto<String>> startModelRetraining() {
+        try {
+            String result = emotionService.startModelRetraining();
+            return ResponseEntity.ok(ResponseDto.success(result));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ResponseDto.fail("RETRAIN_ERROR", "모델 재학습 시작 실패: " + e.getMessage()));
+        }
+    }
+    
+    // 6. 재학습 상태 조회 (관리자용)
+    @GetMapping("/retrain-status")
+    public ResponseEntity<ResponseDto<String>> getRetrainingStatus() {
+        try {
+            String status = emotionService.getRetrainingStatus();
+            return ResponseEntity.ok(ResponseDto.success(status));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                .body(ResponseDto.fail("STATUS_ERROR", "재학습 상태 조회 실패: " + e.getMessage()));
         }
     }
 }

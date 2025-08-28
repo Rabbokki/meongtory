@@ -1,7 +1,35 @@
+# --index-url https://pypi.org/simple/
+# --extra-index-url https://download.pytorch.org/whl/cpu
+# fastapi
+# uvicorn[standard]
+# python-multipart
+# openai>=1.86.0
+# requests
+# langchain
+# langchain-openai
+# langchain-huggingface
+# langchain-postgres
+# psycopg2-binary
+# sentence-transformers
+# tqdm
+# pgvector
+# torch==2.4.1
+# torchvision==0.19.1
+# numpy<2
+# pydantic
+# python-dotenv
+# pillow>=10.0.0
+# SQLAlchemy==2.0.30
+# kagglehub
+# matplotlib
+# seaborn
+# pandas
+# scikit-learn
+
 --index-url https://pypi.org/simple/
 --extra-index-url https://download.pytorch.org/whl/cpu
-fastapi
-uvicorn[standard]
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
 python-multipart
 openai>=1.86.0
 requests
@@ -10,11 +38,11 @@ langchain-openai
 langchain-huggingface
 langchain-postgres
 psycopg2-binary
-sentence-transformers
+sentence-transformers>=3.2.0
 tqdm
 pgvector
-torch==2.4.1
-torchvision==0.19.1
+torch==2.6.0
+torchvision==0.21.0
 numpy<2
 pydantic
 python-dotenv
@@ -25,4 +53,8 @@ matplotlib
 seaborn
 pandas
 scikit-learn
-schedule
+safetensors>=0.4.5
+transformers==4.44.2
+accelerate>=0.30.0
+huggingface_hub>=0.23.2
+schedule>=1.2.0  # 추가: retraining_scheduler.py 요구

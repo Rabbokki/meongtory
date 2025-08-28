@@ -2,9 +2,11 @@ package com.my.backend.emotion.service;
 
 import com.my.backend.emotion.dto.EmotionAnalysisResponseDto;
 import com.my.backend.emotion.dto.EmotionFeedbackRequestDto;
+import com.my.backend.emotion.dto.EmotionFeedbackStatsDto;
 import com.my.backend.emotion.dto.FeedbackForTrainingDto;
 import com.my.backend.emotion.entity.EmotionFeedback;
 import com.my.backend.emotion.repository.EmotionFeedbackRepository;
+import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -28,6 +30,7 @@ public class EmotionService {
     
     private final RestTemplate restTemplate;
     private final EmotionFeedbackRepository feedbackRepository;
+    private final S3Service s3Service;
     
     @Value("${ai.service.url}")
     private String aiServiceUrl;
@@ -56,12 +59,22 @@ public class EmotionService {
         return response.getBody();
     }
     
-    // === 피드백 저장 기능 ===
+    // === 피드백 저장 기능 (이미지 포함) ===
     @Transactional
-    public void saveFeedback(EmotionFeedbackRequestDto request) {
+    public void saveFeedback(EmotionFeedbackRequestDto request, MultipartFile imageFile) throws Exception {
+        // 이미지를 S3에 업로드 (emotion 전용 폴더에 저장)
+        String imageUrl;
+        if (imageFile != null && !imageFile.isEmpty()) {
+            // S3에 emotion 피드백 이미지 업로드 
+            imageUrl = uploadEmotionFeedbackImage(imageFile);
+        } else {
+            // 이미지가 없는 경우 요청에서 받은 URL 사용 (기존 호환성)
+            imageUrl = request.getImageUrl();
+        }
+        
         // EmotionFeedback 엔티티 생성
         EmotionFeedback feedback = new EmotionFeedback();
-        feedback.setImageUrl(request.getImageUrl());
+        feedback.setImageUrl(imageUrl);
         feedback.setPredictedEmotion(request.getPredictedEmotion());
         feedback.setCorrectEmotion(request.getCorrectEmotion());
         feedback.setIsCorrectPrediction(request.getIsCorrectPrediction());
@@ -69,6 +82,16 @@ public class EmotionService {
         feedback.setIsUsedForTraining(false);
         
         feedbackRepository.save(feedback);
+    }
+    
+    // 감정 피드백 이미지를 S3에 업로드
+    private String uploadEmotionFeedbackImage(MultipartFile imageFile) throws Exception {
+        try {
+            // S3Service의 감정 피드백 전용 업로드 메서드 사용
+            return s3Service.uploadEmotionFeedbackImage(imageFile);
+        } catch (Exception e) {
+            throw new Exception("감정 피드백 이미지 업로드 실패: " + e.getMessage());
+        }
     }
     
     // === AI 서비스용: 재학습 데이터 제공 ===
@@ -104,6 +127,65 @@ public class EmotionService {
         );
     }
     
+    // === AI 서비스에 재학습 요청 ===
+    @Transactional
+    public String startModelRetraining() throws Exception {
+        try {
+            // 재학습 가능 여부 확인
+            EmotionFeedbackStatsDto stats = getFeedbackStats();
+            if (!stats.getShouldRetrain()) {
+                throw new Exception("재학습할 데이터가 부족합니다 (최소 10개 필요)");
+            }
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            // 재학습 요청 본문 생성 (AI 서비스에서 기대하는 RetrainRequest 형식)
+            String requestBody = "{\"min_feedback_count\": 10}";
+            HttpEntity<String> requestEntity = new HttpEntity<>(requestBody, headers);
+            
+            // AI 서비스에 재학습 요청 (감정 분석과 동일한 방식)
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                aiServiceUrl + "/api/ai/retrain-emotion-model",
+                requestEntity,
+                String.class
+            );
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                System.out.println("✅ AI 서비스 재학습 요청 성공");
+                return response.getBody();
+            } else {
+                throw new Exception("AI 서비스 재학습 요청 실패: " + response.getStatusCode());
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ AI 서비스 재학습 요청 실패: " + e.getMessage());
+            throw new Exception("모델 재학습 시작 실패: " + e.getMessage());
+        }
+    }
+    
+    // === 재학습 상태 조회 ===
+    public String getRetrainingStatus() throws Exception {
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+            
+            // AI 서비스에 재학습 상태 조회 요청
+            ResponseEntity<String> response = restTemplate.getForEntity(
+                aiServiceUrl + "/api/ai/retrain-status",
+                String.class
+            );
+            
+            return response.getBody();
+            
+        } catch (Exception e) {
+            System.err.println("❌ 재학습 상태 조회 실패: " + e.getMessage());
+            throw new Exception("재학습 상태 조회 실패: " + e.getMessage());
+        }
+    }
+    
     // === 피드백 사용 완료 표시 기능 ===
     @Transactional
     public void markUnusedFeedbackAsUsed() {
@@ -118,5 +200,37 @@ public class EmotionService {
         
         // 로그 출력
         System.out.println("✅ " + unusedFeedbacks.size() + "개 피드백을 학습 사용 완료로 표시했습니다.");
+    }
+    
+    // === 대시보드용: 피드백 통계 조회 ===
+    @Transactional(readOnly = true)
+    public EmotionFeedbackStatsDto getFeedbackStats() {
+        // 전체 피드백 수
+        Long totalFeedback = feedbackRepository.count();
+        
+        // 정확한/부정확한 예측 수
+        Long correctPredictions = feedbackRepository.countByIsCorrectPredictionTrue();
+        Long incorrectPredictions = feedbackRepository.countByIsCorrectPredictionFalse();
+        
+        // 재학습용 미사용 피드백 수
+        Long unusedPositiveFeedback = feedbackRepository.countByIsCorrectPredictionTrueAndIsUsedForTrainingFalse();
+        Long unusedNegativeFeedback = feedbackRepository.countByIsCorrectPredictionFalseAndIsUsedForTrainingFalse();
+        
+        // 전체 정확도 계산 (%)
+        Double overallAccuracy = totalFeedback > 0 ? 
+            (correctPredictions.doubleValue() / totalFeedback.doubleValue()) * 100.0 : 0.0;
+        
+        // 재학습 필요 여부 (미사용 피드백이 10개 이상인경우)
+        Boolean shouldRetrain = (unusedPositiveFeedback + unusedNegativeFeedback) >= 10;
+        
+        return new EmotionFeedbackStatsDto(
+            unusedPositiveFeedback,
+            unusedNegativeFeedback,
+            shouldRetrain,
+            totalFeedback,
+            correctPredictions,
+            incorrectPredictions,
+            Math.round(overallAccuracy * 100.0) / 100.0 // 소수점 2자리까지
+        );
     }
 }

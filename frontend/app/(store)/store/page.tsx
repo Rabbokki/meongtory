@@ -119,7 +119,7 @@ export default function StorePage({
   setCurrentPage,
 }: StorePageProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [sortBy, setSortBy] = useState<"popular" | "latest" | "lowPrice" | "highPrice" | "similarity">("popular")
+  const [sortBy, setSortBy] = useState<"latest" | "lowPrice" | "highPrice" | "similarity">("latest")
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   
   // @MyPet 자동완성 관련 상태
@@ -689,32 +689,36 @@ export default function StorePage({
         // 응답 데이터가 배열인지 확인
         const responseData = embeddingResponse.data;
         if (responseData && Array.isArray(responseData)) {
+          console.log('임베딩 검색 원본 데이터:', responseData);
           embeddingResults = responseData
-            .filter((item: any) => item && item.id) // null이나 id가 없는 항목 필터링
-            .map((item: any) => ({
-              id: Number(item.id) || Math.random(),
-              productId: item.productId || '',
-              title: item.title || '제목 없음',
-              description: item.description || '',
-              price: Number(item.price) || 0,
-              imageUrl: item.imageUrl || '/placeholder.svg',
-              mallName: item.mallName || '판매자 정보 없음',
-              productUrl: item.productUrl || '#',
-              brand: item.brand || '',
-              maker: item.maker || '',
-              category1: item.category1 || '',
-              category2: item.category2 || '',
-              category3: item.category3 || '',
-              category4: item.category4 || '',
-              reviewCount: Number(item.reviewCount) || 0,
-              rating: Number(item.rating) || 0,
-              searchCount: Number(item.searchCount) || 0,
-              createdAt: item.createdAt || new Date().toISOString(),
-              updatedAt: item.updatedAt || new Date().toISOString(),
-              relatedProductId: item.relatedProductId ? Number(item.relatedProductId) : undefined,
-              isSaved: true,
-              similarity: Number(item.similarity) || 0 // 유사도 점수 추가
-            }));
+            .filter((item: any) => item && (item.id || item.productId)) // null이나 id/productId가 없는 항목 필터링
+            .map((item: any) => {
+              console.log('임베딩 검색 아이템 처리:', item);
+              return {
+                id: Number(item.id) || Math.random(),
+                productId: item.productId || item.product_id || String(item.id) || '',
+                title: item.title || item.name || '제목 없음',
+                description: item.description || '',
+                price: Number(item.price) || 0,
+                imageUrl: item.image_url || item.imageUrl || '/placeholder.svg',
+                mallName: item.seller || item.mallName || '판매자 정보 없음',
+                productUrl: item.product_url || item.productUrl || '#',
+                brand: item.brand || '',
+                maker: item.maker || '',
+                category1: item.category1 || '',
+                category2: item.category2 || '',
+                category3: item.category3 || '',
+                category4: item.category4 || '',
+                reviewCount: Number(item.review_count) || Number(item.reviewCount) || 0,
+                rating: Number(item.rating) || 0,
+                searchCount: Number(item.search_count) || Number(item.searchCount) || 0,
+                createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+                updatedAt: item.updated_at || item.updatedAt || new Date().toISOString(),
+                relatedProductId: item.relatedProductId ? Number(item.relatedProductId) : undefined,
+                isSaved: true,
+                similarity: Number(item.similarity) || 0 // 유사도 점수 추가
+              };
+            });
           
           console.log('임베딩 검색 결과 변환 완료:', embeddingResults.length, '개');
         } else {
@@ -1238,11 +1242,6 @@ export default function StorePage({
           return a.price - b.price;
         case "highPrice":
           return b.price - a.price;
-        case "popular":
-          // 인기순은 기본적으로 최신순으로 처리
-          const popDateA = a.registrationDate ? new Date(a.registrationDate).getTime() : new Date(a.createdAt).getTime();
-          const popDateB = b.registrationDate ? new Date(b.registrationDate).getTime() : new Date(b.createdAt).getTime();
-          return popDateB - popDateA;
         case "similarity":
           // 유사도 점수 기준 정렬 (높은 순)
           const similarityA = a.similarity || 0;
@@ -1397,59 +1396,55 @@ export default function StorePage({
               </div>
             )}
             
-            <div className="relative flex-1 max-w-2xl mx-auto">
-              <div className="flex-1 relative">
-                <Input
-                  type="text"
-                  placeholder="상품 검색"
-                  value={searchQuery}
-                  onChange={handleSearchInputChange}
-                  className="w-full pl-4 pr-14 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleUnifiedSearch();
-                    }
-                  }}
-                  style={{
-                    color: 'transparent',
-                    caretColor: 'black',
-                    fontFamily: 'inherit',
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    letterSpacing: 'normal',
-                    fontWeight: 'normal'
-                  }}
-                />
-                {/* 하이라이트 오버레이 */}
-                <div 
-                  className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center"
-                  style={{
-                    paddingLeft: '16px',
-                    paddingRight: '56px',
-                    fontSize: '16px',
-                    lineHeight: '24px',
-                    fontFamily: 'inherit',
-                    letterSpacing: 'normal',
-                    fontWeight: 'normal',
-                    whiteSpace: 'pre'
-                  }}
-                >
-                  {searchQuery.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
-                    if (part.startsWith('@') && part.length > 1) {
-                      return <span key={index} className="text-blue-600 font-medium">{part}</span>;
-                    }
-                    return <span key={index} className="text-black">{part}</span>;
-                  })}
-                </div>
-              </div>
-              <Button
-                size="sm"
-                onClick={handleUnifiedSearch}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-full p-2 z-10"
-              >
-                <Search className="w-4 h-4" />
-              </Button>
+            <Input
+              type="text"
+              placeholder="상품 검색"
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              className="pl-4 pr-10 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400 hover:border-yellow-300"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleUnifiedSearch();
+                }
+              }}
+              style={{
+                color: 'transparent',
+                caretColor: 'black',
+                fontFamily: 'inherit',
+                fontSize: '16px',
+                lineHeight: '24px',
+                letterSpacing: 'normal',
+                fontWeight: 'normal'
+              }}
+            />
+            {/* 하이라이트 오버레이 */}
+            <div 
+              className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center"
+              style={{
+                paddingLeft: '16px',
+                paddingRight: '40px',
+                fontSize: '16px',
+                lineHeight: '24px',
+                fontFamily: 'inherit',
+                letterSpacing: 'normal',
+                fontWeight: 'normal',
+                whiteSpace: 'pre'
+              }}
+            >
+              {searchQuery.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
+                if (part.startsWith('@') && part.length > 1) {
+                  return <span key={index} className="text-blue-600 font-medium">{part}</span>;
+                }
+                return <span key={index} className="text-black">{part}</span>;
+              })}
             </div>
+            <Button
+              size="sm"
+              onClick={handleUnifiedSearch}
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-full w-10 h-10 p-0 flex items-center justify-center"
+            >
+              <Search className="w-5 h-5" />
+            </Button>
           </div>
         </div>
 
@@ -1499,16 +1494,10 @@ export default function StorePage({
         <div className="flex justify-end mb-6">
           <div className="flex items-center space-x-4 text-sm">
             <button
-              onClick={() => setSortBy("popular")}
-              className={`font-medium ${sortBy === "popular" ? "text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
-            >
-              ● 인기순
-            </button>
-            <button
               onClick={() => setSortBy("latest")}
               className={`font-medium ${sortBy === "latest" ? "text-blue-600" : "text-gray-500 hover:text-gray-700"}`}
             >
-              최신순
+              ● 최신순
             </button>
             <button
               onClick={() => setSortBy("lowPrice")}
@@ -1524,14 +1513,7 @@ export default function StorePage({
             >
               높은 가격순
             </button>
-            <button
-              onClick={() => setSortBy("similarity")}
-              className={`font-medium ${
-                sortBy === "similarity" ? "text-blue-600" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              유사도순
-            </button>
+        
           </div>
         </div>
 
@@ -1626,18 +1608,42 @@ export default function StorePage({
                 <CardContent className="p-4">
                   <div className="mb-2" onClick={() => {
                     try {
+                      console.log('네이버 상품 클릭됨:', naverProduct);
+                      console.log('similarity:', naverProduct.similarity);
+                      console.log('id:', naverProduct.id);
+                      console.log('productId:', naverProduct.productId);
+                      
                       if (typeof onViewProduct === 'function') {
                         onViewProduct(naverProduct);
                       } else {
                         // onViewProduct가 없으면 직접 라우팅
-                        const encodedId = encodeURIComponent(naverProduct.productId);
-                        window.location.href = `/store/naver/${encodedId}`;
+                        // 모든 경우에 productId를 사용 (백엔드 API가 productId로 조회)
+                        let productId = naverProduct.productId;
+                        console.log('상품 상세 페이지로 이동 - productId 사용:', productId);
+                        
+                        if (!productId) {
+                          console.error('productId가 없음:', naverProduct);
+                          return;
+                        }
+                        
+                        const encodedId = encodeURIComponent(productId);
+                        const targetUrl = `/store/naver/${encodedId}`;
+                        console.log('네이버 상품 상세 페이지로 이동:', targetUrl);
+                        window.location.href = targetUrl;
                       }
                     } catch (error) {
                       console.error("onViewProduct 호출 중 오류:", error);
-                      // 에러 발생 시에도 직접 라우팅
-                      const encodedId = encodeURIComponent(naverProduct.productId);
-                      window.location.href = `/store/naver/${encodedId}`;
+                      // 에러 발생 시에도 직접 라우팅 (productId 사용)
+                      let productId = naverProduct.productId;
+                      
+                      if (!productId) {
+                        console.error('에러 처리 중에도 productId가 없음:', naverProduct);
+                        return;
+                      }
+                      
+                      const encodedId = encodeURIComponent(productId);
+                      const targetUrl = `/store/naver/${encodedId}`;
+                      window.location.href = targetUrl;
                     }
                   }}>
                     <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">

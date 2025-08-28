@@ -43,10 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<{ id: number; email: string; name: string } | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(false);
   const hasCheckedLogin = useRef(false); // 초기 로그인 체크 여부 추적
+  const retryCount = useRef(0);
+  const MAX_RETRIES = 3;
 
   const refreshAccessToken = useCallback(async () => {
     try {
       const refreshToken = localStorage.getItem("refreshToken");
+      console.log("리프레시 토큰:", refreshToken || "없음");
       if (!refreshToken) {
         console.error("리프레시 토큰이 없습니다.");
         return null;
@@ -56,35 +59,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         { refreshToken },
         { headers: { "Content-Type": "application/json" } }
       );
-      const { accessToken } = response.data.data;
+      console.log("리프레시 응답:", response.data);
+      const { accessToken, refreshToken: newRefreshToken } = response.data.data;
       localStorage.setItem("accessToken", accessToken);
-      console.log("토큰 갱신 성공");
+      localStorage.setItem("refreshToken", newRefreshToken);
+      console.log("새로운 Access Token:", accessToken);
+      console.log("새로운 Refresh Token:", newRefreshToken);
       return accessToken;
     } catch (err) {
       console.error("토큰 갱신 실패:", err);
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
-      localStorage.removeItem("nickname");
-      localStorage.removeItem("email");
-      localStorage.removeItem("role");
       return null;
     }
   }, []);
 
   const checkLoginStatus = useCallback(async () => {
-    if (isCheckingLogin || hasCheckedLogin.current || typeof window === "undefined") return;
+    // 수정: 재시도 횟수 초과 시 즉시 종료
+    if (retryCount.current >= MAX_RETRIES) {
+      console.error(`최대 재시도 횟수(${MAX_RETRIES}) 초과`);
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      setIsLoggedIn(false);
+      setCurrentUser(null);
+      setIsAdmin(false);
+      hasCheckedLogin.current = true;
+      retryCount.current = 0;
+      toast.error("인증에 실패했습니다. 다시 로그인해주세요.", { duration: 5000 });
+      return;
+    }
+
+    if (isCheckingLogin || hasCheckedLogin.current || typeof window === "undefined") {
+      console.log("checkLoginStatus 스킵: isCheckingLogin=", isCheckingLogin, "hasCheckedLogin=", hasCheckedLogin.current);
+      return;
+    }
     setIsCheckingLogin(true);
     try {
       const accessToken = localStorage.getItem("accessToken");
-      if (!accessToken) return;
+      // 수정: 요청 전 헤더와 토큰 상태 확인
+      console.log("=== /api/accounts/me 요청 준비 ===");
+      console.log("Backend URL:", getBackendUrl());
+      console.log("Access Token:", accessToken ? "존재함" : "없음", "길이:", accessToken?.length);
+      console.log("Headers to be sent:", { Access_Token: accessToken || "undefined" });
+      if (!accessToken) {
+        console.log("액세스 토큰이 없으므로 요청 중단");
+        return;
+      }
 
       const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
-        headers: { Access_Token: accessToken },
+        headers: { 
+          "Access_Token": accessToken,
+          // 수정: ALB가 소문자 헤더를 기대할 경우 대비
+          "access_token": accessToken 
+        },
         timeout: 5000,
       });
+      console.log("사용자 정보 조회 성공:", response.data);
       const { id, email, name, role } = response.data.data;
 
-      // 상태 업데이트 최적화: 변경된 경우에만 set 호출
       if (!currentUser || currentUser.id !== id || currentUser.email !== email || currentUser.name !== name) {
         setCurrentUser({ id, email, name });
       }
@@ -95,15 +127,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoggedIn(true);
       }
       console.log("Initial login check successful:", { id, email, name, role });
-      hasCheckedLogin.current = true; // 체크 완료 플래그 설정
+      hasCheckedLogin.current = true;
+      retryCount.current = 0;
     } catch (err: any) {
-      console.error("사용자 정보 조회 실패:", err);
+      console.error("사용자 정보 조회 실패:", err.response?.data?.message || err.message);
       if (err.response?.status === 401) {
+        retryCount.current += 1;
+        console.log("401 에러 발생, 재시도 횟수:", retryCount.current);
         const newToken = await refreshAccessToken();
         if (newToken) {
           try {
+            console.log("=== 재시도: /api/accounts/me 요청 ===");
+            console.log("새로운 Access Token:", newToken);
+            console.log("Headers to be sent:", { Access_Token: newToken });
             const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
-              headers: { Access_Token: newToken },
+              headers: { 
+                "Access_Token": newToken,
+                "access_token": newToken // 수정: 소문자 헤더 추가
+              },
               timeout: 5000,
             });
             const { id, email, name, role } = response.data.data;
@@ -117,7 +158,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setIsLoggedIn(true);
             }
             console.log("Retry login check successful:", { id, email, name, role });
-            hasCheckedLogin.current = true; // 체크 완료 플래그 설정
+            hasCheckedLogin.current = true;
+            retryCount.current = 0;
           } catch (retryErr) {
             console.error("재시도 실패:", retryErr);
             localStorage.removeItem("accessToken");
@@ -126,22 +168,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setCurrentUser(null);
             setIsAdmin(false);
             hasCheckedLogin.current = true;
+            retryCount.current = 0;
           }
         } else {
+          console.log("토큰 갱신 실패, 인증 정보 초기화");
           localStorage.removeItem("accessToken");
           localStorage.removeItem("refreshToken");
           setIsLoggedIn(false);
           setCurrentUser(null);
           setIsAdmin(false);
           hasCheckedLogin.current = true;
+          retryCount.current = 0;
         }
       } else {
+        console.error("기타 에러로 인증 정보 초기화:", err);
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
         setIsLoggedIn(false);
         setCurrentUser(null);
         setIsAdmin(false);
         hasCheckedLogin.current = true;
+        retryCount.current = 0;
       }
     } finally {
       setIsCheckingLogin(false);
@@ -149,7 +196,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [isCheckingLogin, isLoggedIn, isAdmin, currentUser, refreshAccessToken]);
 
   useEffect(() => {
-    if (!hasCheckedLogin.current) {
+    console.log("Backend URL:", getBackendUrl());
+    if (!hasCheckedLogin.current && !isCheckingLogin) {
+      console.log("checkLoginStatus 호출");
       checkLoginStatus();
     }
   }, [checkLoginStatus]);
@@ -295,10 +344,13 @@ export default function Navigation() {
   const handleLogout = async () => {
     try {
       const accessToken = localStorage.getItem("accessToken");
+      // 수정: 로그아웃 요청 전 토큰 상태 확인
+      console.log("로그아웃 요청, Access Token:", accessToken ? "존재함" : "없음");
       if (accessToken) {
-        await axios.post(`${getBackendUrl()}/api/accounts/logout`,
+        await axios.post(
+          `${getBackendUrl()}/api/accounts/logout`,
           {},
-          { headers: { "Content-Type": "application/json", "Access_Token": accessToken } }
+          { headers: { "Content-Type": "application/json", Access_Token: accessToken, access_token: accessToken } }
         );
       }
       localStorage.removeItem("accessToken");
@@ -320,21 +372,61 @@ export default function Navigation() {
   // 회원가입 핸들러
   const handleSignup = async (userData: any) => {
     try {
-      const response = await axios.post(`${getBackendUrl()}/api/accounts/register`,
-        userData,
-        { headers: { "Content-Type": "application/json" } }
-      );
-      const { id, email, name, role } = response.data.data;
+      const { id, name, email, password, role } = userData;
       setCurrentUser({ id, email, name });
       setIsLoggedIn(true);
       setIsAdmin(role === "ADMIN");
-      setShowSignupModal(false);
+
+      // 자동 로그인 처리
+      const loginResponse = await axios.post(
+        `${getBackendUrl()}/api/accounts/login`,
+        { email, password },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      const { accessToken, refreshToken, id: userId, name: userName, role: userRole } = loginResponse.data.data;
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
+      localStorage.setItem("email", email);
+      localStorage.setItem("nickname", userName);
+      localStorage.setItem("role", userRole);
+      setCurrentUser({ id: userId, email, name: userName });
+      setIsAdmin(userRole === "ADMIN");
+
+      // 수정: 회원가입 후 토큰 저장 확인
+      console.log("회원가입 후 Access Token:", accessToken);
+      console.log("localStorage 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
+
       toast.success("회원가입 및 로그인이 완료되었습니다", { duration: 5000 });
       router.push("/");
     } catch (err: any) {
-      console.error("회원가입 실패:", err.response?.data?.message || err.message);
-      toast.error("회원가입에 실패했습니다", { duration: 5000 });
+      console.error("로그인 처리 실패:", err.response?.data?.message || err.message);
+      toast.error("로그인 처리에 실패했습니다", { duration: 5000 });
     }
+  };
+
+  // 로그인 성공 핸들러
+  const handleLoginSuccess = (
+    loginData: {
+      id: number;
+      email: string;
+      name: string;
+      role: string;
+      accessToken: string;
+      refreshToken: string;
+    }
+  ) => {
+    const { id, email, name, role, accessToken, refreshToken } = loginData;
+    // 수정: 로그인 성공 후 토큰 상태 확인
+    console.log("=== 로그인 성공 ===");
+    console.log("Access Token:", accessToken);
+    console.log("Refresh Token:", refreshToken);
+    console.log("localStorage 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
+    setCurrentUser({ id, email, name });
+    setIsLoggedIn(true);
+    setIsAdmin(role === "ADMIN");
+
+    toast.success("로그인에 성공했습니다", { duration: 5000 });
+    router.push("/");
   };
 
   return (
@@ -356,10 +448,7 @@ export default function Navigation() {
             setShowLoginModal(false);
             setShowSignupModal(true);
           }}
-          onLoginSuccess={() => {
-            setShowLoginModal(false);
-            checkLoginStatus();
-          }}
+          onLoginSuccess={handleLoginSuccess}
         />
       )}
       {showSignupModal && (

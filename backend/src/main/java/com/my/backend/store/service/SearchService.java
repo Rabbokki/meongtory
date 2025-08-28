@@ -84,12 +84,16 @@ public class SearchService {
             
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestData, headers);
             
-            log.info("AI 서비스 호출 URL: {}", aiServiceUrl);
-            log.info("AI 서비스 요청 데이터: {}", requestData);
+                         log.info("AI 서비스 호출 URL: {}", aiServiceUrl);
+             log.info("AI 서비스 요청 데이터: {}", requestData);
+             log.info("AI 서비스 호출 시작...");
             
-            ResponseEntity<Map> response = restTemplate.postForEntity(aiServiceUrl, entity, Map.class);
-            
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                         ResponseEntity<Map> response = restTemplate.postForEntity(aiServiceUrl, entity, Map.class);
+             
+             log.info("AI 서비스 응답 상태 코드: {}", response.getStatusCode());
+             log.info("AI 서비스 응답 바디: {}", response.getBody());
+             
+             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
                 Boolean success = (Boolean) responseBody.get("success");
                 
@@ -126,14 +130,19 @@ public class SearchService {
         
         for (Map<String, Object> aiProduct : aiResults) {
             try {
+                String type = (String) aiProduct.get("type");
+                String name = (String) aiProduct.get("name");
+                String title = (String) aiProduct.get("title");
+                
+                // 네이버 상품과 일반 상품을 모두 처리
                 SearchResponseDto dto = SearchResponseDto.builder()
                         .id(((Number) aiProduct.get("id")).longValue())
-                        .productId((String) aiProduct.get("product_id"))
-                        .title((String) aiProduct.get("title"))
+                        .productId(type.equals("naver") ? (String) aiProduct.get("product_id") : String.valueOf(aiProduct.get("id"))) // 네이버 상품은 AI 서비스에서 받은 product_id 사용
+                        .title(title != null ? title : name) // title이 없으면 name 사용
                         .description((String) aiProduct.get("description"))
                         .price(((Number) aiProduct.get("price")).longValue())
                         .imageUrl((String) aiProduct.get("image_url"))
-                        .mallName((String) aiProduct.get("mall_name"))
+                        .mallName((String) aiProduct.get("seller")) // seller 필드 사용
                         .productUrl((String) aiProduct.get("product_url"))
                         .brand((String) aiProduct.get("brand"))
                         .maker((String) aiProduct.get("maker"))
@@ -216,6 +225,7 @@ public class SearchService {
         }
     }
     
+
     /**
      * Euclidean distance를 유사도 점수(0~1)로 변환
      * @param distance Euclidean distance

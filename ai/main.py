@@ -1,17 +1,20 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 import io
-import tempfile
+import base64
+import logging
 import sys
 import os
 import logging
 import json
 import httpx
+import tempfile
+import asyncio
+import threading
 from typing import Optional
-
 
 # AI 서비스 모듈들 import
 from contract.service import ContractAIService
@@ -22,9 +25,6 @@ from breeding.breeding import predict_breeding
 from breed.breed_api import router as breed_router
 from emotion.emotion_api import router as emotion_router
 from emotion.retrain_service import get_retrain_service
-from emotion.model_rollback_service import get_rollback_service
-from emotion.performance_tracker import get_performance_tracker
-from emotion.retraining_scheduler import get_scheduler
 from model import DogBreedClassifier
 from chatBot.rag_app import process_rag_query, initialize_vectorstore
 from chatBot.insurance_rag import process_insurance_rag_query, InsuranceQueryRequest
@@ -36,6 +36,7 @@ from store.api import app as storeai_app
 sys.path.append(os.path.join(os.path.dirname(__file__), 'diary'))
 from transcribe import transcribe_audio
 from category_classifier import CategoryClassifier
+from diary.diary_image_classifier import DiaryImageClassifier
 
 # embedding_update.py 모듈 import
 from embedding_update import EmbeddingUpdater
@@ -88,6 +89,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", ""))
+classifier = DiaryImageClassifier(use_finetuned=False)  # Zero-shot CLIP
 
 app.add_middleware(
     CORSMiddleware,
@@ -118,7 +120,7 @@ if not client.api_key:
 # 서비스 인스턴스 생성
 story_service = StoryAIService()
 contract_service = ContractAIService()
-classifier = DogBreedClassifier()
+dog_breed_classifier = DogBreedClassifier()  # Renamed to avoid conflict
 category_classifier = CategoryClassifier()
 
 class BackgroundStoryRequest(BaseModel):
@@ -148,22 +150,13 @@ class CategoryClassificationRequest(BaseModel):
 class EmbeddingUpdateRequest(BaseModel):
     auto_mode: bool = True
       
-class ModelRollbackRequest(BaseModel):
-    version_id: int
-    reason: str = None
-
-class ModelVersionsRequest(BaseModel):
-    pass  # 파라미터 없는 요청
-
-class PerformanceEvaluationRequest(BaseModel):
-    version_id: int = None  # None이면 현재 모델 평가
 
 
 @app.post("/predict")
 async def predict_dog_breed(file: UploadFile = File(...)):
     try:
         image_bytes = io.BytesIO(await file.read())
-        result = classifier.predict(image_bytes)
+        result = dog_breed_classifier.predict(image_bytes)
         return result
     except Exception as e:
         logger.error(f"Dog breed prediction failed: {str(e)}")
@@ -334,9 +327,55 @@ async def search_with_mypet(request: dict):
         
         logger.info(f"MyPet 검색 결과: {len(results)}개 상품")
         
+        # 프론트엔드 형식에 맞게 데이터 변환
+        formatted_results = []
+        for item in results:
+            formatted_item = {
+                # 기본 정보
+                'id': item.get('id'),
+                'productId': item.get('product_id', ''),
+                'title': item.get('title', item.get('name', '제목 없음')),
+                'description': item.get('description', ''),
+                'price': item.get('price', 0),
+                'imageUrl': item.get('image_url', '/placeholder.svg'),
+                'mallName': item.get('mall_name', item.get('seller', '판매자 정보 없음')),
+                'productUrl': item.get('product_url', '#'),
+                
+                # 브랜드/제조사 정보
+                'brand': item.get('brand', ''),
+                'maker': item.get('maker', ''),
+                
+                # 카테고리 정보
+                'category1': item.get('category1', ''),
+                'category2': item.get('category2', ''),
+                'category3': item.get('category3', ''),
+                'category4': item.get('category4', ''),
+                
+                # 리뷰/평점 정보
+                'reviewCount': item.get('review_count', 0),
+                'rating': item.get('rating', 0),
+                'searchCount': item.get('search_count', 0),
+                
+                # 날짜 정보
+                'createdAt': item.get('created_at', ''),
+                'updatedAt': item.get('updated_at', ''),
+                
+                # AI 관련 점수
+                'similarity': item.get('similarity', 0),
+                'petMatchScore': item.get('pet_match_score', 0),
+                'pet_score_boost': item.get('pet_score_boost', 0),
+                
+                # 상품 타입
+                'type': item.get('type', 'naver'),
+                
+                # 추가 메타데이터 (원본 데이터 보존)
+                'originalData': item
+            }
+            formatted_results.append(formatted_item)
+        
         return {
             "success": True,
-            "data": results,
+            "data": formatted_results,
             "message": "MyPet 태깅 검색 완료"
         }
         
@@ -408,336 +447,6 @@ async def classify_category_endpoint(request: CategoryClassificationRequest):
         logger.error(f"카테고리 분류 중 오류 발생: {str(e)}")
         raise HTTPException(status_code=500, detail=f"카테고리 분류 중 오류 발생: {str(e)}")
 
-@app.get("/api/ai/model-versions/available")
-async def get_available_model_versions():
-    """롤백 가능한 모델 버전 목록 조회"""
-    try:
-        logger.info("롤백 가능한 모델 버전 목록 조회 요청")
-        
-        rollback_service = get_rollback_service()
-        versions = rollback_service.get_available_versions()
-        
-        if versions is not None:
-            return {
-                "success": True,
-                "message": f"롤백 가능한 버전 {len(versions)}개 조회",
-                "data": versions
-            }
-        else:
-            return {
-                "success": False,
-                "message": "롤백 가능한 버전 조회에 실패했습니다",
-                "data": []
-            }
-            
-    except Exception as e:
-        logger.error(f"모델 버전 조회 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"모델 버전 조회 중 오류 발생: {str(e)}")
-
-@app.post("/api/ai/model-rollback")
-async def rollback_model_version(request: ModelRollbackRequest):
-    """모델 버전 롤백"""
-    try:
-        logger.info(f"모델 롤백 요청 - 버전 ID: {request.version_id}, 이유: {request.reason}")
-        
-        rollback_service = get_rollback_service()
-        result = rollback_service.rollback_to_version(request.version_id, request.reason)
-        
-        if result['success']:
-            return {
-                "success": True,
-                "message": result['message'],
-                "data": {
-                    "version_id": result['version_id'],
-                    "backup_path": result.get('backup_path'),
-                    "timestamp": result['timestamp']
-                }
-            }
-        else:
-            return {
-                "success": False,
-                "message": result['message'],
-                "data": result
-            }
-            
-    except Exception as e:
-        logger.error(f"모델 롤백 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"모델 롤백 중 오류 발생: {str(e)}")
-
-@app.get("/api/ai/model-versions/comparison")
-async def get_model_version_comparison():
-    """모델 버전 성능 비교"""
-    try:
-        logger.info("모델 버전 성능 비교 요청")
-        
-        rollback_service = get_rollback_service()
-        comparison = rollback_service.get_version_comparison()
-        
-        if comparison is not None:
-            return {
-                "success": True,
-                "message": "모델 버전 성능 비교 조회 성공",
-                "data": comparison
-            }
-        else:
-            return {
-                "success": False,
-                "message": "모델 버전 성능 비교 조회에 실패했습니다",
-                "data": None
-            }
-            
-    except Exception as e:
-        logger.error(f"모델 성능 비교 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"모델 성능 비교 중 오류 발생: {str(e)}")
-
-@app.post("/api/ai/model-versions/cleanup-backups")
-async def cleanup_model_backups():
-    """오래된 모델 백업 파일 정리"""
-    try:
-        logger.info("모델 백업 정리 요청")
-        
-        rollback_service = get_rollback_service()
-        deleted_count = rollback_service.cleanup_old_backups(keep_count=10)
-        
-        return {
-            "success": True,
-            "message": f"백업 파일 정리 완료: {deleted_count}개 삭제",
-            "data": {
-                "deleted_count": deleted_count
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"백업 정리 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"백업 정리 중 오류 발생: {str(e)}")
-
-@app.post("/api/ai/model-performance/evaluate")
-async def evaluate_model_performance(request: PerformanceEvaluationRequest):
-    """모델 성능 평가"""
-    try:
-        logger.info(f"모델 성능 평가 요청 - 버전 ID: {request.version_id}")
-        
-        performance_tracker = get_performance_tracker()
-        
-        if request.version_id is None:
-            # 현재 모델 평가
-            metrics = performance_tracker.evaluate_current_model()
-            if metrics:
-                return {
-                    "success": True,
-                    "message": "현재 모델 성능 평가 완료",
-                    "data": metrics
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": "현재 모델 성능 평가에 실패했습니다",
-                    "data": None
-                }
-        else:
-            # 특정 버전 평가 (백엔드에서 정보 조회)
-            return {
-                "success": False,
-                "message": "특정 버전 평가는 아직 구현되지 않았습니다",
-                "data": None
-            }
-            
-    except Exception as e:
-        logger.error(f"모델 성능 평가 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"모델 성능 평가 중 오류 발생: {str(e)}")
-
-@app.get("/api/ai/model-performance/report")
-async def get_performance_report(version_id: int = None):
-    """모델 성능 리포트 생성"""
-    try:
-        logger.info(f"성능 리포트 생성 요청 - 버전 ID: {version_id}")
-        
-        performance_tracker = get_performance_tracker()
-        report = performance_tracker.generate_performance_report(version_id)
-        
-        if report:
-            return {
-                "success": True,
-                "message": "성능 리포트 생성 완료",
-                "data": {
-                    "report": report,
-                    "version_id": version_id,
-                    "timestamp": datetime.now().isoformat()
-                }
-            }
-        else:
-            return {
-                "success": False,
-                "message": "성능 리포트 생성에 실패했습니다",
-                "data": None
-            }
-            
-    except Exception as e:
-        logger.error(f"성능 리포트 생성 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"성능 리포트 생성 중 오류 발생: {str(e)}")
-
-@app.post("/api/ai/model-performance/update-version")
-async def update_version_performance(version_id: int):
-    """특정 모델 버전의 성능 정보 업데이트"""
-    try:
-        logger.info(f"모델 버전 성능 업데이트 요청 - 버전 ID: {version_id}")
-        
-        performance_tracker = get_performance_tracker()
-        
-        # 현재 모델로 성능 평가
-        metrics = performance_tracker.evaluate_current_model()
-        if not metrics:
-            return {
-                "success": False,
-                "message": "성능 평가에 실패했습니다",
-                "data": None
-            }
-        
-        # 백엔드에 성능 정보 업데이트
-        success = performance_tracker.update_model_version_performance(version_id, metrics)
-        
-        if success:
-            return {
-                "success": True,
-                "message": f"모델 버전 {version_id} 성능 정보 업데이트 완료",
-                "data": {
-                    "version_id": version_id,
-                    "accuracy": metrics['accuracy'],
-                    "f1_score": metrics['f1_score_weighted']
-                }
-            }
-        else:
-            return {
-                "success": False,
-                "message": "성능 정보 업데이트에 실패했습니다",
-                "data": None
-            }
-            
-    except Exception as e:
-        logger.error(f"성능 정보 업데이트 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"성능 정보 업데이트 중 오류 발생: {str(e)}")
-
-# ============================================
-# 재학습 스케줄러 관리 API
-# ============================================
-
-@app.post("/api/ai/scheduler/start")
-async def start_scheduler():
-    """재학습 스케줄러 시작"""
-    try:
-        logger.info("재학습 스케줄러 시작 요청")
-        
-        scheduler = get_scheduler()
-        scheduler.start_scheduler()
-        
-        return {
-            "success": True,
-            "message": "재학습 스케줄러가 시작되었습니다",
-            "data": scheduler.get_status()
-        }
-        
-    except Exception as e:
-        logger.error(f"스케줄러 시작 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"스케줄러 시작 중 오류 발생: {str(e)}")
-
-@app.post("/api/ai/scheduler/stop")
-async def stop_scheduler():
-    """재학습 스케줄러 중지"""
-    try:
-        logger.info("재학습 스케줄러 중지 요청")
-        
-        scheduler = get_scheduler()
-        scheduler.stop_scheduler()
-        
-        return {
-            "success": True,
-            "message": "재학습 스케줄러가 중지되었습니다",
-            "data": scheduler.get_status()
-        }
-        
-    except Exception as e:
-        logger.error(f"스케줄러 중지 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"스케줄러 중지 중 오류 발생: {str(e)}")
-
-@app.get("/api/ai/scheduler/status")
-async def get_scheduler_status():
-    """재학습 스케줄러 상태 조회"""
-    try:
-        scheduler = get_scheduler()
-        status = scheduler.get_status()
-        
-        return {
-            "success": True,
-            "message": "스케줄러 상태 조회 완료",
-            "data": status
-        }
-        
-    except Exception as e:
-        logger.error(f"스케줄러 상태 조회 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"스케줄러 상태 조회 중 오류 발생: {str(e)}")
-
-class SchedulerConfigUpdate(BaseModel):
-    min_feedback_count: int = None
-    check_interval_minutes: int = None
-    auto_activation_threshold: float = None
-    max_daily_retrains: int = None
-    enable_auto_activation: bool = None
-    enable_performance_monitoring: bool = None
-
-@app.post("/api/ai/scheduler/config")
-async def update_scheduler_config(config: SchedulerConfigUpdate):
-    """재학습 스케줄러 설정 업데이트"""
-    try:
-        logger.info(f"스케줄러 설정 업데이트 요청: {config.dict(exclude_none=True)}")
-        
-        scheduler = get_scheduler()
-        
-        # None이 아닌 값들만 업데이트
-        update_data = {k: v for k, v in config.dict().items() if v is not None}
-        
-        if update_data:
-            scheduler.update_config(update_data)
-            
-            return {
-                "success": True,
-                "message": "스케줄러 설정이 업데이트되었습니다",
-                "data": {
-                    "updated_config": update_data,
-                    "current_status": scheduler.get_status()
-                }
-            }
-        else:
-            return {
-                "success": False,
-                "message": "업데이트할 설정이 없습니다",
-                "data": None
-            }
-        
-    except Exception as e:
-        logger.error(f"스케줄러 설정 업데이트 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"스케줄러 설정 업데이트 중 오류 발생: {str(e)}")
-
-@app.post("/api/ai/scheduler/manual-trigger")
-async def manual_trigger_retrain():
-    """수동 재학습 트리거"""
-    try:
-        logger.info("수동 재학습 트리거 요청")
-        
-        scheduler = get_scheduler()
-        result = scheduler.manual_trigger()
-        
-        return {
-            "success": result,
-            "message": "수동 재학습이 완료되었습니다" if result else "수동 재학습에 실패했습니다",
-            "data": {
-                "retrain_result": result,
-                "scheduler_status": scheduler.get_status()
-            }
-        }
-        
-    except Exception as e:
-        logger.error(f"수동 재학습 트리거 중 오류 발생: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"수동 재학습 트리거 중 오류 발생: {str(e)}")
 
 def build_story_prompt(request: BackgroundStoryRequest) -> str:
     prompt = f"""다음 정보를 바탕으로 입양 동물의 감동적인 배경 스토리를 작성해주세요:
@@ -765,8 +474,50 @@ def build_story_prompt(request: BackgroundStoryRequest) -> str:
     
     return prompt
 
-import asyncio
-import threading
+@app.post("/classify-image")
+async def classify_image(file: UploadFile = File(...)):
+    """
+    이미지 업로드 후 CLIP으로 분류, LLM으로 보완
+    """
+    try:
+        image_bytes = await file.read()
+        # CLIP 분류
+        result = classifier.classify_image(image_bytes)
+        category = result["category"]
+        confidence = result["confidence"]
+        
+        # LLM으로 결과 보완
+        image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+        prompt = f"""
+        다음 이미지는 펫 용품입니다. CLIP 모델이 '{category}'로 분류했습니다 (확률: {confidence:.4f}).
+        이미지를 보고 해당 용품이 다음 카테고리 중 어디에 속하는지 확인하고, 간단한 설명을 제공해주세요:
+        - 강아지 약
+        - 사료
+        - 장난감
+        - 옷
+        - 용품
+        - 간식
+        """
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+                ]}
+            ],
+            max_tokens=200
+        )
+        llm_result = response.choices[0].message.content.strip()
+        
+        logger.info(f"Image classified: CLIP={result}, LLM={llm_result}")
+        return {
+            "clip_result": result,
+            "llm_result": llm_result
+        }
+    except Exception as e:
+        logger.error(f"Image classification endpoint failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"이미지 분류 중 오류 발생: {str(e)}")
 
 @app.post("/update-embeddings")
 async def update_embeddings(request: EmbeddingUpdateRequest = None):
@@ -778,10 +529,12 @@ async def update_embeddings(request: EmbeddingUpdateRequest = None):
         updater = EmbeddingUpdater()
         
         # 임베딩이 없는 상품 수 확인
-        count = updater.count_products_without_embedding()
-        logger.info(f"임베딩이 없는 상품 수: {count}개")
+        naver_count = updater.count_naver_products_without_embedding()
+        regular_count = updater.count_regular_products_without_embedding()
+        total_count = naver_count + regular_count
+        logger.info(f"임베딩이 없는 상품 수: 네이버 {naver_count}개, 일반 {regular_count}개, 총 {total_count}개")
         
-        if count == 0:
+        if total_count == 0:
             logger.info("모든 상품에 임베딩이 이미 설정되어 있습니다.")
             return {
                 "success": True,
@@ -806,8 +559,8 @@ async def update_embeddings(request: EmbeddingUpdateRequest = None):
         logger.info("임베딩 업데이트가 백그라운드에서 시작되었습니다.")
         return {
             "success": True,
-            "message": f"임베딩 업데이트가 백그라운드에서 시작되었습니다. 총 {count}개 상품을 처리합니다.",
-            "updated_count": count,
+            "message": f"임베딩 업데이트가 백그라운드에서 시작되었습니다. 총 {total_count}개 상품을 처리합니다.",
+            "updated_count": total_count,
             "status": "processing"
         }
         
@@ -820,11 +573,15 @@ async def get_embedding_status():
     """임베딩 처리 상태 확인"""
     try:
         updater = EmbeddingUpdater()
-        total_products = updater.count_products_without_embedding()
+        naver_count = updater.count_naver_products_without_embedding()
+        regular_count = updater.count_regular_products_without_embedding()
+        total_products = naver_count + regular_count
         
         return {
             "success": True,
             "remaining_products": total_products,
+            "naver_remaining": naver_count,
+            "regular_remaining": regular_count,
             "status": "completed" if total_products == 0 else "processing",
             "message": "모든 임베딩이 완료되었습니다." if total_products == 0 else f"임베딩 처리 중입니다. 남은 상품: {total_products}개"
         }

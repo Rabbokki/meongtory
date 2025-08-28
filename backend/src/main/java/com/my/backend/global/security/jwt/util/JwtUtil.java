@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 import java.security.Key;
 import java.util.Base64;
 import java.util.Date;
+import java.util.Enumeration;
 import java.util.Optional;
 
 
@@ -32,7 +33,7 @@ public class JwtUtil {
     private final RefreshTokenRepository refreshTokenRepository;
 
     private static final long ACCESS_TIME = 24 * 60 * 60 * 1000L;
-    private static final long REFRESH_TIME = 24 * 60 * 60 * 2000L;
+    private static final long REFRESH_TIME = 7 * 24 * 60 * 60 * 1000L;
     public static final String ACCESS_TOKEN = "Access_Token";
     public static final String REFRESH_TOKEN = "Refresh_Token";
 
@@ -50,16 +51,26 @@ public class JwtUtil {
     // 헤더에서 토큰 가져오기
     public String getHeaderToken(HttpServletRequest request, String headerName) {
         String token = request.getHeader(headerName);
+        if (token == null) {
+            // 대소문자 구분 없이 헤더를 다시 확인
+            Enumeration<String> headerNames = request.getHeaderNames();
+            while (headerNames.hasMoreElements()) {
+                String name = headerNames.nextElement();
+                if (name.equalsIgnoreCase(headerName)) {
+                    token = request.getHeader(name);
+                    break;
+                }
+            }
+        }
         log.info("Header {} value: {}", headerName, token);
         return token;
     }
 
     // 토큰 생성
     public TokenDto createAllToken(String email, String role) {
-        return new TokenDto(
-                createToken(email, role, "Access"),
-                createToken(email, role, "Refresh")
-        );
+        String accessToken = createToken(email, role, "Access");
+        String refreshToken = createToken(email, role, "Refresh");
+        return new TokenDto(accessToken, refreshToken);
     }
 
     public String createToken(String email, String role, String type) {

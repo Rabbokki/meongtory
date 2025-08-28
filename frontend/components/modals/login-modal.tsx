@@ -9,14 +9,20 @@ import { Label } from "@/components/ui/label";
 import { X, Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
-import { useAuth } from "@/components/navigation";
 import { getBackendUrl } from "@/lib/api";
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSwitchToSignup: () => void;
-  onLoginSuccess?: () => void;
+  onLoginSuccess: (loginData: {
+    id: number;
+    email: string;
+    name: string;
+    role: string;
+    accessToken: string;
+    refreshToken: string;
+  }) => void;
 }
 
 export default function LoginModal({
@@ -30,7 +36,6 @@ export default function LoginModal({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-  const { setIsLoggedIn, setCurrentUser, setIsAdmin, refreshAccessToken, checkLoginStatus } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,35 +61,61 @@ export default function LoginModal({
         { headers: { "Content-Type": "application/json" } }
       );
 
-      const { data } = response.data;
-      const { accessToken, refreshToken } = data;
+      // 수정: 로그인 요청 URL 로그 추가
+      console.log("로그인 요청 URL:", `${getBackendUrl()}/api/accounts/login`);
+      console.log("로그인 응답:", response.data);
 
+      const { data } = response.data;
+      const { id, email: userEmail, name, role, accessToken, refreshToken } = data;
+
+      // 로컬 스토리지에 토큰 저장
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
+      console.log("=== 로그인 후 localStorage 상태 ===");
+      console.log("accessToken:", localStorage.getItem("accessToken"));
+      console.log("refreshToken:", localStorage.getItem("refreshToken"));
+      localStorage.setItem("email", userEmail);
+      localStorage.setItem("nickname", name);
+      localStorage.setItem("role", role);
 
+      // 수정: 토큰 저장 후 확인 로그 강화
       console.log("=== 로그인 모달에서 토큰 저장 ===");
       console.log("저장된 Access Token:", accessToken ? "존재함" : "없음");
       console.log("저장된 Refresh Token:", refreshToken ? "존재함" : "없음");
       console.log("Access Token 길이:", accessToken?.length);
       console.log("localStorage에서 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
 
-      // 상태 업데이트는 checkLoginStatus에 위임
-      await checkLoginStatus();
+      // onLoginSuccess 호출
+      onLoginSuccess({
+        id,
+        email: userEmail,
+        name,
+        role,
+        accessToken,
+        refreshToken,
+      });
 
       toast.success("로그인 성공");
-      if (onLoginSuccess) {
-        onLoginSuccess();
-      }
       onClose();
     } catch (err: any) {
+      console.error("로그인 오류:", err.response?.data?.message || err.message);
       if (err.response && err.response.data) {
         setError(err.response.data.message || "로그인 중 오류가 발생했습니다.");
+        toast.error(err.response.data.message || "로그인에 실패했습니다", { duration: 5000 });
       } else {
         setError("서버와 연결할 수 없습니다.");
+        toast.error("서버와 연결할 수 없습니다.", { duration: 5000 });
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // 수정: OAuth 요청 URL 디버깅 함수 추가
+  const handleOAuthLogin = (provider: string) => {
+    const oauthUrl = `${getBackendUrl()}/oauth2/authorization/${provider}`;
+    console.log(`${provider} OAuth 요청 URL:`, oauthUrl);
+    window.location.href = oauthUrl;
   };
 
   if (!isOpen) return null;
@@ -161,7 +192,7 @@ export default function LoginModal({
           <div className="space-y-3">
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/google`)}
+              onClick={() => handleOAuthLogin("google")} // 수정: handleOAuthLogin 사용
               className="w-full bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -186,7 +217,7 @@ export default function LoginModal({
             </Button>
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/kakao`)}
+              onClick={() => handleOAuthLogin("kakao")} // 수정: handleOAuthLogin 사용
               className="w-full bg-yellow-400 text-black hover:bg-yellow-500"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
@@ -199,7 +230,7 @@ export default function LoginModal({
             </Button>
             <Button
               type="button"
-              onClick={() => (window.location.href = `${getBackendUrl()}/oauth2/authorization/naver`)}
+              onClick={() => handleOAuthLogin("naver")} // 수정: handleOAuthLogin 사용
               className="w-full bg-green-500 text-white hover:bg-green-600"
             >
               <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
