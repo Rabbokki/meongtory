@@ -108,6 +108,7 @@ public class WebSecurityConfig {
                                 "/api/insurance/**",
                                 "/api/recent/**",
                                 "/api/chatbot/**",
+                                "/api/mypet/internal/**",
                                 "/error",
                                 "/actuator/**",
                                 "/api/naver-shopping/**",
