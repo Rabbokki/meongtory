@@ -39,7 +39,7 @@ from category_classifier import CategoryClassifier
 from diary.diary_image_classifier import DiaryImageClassifier
 
 # embedding_update.py 모듈 import
-from embedding_update import EmbeddingUpdater
+from store.embedding_update import EmbeddingUpdater
 
 async def get_mypet_info(pet_id: int):
     """백엔드에서 MyPet 정보를 가져오는 함수 (내부 통신)"""
@@ -320,7 +320,7 @@ async def search_with_mypet(request: dict):
         logger.info(f"MyPet 검색 요청: query='{query}', petId={pet_id}, limit={limit}")
         
         # embedding_update.py의 MyPet 태깅 검색 사용
-        from embedding_update import EmbeddingUpdater
+        from store.embedding_update import EmbeddingUpdater
         
         updater = EmbeddingUpdater()
         results = await updater.search_similar_products_with_pet(query, pet_id, limit)

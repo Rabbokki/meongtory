@@ -488,14 +488,11 @@ export default function MyPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">마이페이지</h1>
             <p className="text-gray-600 mt-2">{userInfo.name}님의 정보</p>
           </div>
-          <Button onClick={() => window.history.back()} variant="outline">
-            이전 페이지로
-          </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
