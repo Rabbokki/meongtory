@@ -92,7 +92,6 @@ export default function LoginModal({
         refreshToken,
       });
 
-      toast.success("로그인 성공");
       onClose();
     } catch (err: any) {
       console.error("로그인 오류:", err.response?.data?.message || err.message);

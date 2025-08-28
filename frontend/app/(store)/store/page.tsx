@@ -1199,7 +1199,11 @@ export default function StorePage({
               placeholder="상품 검색"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-4 pr-10 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400 hover:border-yellow-300"
+              className="pl-4 pr-10 py-3 border-2 border-yellow-300 rounded-full"
+              style={{ 
+                borderColor: '#fbbf24',
+                outline: 'none'
+              }}
               onKeyPress={(e) => {
                 if (e.key === 'Enter') {
                   handleUnifiedSearch();
@@ -1209,12 +1213,68 @@ export default function StorePage({
             <Button
               size="sm"
               onClick={handleUnifiedSearch}
-              className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-yellow-400 hover:bg-yellow-500 text-black rounded-full w-10 h-10 p-0 flex items-center justify-center"
+              className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-yellow-400 text-black rounded-full w-10 h-10 p-0 flex items-center justify-center"
+              style={{ 
+                backgroundColor: '#fbbf24',
+                outline: 'none'
+              }}
             >
               <Search className="w-5 h-5" />
             </Button>
           </div>
         </div>
+        
+        <style jsx global>{`
+          .relative input:hover {
+            border-color: #fbbf24 !important;
+            outline: none !important;
+          }
+          .relative input:focus {
+            border-color: #fbbf24 !important;
+            outline: none !important;
+            box-shadow: none !important;
+            ring: none !important;
+            ring-color: transparent !important;
+            ring-offset: none !important;
+          }
+          .relative input:focus-visible {
+            border-color: #fbbf24 !important;
+            outline: none !important;
+            box-shadow: none !important;
+            ring: none !important;
+            ring-color: transparent !important;
+            ring-offset: none !important;
+          }
+          .relative button:hover {
+            background-color: #fbbf24 !important;
+            outline: none !important;
+          }
+          .relative button:focus {
+            background-color: #fbbf24 !important;
+            outline: none !important;
+            box-shadow: none !important;
+            ring: none !important;
+            ring-color: transparent !important;
+            ring-offset: none !important;
+          }
+          .relative button:focus-visible {
+            background-color: #fbbf24 !important;
+            outline: none !important;
+            box-shadow: none !important;
+            ring: none !important;
+            ring-color: transparent !important;
+            ring-offset: none !important;
+          }
+          /* 모든 포커스 관련 스타일 제거 */
+          *:focus {
+            outline: none !important;
+            box-shadow: none !important;
+          }
+          *:focus-visible {
+            outline: none !important;
+            box-shadow: none !important;
+          }
+        `}</style>
 
 
 

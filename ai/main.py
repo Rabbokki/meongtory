@@ -34,7 +34,7 @@ from category_classifier import CategoryClassifier
 from diary.diary_image_classifier import DiaryImageClassifier
 
 # embedding_update.py 모듈 import
-from embedding_update import EmbeddingUpdater
+from store.embedding_update import EmbeddingUpdater
 
 # 로깅 설정
 logging.basicConfig(level=logging.DEBUG)

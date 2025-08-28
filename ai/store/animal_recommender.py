@@ -58,7 +58,7 @@ class AnimalRecommender:
             prompt = self._build_recommendation_prompt(age, breed, pet_type, season, product_category, product_name, recommendation_type)
             
             response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": "당신은 반려동물 상품 추천 전문가입니다. 사용자의 펫 정보와 요청에 맞는 맞춤형 상품을 추천해주세요."},
                     {"role": "user", "content": prompt}
