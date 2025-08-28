@@ -61,14 +61,12 @@ export default function LoginModal({
         { headers: { "Content-Type": "application/json" } }
       );
 
-      // 수정: 로그인 요청 URL 로그 추가
       console.log("로그인 요청 URL:", `${getBackendUrl()}/api/accounts/login`);
       console.log("로그인 응답:", response.data);
 
       const { data } = response.data;
       const { id, email: userEmail, name, role, accessToken, refreshToken } = data;
 
-      // 로컬 스토리지에 토큰 저장
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
       console.log("=== 로그인 후 localStorage 상태 ===");
@@ -78,14 +76,12 @@ export default function LoginModal({
       localStorage.setItem("nickname", name);
       localStorage.setItem("role", role);
 
-      // 수정: 토큰 저장 후 확인 로그 강화
       console.log("=== 로그인 모달에서 토큰 저장 ===");
       console.log("저장된 Access Token:", accessToken ? "존재함" : "없음");
       console.log("저장된 Refresh Token:", refreshToken ? "존재함" : "없음");
       console.log("Access Token 길이:", accessToken?.length);
       console.log("localStorage에서 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
 
-      // onLoginSuccess 호출
       onLoginSuccess({
         id,
         email: userEmail,
@@ -111,11 +107,55 @@ export default function LoginModal({
     }
   };
 
-  // 수정: OAuth 요청 URL 디버깅 함수 추가
+  // 수정: OAuth 로그인 후 리디렉션 처리 추가
   const handleOAuthLogin = (provider: string) => {
     const oauthUrl = `${getBackendUrl()}/oauth2/authorization/${provider}`;
     console.log(`${provider} OAuth 요청 URL:`, oauthUrl);
-    window.location.href = oauthUrl;
+    
+    // 추가: 리디렉션 후 토큰 처리
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get("success");
+    const accessToken = urlParams.get("accessToken");
+    const refreshToken = urlParams.get("refreshToken");
+
+    if (success === "true" && accessToken && refreshToken) {
+      console.log("OAuth 로그인 성공, 토큰 처리 중...");
+      localStorage.setItem("accessToken", accessToken);
+      localStorage.setItem("refreshToken", refreshToken);
+      console.log("저장된 Access Token:", accessToken);
+      console.log("저장된 Refresh Token:", refreshToken);
+
+      // 사용자 정보 조회
+      axios
+        .get(`${getBackendUrl()}/api/accounts/me`, {
+          headers: { Access_Token: accessToken, access_token: accessToken },
+        })
+        .then((response) => {
+          const { id, email, name, role } = response.data.data;
+          localStorage.setItem("email", email);
+          localStorage.setItem("nickname", name);
+          localStorage.setItem("role", role);
+          onLoginSuccess({
+            id,
+            email,
+            name,
+            role,
+            accessToken,
+            refreshToken,
+          });
+          toast.success(`${provider}로 로그인 성공`);
+          onClose();
+          // URL 쿼리 파라미터 정리
+          window.history.replaceState({}, document.title, window.location.pathname);
+        })
+        .catch((err) => {
+          console.error("사용자 정보 조회 실패:", err);
+          setError("OAuth 로그인 후 사용자 정보 조회에 실패했습니다.");
+          toast.error("로그인 처리에 실패했습니다.", { duration: 5000 });
+        });
+    } else {
+      window.location.href = oauthUrl;
+    }
   };
 
   if (!isOpen) return null;
