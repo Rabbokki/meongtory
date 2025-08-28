@@ -56,6 +56,11 @@ public class AccountService {
                         .age(parseAge(requestDto.getPetAge()))
                         .gender(MyPet.Gender.UNKNOWN)
                         .type(requestDto.getPet().name()) // PetType Enum 값을 String으로 설정
+                        .medicalHistory("")
+                        .vaccinations("")
+                        .notes("")
+                        .microchipId("")
+                        .specialNeeds("")
                         .build();
                 myPetRepository.save(myPet);
                 log.info("펫 정보 저장 완료: email={}", account.getEmail());

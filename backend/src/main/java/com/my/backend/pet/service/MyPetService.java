@@ -40,6 +40,11 @@ public class MyPetService {
                 .type(requestDto.getType())
                 .weight(requestDto.getWeight())
                 .imageUrl(requestDto.getImageUrl())
+                .medicalHistory(requestDto.getMedicalHistory())
+                .vaccinations(requestDto.getVaccinations())
+                .notes(requestDto.getNotes())
+                .microchipId(requestDto.getMicrochipId())
+                .specialNeeds(requestDto.getSpecialNeeds())
                 .build();
 
         MyPet savedPet = myPetRepository.save(myPet);
@@ -58,6 +63,11 @@ public class MyPetService {
         myPet.setType(requestDto.getType());
         myPet.setWeight(requestDto.getWeight());
         myPet.setImageUrl(requestDto.getImageUrl());
+        myPet.setMedicalHistory(requestDto.getMedicalHistory());
+        myPet.setVaccinations(requestDto.getVaccinations());
+        myPet.setNotes(requestDto.getNotes());
+        myPet.setMicrochipId(requestDto.getMicrochipId());
+        myPet.setSpecialNeeds(requestDto.getSpecialNeeds());
 
         MyPet updatedPet = myPetRepository.save(myPet);
         return convertToResponseDto(updatedPet);
@@ -138,6 +148,11 @@ public class MyPetService {
                 .imageUrl(myPet.getImageUrl())
                 .createdAt(myPet.getCreatedAt())
                 .updatedAt(myPet.getUpdatedAt())
+                .medicalHistory(myPet.getMedicalHistory())
+                .vaccinations(myPet.getVaccinations())
+                .notes(myPet.getNotes())
+                .microchipId(myPet.getMicrochipId())
+                .specialNeeds(myPet.getSpecialNeeds())
                 .build();
     }
 

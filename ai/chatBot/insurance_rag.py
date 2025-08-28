@@ -212,11 +212,19 @@ def get_insurance_prompt_template():
 - 300자 이내로 답변하세요
 - 보험 전문 용어는 쉽게 풀어서 설명하세요
 
+[펫 정보 고려사항]
+- 펫의 나이, 품종, 체중을 고려한 보험 추천을 해주세요
+- 의료기록이 있는 경우, 해당 질병이나 치료와 관련된 보장 내역을 우선적으로 설명하세요
+- 특별관리사항이 있는 경우, 그에 맞는 보험 상품을 추천하세요
+- 예방접종 기록을 참고하여 적절한 보험 상품을 제안하세요
+- 마이크로칩 정보가 있으면 보험 가입 시 활용할 수 있음을 안내하세요
+
 [주의사항]
 - Context에 없는 정보는 추측하지 마세요
 - 보험 가입을 강요하지 마세요
 - 객관적이고 정확한 정보만 제공하세요
 - 링크가 있는 상품은 반드시 링크를 포함하세요
+- 펫의 의료기록을 고려한 맞춤형 추천을 제공하세요
 
 사용자 질문: {query}
 
@@ -247,19 +255,53 @@ async def process_insurance_rag_query(query: str, pet_id: Optional[int] = None):
             from main import get_mypet_info
             pet_info = await get_mypet_info(pet_id)
             if pet_info:
-                # 펫 정보 추출
-                pet_name = pet_info.get('name', '')
-                breed = pet_info.get('breed', '')
-                age = pet_info.get('age', '')
-                gender = pet_info.get('gender', '')
-                weight = pet_info.get('weight', '')
+                # pet_info는 문자열이므로 파싱하여 정보 추출
+                import re
+                
+                # 정규표현식으로 펫 정보 파싱
+                name_match = re.search(r'이름: ([^,]+)', pet_info)
+                breed_match = re.search(r'품종: ([^,]+)', pet_info)
+                age_match = re.search(r'나이: ([^,]+)', pet_info)
+                gender_match = re.search(r'성별: ([^,]+)', pet_info)
+                weight_match = re.search(r'체중: ([^,]+)', pet_info)
+                microchip_match = re.search(r'마이크로칩: ([^,]+)', pet_info)
+                medical_match = re.search(r'의료기록: ([^,]+)', pet_info)
+                vaccination_match = re.search(r'예방접종: ([^,]+)', pet_info)
+                special_match = re.search(r'특별관리: ([^,]+)', pet_info)
+                notes_match = re.search(r'메모: ([^,]+)', pet_info)
+                
+                # 정보 추출 (매치되지 않으면 빈 문자열)
+                pet_name = name_match.group(1) if name_match else ''
+                breed = breed_match.group(1) if breed_match else ''
+                age = age_match.group(1) if age_match else ''
+                gender = gender_match.group(1) if gender_match else ''
+                weight = weight_match.group(1) if weight_match else ''
+                microchip_id = microchip_match.group(1) if microchip_match else ''
+                medical_history = medical_match.group(1) if medical_match else ''
+                vaccinations = vaccination_match.group(1) if vaccination_match else ''
+                special_needs = special_match.group(1) if special_match else ''
+                notes = notes_match.group(1) if notes_match else ''
                 
                 # 사용자 질문에서 @태그를 펫 정보로 치환
-                import re
                 pet_tag_pattern = r'@' + re.escape(pet_name)
                 enhanced_query = re.sub(pet_tag_pattern, f"{breed} {age}세 {gender}", query)
                 
-                # 펫 정보를 구조화된 형태로 프롬프트에 포함
+                # 의료기록 정보를 사용자 질문에 추가
+                medical_info = ""
+                if medical_history and medical_history != "없음":
+                    medical_info += f"의료기록: {medical_history}, "
+                if vaccinations and vaccinations != "없음":
+                    medical_info += f"예방접종: {vaccinations}, "
+                if special_needs and special_needs != "없음":
+                    medical_info += f"특별관리: {special_needs}, "
+                if notes and notes != "없음":
+                    medical_info += f"메모: {notes}, "
+                
+                # 의료기록 정보가 있으면 사용자 질문에 추가
+                if medical_info:
+                    enhanced_query += f" ({medical_info.strip(', ')})"
+                
+                # 펫 정보를 구조화된 형태로 프롬프트에 포함 (의료기록 포함)
                 final_query = f"""
 펫 정보:
 - 이름: {pet_name}
@@ -267,6 +309,11 @@ async def process_insurance_rag_query(query: str, pet_id: Optional[int] = None):
 - 나이: {age}세
 - 성별: {gender}
 - 체중: {weight}kg
+- 마이크로칩: {microchip_id}
+- 의료기록: {medical_history}
+- 예방접종: {vaccinations}
+- 특별관리사항: {special_needs}
+- 메모: {notes}
 
 사용자 질문: {enhanced_query}
                 """.strip()
@@ -350,6 +397,13 @@ def filter_insurance_products(products, query):
             '검사비': ['검사비', '검사', '진단'],
             '약품비': ['약품비', '약', '처방']
         },
+        '의료기록관련': {
+            '만성질환': ['만성', '당뇨', '심장병', '관절염', '알레르기', '피부병'],
+            '수술이력': ['수술', '중성화', '불임수술', '외과수술'],
+            '예방접종': ['예방접종', '백신', '접종'],
+            '특별관리': ['특별관리', '식이요법', '운동요법', '물리치료'],
+            '마이크로칩': ['마이크로칩', '칩', '등록']
+        },
         '특별조건': {
             '특약': ['특약', '추가보장', '선택보장'],
             '할인': ['할인', '혜택', '이벤트'],
@@ -382,23 +436,29 @@ def filter_insurance_products(products, query):
                 if any(keyword in product_text for keyword in keywords):
                     score += 6
         
-        # 4. 특별조건 필터링
+        # 4. 의료기록관련 필터링
+        for medical_type, keywords in search_conditions['의료기록관련'].items():
+            if any(keyword in query_lower for keyword in keywords):
+                if any(keyword in product_text for keyword in keywords):
+                    score += 5
+        
+        # 5. 특별조건 필터링
         for special_type, keywords in search_conditions['특별조건'].items():
             if any(keyword in query_lower for keyword in keywords):
                 if any(keyword in product_text for keyword in keywords):
                     score += 4
         
-        # 5. 일반 키워드 매칭
+        # 6. 일반 키워드 매칭
         general_keywords = ['보험', '펫보험', '동물보험', '가입', '보장', '보상', '보험료', '상품']
         for keyword in general_keywords:
             if keyword in query_lower and keyword in product_text:
                 score += 2
         
-        # 6. 정확한 문구 매칭 (높은 점수)
+        # 7. 정확한 문구 매칭 (높은 점수)
         if query_lower in product_text:
             score += 15
         
-        # 7. 제품명 매칭
+        # 8. 제품명 매칭
         product_name = metadata.get('product_name', '').lower()
         if query_lower in product_name:
             score += 12

@@ -60,7 +60,18 @@ async def get_mypet_info(pet_id: int):
                 pet_data = response.json()
                 if pet_data.get('success'):
                     pet = pet_data.get('data', {})
-                    return f"이름: {pet.get('name', 'N/A')}, 품종: {pet.get('breed', 'N/A')}, 나이: {pet.get('age', 'N/A')}세, 성별: {pet.get('gender', 'N/A')}, 체중: {pet.get('weight', 'N/A')}kg"
+                    # 의료기록 정보도 포함
+                    medical_info = ""
+                    if pet.get('medicalHistory'):
+                        medical_info += f"의료기록: {pet.get('medicalHistory')}, "
+                    if pet.get('vaccinations'):
+                        medical_info += f"예방접종: {pet.get('vaccinations')}, "
+                    if pet.get('specialNeeds'):
+                        medical_info += f"특별관리: {pet.get('specialNeeds')}, "
+                    if pet.get('notes'):
+                        medical_info += f"메모: {pet.get('notes')}, "
+                    
+                    return f"이름: {pet.get('name', 'N/A')}, 품종: {pet.get('breed', 'N/A')}, 나이: {pet.get('age', 'N/A')}세, 성별: {pet.get('gender', 'N/A')}, 체중: {pet.get('weight', 'N/A')}kg, 마이크로칩: {pet.get('microchipId', 'N/A')}, {medical_info}"
                 else:
                     logger.warning(f"Failed to get pet info for petId {pet_id}: {pet_data.get('error')}")
                     return None
@@ -833,14 +844,17 @@ async def search_embeddings(request: EmbeddingSearchRequest):
         
         updater = EmbeddingUpdater()
         
-        # 검색어를 임베딩으로 변환
-        query_embedding = updater.generate_embedding(request.query)
-        if not query_embedding:
-            logger.error("검색어 임베딩 생성 실패")
-            return {"success": False, "results": [], "message": "검색어 임베딩 생성에 실패했습니다."}
+        # @태그가 있는지 확인
+        import re
+        pet_tags = re.findall(r'@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)', request.query)
         
-        # PostgreSQL에서 cosine similarity로 유사한 상품 검색
-        similar_products = updater.search_similar_products(query_embedding, request.limit)
+        if pet_tags:
+            # @태그가 있으면 MyPet 검색 사용 (petId는 별도로 전달받아야 함)
+            logger.info(f"@태그 발견: {pet_tags}, 일반 검색으로 처리")
+            # TODO: petId를 어떻게 받을지 결정 필요
+        
+        # 일반 임베딩 검색 수행
+        similar_products = await updater.search_similar_products(request.query, request.limit)
         
         logger.info(f"임베딩 검색 완료: {len(similar_products)}개 결과")
         

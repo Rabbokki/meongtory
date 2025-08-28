@@ -88,7 +88,13 @@ export default function MyPage() {
     gender: "UNKNOWN",
     type: "",
     weight: undefined,
-    imageUrl: ""
+    imageUrl: "",
+    // 의료기록 관련 필드들 추가
+    medicalHistory: "",
+    vaccinations: "",
+    notes: "",
+    microchipId: "",
+    specialNeeds: ""
   })
   const [selectedImage, setSelectedImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string>("")
@@ -377,7 +383,13 @@ export default function MyPage() {
         gender: pet.gender || "UNKNOWN",
         type: pet.type || "",
         weight: pet.weight,
-        imageUrl: pet.imageUrl || ""
+        imageUrl: pet.imageUrl || "",
+        // 의료기록 관련 필드들 추가
+        medicalHistory: pet.medicalHistory || "",
+        vaccinations: pet.vaccinations || "",
+        notes: pet.notes || "",
+        microchipId: pet.microchipId || "",
+        specialNeeds: pet.specialNeeds || ""
       })
       setImagePreview(pet.imageUrl || "")
     } else {
@@ -389,7 +401,13 @@ export default function MyPage() {
         gender: "UNKNOWN",
         type: "",
         weight: undefined,
-        imageUrl: ""
+        imageUrl: "",
+        // 의료기록 관련 필드들 추가
+        medicalHistory: "",
+        vaccinations: "",
+        notes: "",
+        microchipId: "",
+        specialNeeds: ""
       })
       setImagePreview("")
     }
@@ -591,7 +609,41 @@ export default function MyPage() {
                                 <span className="font-medium">체중:</span> {pet.weight}kg
                               </div>
                             )}
+                            {pet.microchipId && (
+                              <div>
+                                <span className="font-medium">마이크로칩:</span> {pet.microchipId}
+                              </div>
+                            )}
                           </div>
+                          
+                          {/* 의료기록 정보 표시 */}
+                          {(pet.medicalHistory || pet.vaccinations || pet.specialNeeds || pet.notes) && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              <h4 className="font-medium text-sm text-gray-700 mb-2">의료 정보</h4>
+                              <div className="space-y-2 text-sm text-gray-600">
+                                {pet.medicalHistory && (
+                                  <div>
+                                    <span className="font-medium">의료 기록:</span> {pet.medicalHistory}
+                                  </div>
+                                )}
+                                {pet.vaccinations && (
+                                  <div>
+                                    <span className="font-medium">예방접종:</span> {pet.vaccinations}
+                                  </div>
+                                )}
+                                {pet.specialNeeds && (
+                                  <div>
+                                    <span className="font-medium">특별 관리:</span> {pet.specialNeeds}
+                                  </div>
+                                )}
+                                {pet.notes && (
+                                  <div>
+                                    <span className="font-medium">메모:</span> {pet.notes}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -983,6 +1035,61 @@ export default function MyPage() {
                 value={petForm.weight || ""}
                 onChange={(e) => setPetForm(prev => ({ ...prev, weight: e.target.value ? parseFloat(e.target.value) : undefined }))}
                 placeholder="체중"
+              />
+            </div>
+
+            {/* 의료기록 관련 필드들 추가 */}
+            <div>
+              <Label htmlFor="petMicrochipId">마이크로칩 ID</Label>
+              <Input
+                id="petMicrochipId"
+                value={petForm.microchipId || ""}
+                onChange={(e) => setPetForm(prev => ({ ...prev, microchipId: e.target.value }))}
+                placeholder="마이크로칩 ID"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="petMedicalHistory">의료 기록</Label>
+              <Textarea
+                id="petMedicalHistory"
+                value={petForm.medicalHistory || ""}
+                onChange={(e) => setPetForm(prev => ({ ...prev, medicalHistory: e.target.value }))}
+                placeholder="의료 기록을 입력하세요 (예: 예방접종 완료, 중성화 수술 완료)"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="petVaccinations">예방접종 기록</Label>
+              <Textarea
+                id="petVaccinations"
+                value={petForm.vaccinations || ""}
+                onChange={(e) => setPetForm(prev => ({ ...prev, vaccinations: e.target.value }))}
+                placeholder="예방접종 기록을 입력하세요"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="petSpecialNeeds">특별 관리 사항</Label>
+              <Textarea
+                id="petSpecialNeeds"
+                value={petForm.specialNeeds || ""}
+                onChange={(e) => setPetForm(prev => ({ ...prev, specialNeeds: e.target.value }))}
+                placeholder="특별 관리가 필요한 사항을 입력하세요"
+                rows={3}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="petNotes">추가 메모</Label>
+              <Textarea
+                id="petNotes"
+                value={petForm.notes || ""}
+                onChange={(e) => setPetForm(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="추가 메모를 입력하세요"
+                rows={3}
               />
             </div>
 

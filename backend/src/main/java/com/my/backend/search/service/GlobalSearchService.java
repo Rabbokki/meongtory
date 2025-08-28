@@ -151,12 +151,89 @@ public class GlobalSearchService {
     private List<Object> searchInsurance(String query, PetBasedSearchDto petInfo) {
         log.info("Searching insurance with query: {}, pet: {}", query, petInfo);
         
-        // AI 서비스의 고급 필터링을 사용하므로 모든 상품 반환
-        // 실제 필터링은 AI 서비스(insurance_rag.py)에서 수행
-        List<InsuranceProduct> allProducts = insuranceProductRepository.findAll();
-        log.info("Returning all {} insurance products for AI service filtering", allProducts.size());
+        try {
+            // AI 서비스 호출하여 고급 필터링 수행
+            RestTemplate restTemplate = new RestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            // AI 서비스 요청 데이터 구성
+            Map<String, Object> requestData = new HashMap<>();
+            requestData.put("query", query);
+            if (petInfo != null) {
+                requestData.put("petId", petInfo.getMyPetId());
+            }
+            
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestData, headers);
+            
+            String aiEndpoint = "http://ai:9000/chatbot/insurance";
+            log.info("AI 서비스 호출: {}", aiEndpoint);
+            
+            ResponseEntity<Map> response = restTemplate.postForEntity(aiEndpoint, entity, Map.class);
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                String aiAnswer = (String) responseBody.get("answer");
+                log.info("AI 서비스 응답: {}", aiAnswer);
+                
+                // AI 응답에서 추천된 보험사명 추출하여 필터링
+                List<InsuranceProduct> allProducts = insuranceProductRepository.findAll();
+                List<InsuranceProduct> filteredProducts = filterProductsByAIResponse(allProducts, aiAnswer);
+                
+                log.info("AI 필터링 결과: {}개 상품", filteredProducts.size());
+                return new ArrayList<>(filteredProducts);
+            } else {
+                log.warn("AI 서비스 호출 실패: {}", response.getStatusCode());
+                // AI 서비스 실패 시 모든 상품 반환
+                List<InsuranceProduct> allProducts = insuranceProductRepository.findAll();
+                return new ArrayList<>(allProducts);
+            }
+            
+        } catch (Exception e) {
+            log.error("AI 서비스 호출 중 오류: {}", e.getMessage(), e);
+            // 오류 발생 시 모든 상품 반환
+            List<InsuranceProduct> allProducts = insuranceProductRepository.findAll();
+            return new ArrayList<>(allProducts);
+        }
+    }
+    
+    /**
+     * AI 응답을 기반으로 보험 상품 필터링
+     */
+    private List<InsuranceProduct> filterProductsByAIResponse(List<InsuranceProduct> products, String aiAnswer) {
+        if (aiAnswer == null || aiAnswer.isEmpty()) {
+            return products;
+        }
         
-        return new ArrayList<>(allProducts);
+        List<InsuranceProduct> filteredProducts = new ArrayList<>();
+        String answerLower = aiAnswer.toLowerCase();
+        
+        // AI 응답에서 언급된 보험사명 추출
+        String[] mentionedCompanies = {
+            "삼성화재", "NH농협", "KB손해보험", "현대해상", "메리츠화재", 
+            "DB손해보험", "롯데손해보험", "한화손해보험", "흥국화재", 
+            "AXA손해보험", "교보손해보험"
+        };
+        
+        for (InsuranceProduct product : products) {
+            String companyName = product.getCompany().toLowerCase();
+            
+            // AI 응답에서 언급된 보험사인지 확인
+            for (String company : mentionedCompanies) {
+                if (answerLower.contains(company.toLowerCase()) && 
+                    companyName.contains(company.toLowerCase())) {
+                    filteredProducts.add(product);
+                    break;
+                }
+            }
+        }
+        
+        // AI 응답에서 언급된 상품이 없으면 모든 상품 반환
+        if (filteredProducts.isEmpty()) {
+            return products;
+        }
+        
+        return filteredProducts;
     }
 
     /**

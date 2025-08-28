@@ -203,31 +203,45 @@ class EmbeddingUpdater:
             return query, None
 
     def enhance_query_with_pet_info(self, query: str, pet_info: Dict[str, Any]) -> str:
-        """펫 정보를 포함하여 쿼리를 강화"""
+        """펫 정보를 쿼리에 포함하여 개인화된 검색 수행"""
         if not pet_info:
             return query
         
-        pet_name = pet_info.get('name', '')
-        breed = pet_info.get('breed', '')
-        age = pet_info.get('age', '')
-        gender = pet_info.get('gender', '')
-        weight = pet_info.get('weight', '')
+        # 펫 기본 정보
+        pet_name = pet_info.get('name', 'N/A')
+        pet_breed = pet_info.get('breed', 'N/A')
+        pet_age = pet_info.get('age', 'N/A')
+        pet_gender = pet_info.get('gender', 'N/A')
+        pet_type = pet_info.get('type', 'N/A')
+        pet_weight = pet_info.get('weight', 'N/A')
+        pet_microchip = pet_info.get('microchipId', 'N/A')
         
-        # 사용자 검색어에서 @태그를 펫 정보로 치환
-        import re
-        pet_tag_pattern = r'@' + re.escape(pet_name)
-        enhanced_query = re.sub(pet_tag_pattern, f"{breed} {age}세 {gender}", query)
+        # 의료기록 정보
+        medical_history = pet_info.get('medicalHistory', '')
+        vaccinations = pet_info.get('vaccinations', '')
+        special_needs = pet_info.get('specialNeeds', '')
+        notes = pet_info.get('notes', '')
         
-        # 펫 정보를 포함한 최종 쿼리 구성
-        final_query = f"""
-펫 정보: 이름={pet_name}, 품종={breed}, 나이={age}세, 성별={gender}, 체중={weight}kg
+        # 의료기록 정보 구성
+        medical_info = ""
+        if medical_history:
+            medical_info += f"의료기록: {medical_history}, "
+        if vaccinations:
+            medical_info += f"예방접종: {vaccinations}, "
+        if special_needs:
+            medical_info += f"특별관리: {special_needs}, "
+        if notes:
+            medical_info += f"메모: {notes}, "
+        
+        # 개인화된 쿼리 구성
+        enhanced_query = f"""
+펫 정보: 이름={pet_name}, 품종={pet_breed}, 나이={pet_age}세, 성별={pet_gender}, 종류={pet_type}, 체중={pet_weight}kg, 마이크로칩={pet_microchip}, {medical_info}
 
-사용자 검색어: {enhanced_query}
+사용자 검색어: {query}
 
-이 펫에게 적합한 상품을 찾아주세요.
-        """.strip()
-        
-        return final_query
+위의 펫 정보를 고려하여 개인화된 상품을 추천해주세요.
+"""
+        return enhanced_query.strip()
 
     def filter_products_by_pet(self, products: List[Dict[str, Any]], pet_info: Dict[str, Any], original_query: str = "") -> List[Dict[str, Any]]:
         """펫 정보와 검색어를 기반으로 상품을 필터링하고 점수 조정"""
@@ -311,34 +325,82 @@ class EmbeddingUpdater:
         products.sort(key=lambda x: x.get('similarity', 0.0), reverse=True)
         return products
 
-    async def search_similar_products_with_pet(self, query: str, pet_id: Optional[int] = None, limit: int = 10) -> List[Dict[str, Any]]:
-        """MyPet 정보를 포함한 개인화된 임베딩 검색"""
+    async def search_similar_products_with_pet(self, query: str, pet_id: int, limit: int = 10) -> List[Dict[str, Any]]:
+        """MyPet 정보를 포함한 개인화된 상품 검색"""
         try:
-            # 1. 쿼리에서 @태그 추출
-            original_query, pet_name = self.extract_pet_info_from_query(query)
+            print(f"MyPet 검색 요청: query='{query}', petId={pet_id}, limit={limit}")
             
-            # 2. 펫 정보 가져오기
-            pet_info = None
-            if pet_id:
-                pet_info = await self.get_mypet_info(pet_id)
+            # 1. 쿼리에서 @태그 추출 (다중 펫 처리)
+            pet_tags = self.extract_pet_tags_from_query(query)
+            print(f"추출된 펫 태그: {pet_tags}")
             
-            # 3. 펫 정보로 쿼리 강화
-            enhanced_query = original_query
-            if pet_info:
-                enhanced_query = self.enhance_query_with_pet_info(original_query, pet_info)
-                print(f"펫 정보 포함 쿼리: {enhanced_query[:100]}...")
+            # 2. 카테고리 키워드 추출
+            category_keywords = self.extract_category_keywords(query)
+            print(f"카테고리 키워드: {category_keywords}")
             
-            # 4. 강화된 쿼리로 임베딩 생성
-            query_embedding = self.generate_embedding(enhanced_query)
-            if not query_embedding:
-                print("쿼리 임베딩 생성 실패")
+            # 3. MyPet 정보 가져오기
+            pet_info = await self.get_mypet_info(pet_id)
+            if not pet_info:
+                print(f"펫 정보를 찾을 수 없습니다: petId={pet_id}")
                 return []
             
-            # 5. 기본 임베딩 검색 실행 (더 많은 상품 검색 후 필터링)
-            query_vector_string = self.embedding_to_vector_string(query_embedding)
+            # 4. 개인화된 검색 수행 (카테고리별 검색 강화)
+            results = await self.search_products_by_category_and_pet(
+                query, pet_info, category_keywords, limit
+            )
             
-            # 검색어에 카테고리 키워드가 있으면 더 많은 상품 검색
-            search_limit = limit * 3 if any(keyword in original_query.lower() for keyword in ['옷', '의류', 'clothes', 'wear', '티셔츠', '나시', '실내복', '올인원']) else limit
+            print(f"펫 기반 필터링 완료: {len(results)}개 상품")
+            print(f"최종 결과: {len(results)}개 상품 (요청: {limit}개)")
+            
+            return results
+            
+        except Exception as e:
+            print(f"MyPet 검색 오류: {e}")
+            return []
+    
+    def extract_pet_tags_from_query(self, query: str) -> List[str]:
+        """쿼리에서 @태그들을 추출"""
+        import re
+        pet_matches = re.findall(r'@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)', query)
+        return pet_matches
+    
+    def extract_category_keywords(self, query: str) -> List[str]:
+        """쿼리에서 카테고리 키워드 추출"""
+        query_lower = query.lower()
+        categories = {
+            '사료': ['사료', '먹이', '식사', 'food', 'feed'],
+            '간식': ['간식', '스낵', 'treat', 'snack'],
+            '장난감': ['장난감', 'toy', 'play'],
+            '의류': ['옷', '의류', 'clothes', 'wear', '티셔츠', '나시', '실내복', '올인원', '코트', '패딩'],
+            '용품': ['용품', '도구', 'tool', 'accessory', '목줄', '하네스', '배변패드'],
+            '건강': ['건강', '의료', 'health', 'medical', '영양제', '비타민'],
+            '미용': ['미용', 'grooming', '샴푸', '브러시', '가위']
+        }
+        
+        found_categories = []
+        for category, keywords in categories.items():
+            if any(keyword in query_lower for keyword in keywords):
+                found_categories.append(category)
+        
+        return found_categories
+    
+    async def search_products_by_category_and_pet(self, query: str, pet_info: Dict[str, Any], category_keywords: List[str], limit: int) -> List[Dict[str, Any]]:
+        """카테고리와 펫 정보를 기반으로 상품 검색"""
+        try:
+            # 1. 기본 쿼리 임베딩 생성
+            basic_query_embedding = self.generate_embedding(query)
+            if not basic_query_embedding:
+                return []
+            
+            # 2. 펫 정보 기반 강화 쿼리 생성
+            enhanced_query = self.create_enhanced_query_for_search(query, pet_info, category_keywords)
+            print(f"강화된 검색 쿼리: {enhanced_query}")
+            
+            # 3. 강화된 쿼리로 임베딩 검색
+            query_vector_string = self.embedding_to_vector_string(basic_query_embedding)
+            
+            # 카테고리가 명확한 경우 더 많은 상품 검색 후 필터링
+            search_limit = limit * 5 if category_keywords else limit * 2
             
             with self.get_db_connection() as conn:
                 with conn.cursor() as cursor:
@@ -394,24 +456,132 @@ class EmbeddingUpdater:
                         }
                         results.append(product)
             
-            # 6. 펫 기반 필터링 및 점수 조정
-            if pet_info:
-                results = self.filter_products_by_pet(results, pet_info, original_query)
-                print(f"펫 기반 필터링 완료: {len(results)}개 상품")
+            # 4. 펫 정보와 카테고리 기반 필터링
+            filtered_results = self.filter_products_by_pet_and_category(results, pet_info, category_keywords, query)
             
-            # 7. 최종 결과 수 제한
-            final_results = results[:limit]
-            print(f"최종 결과: {len(final_results)}개 상품 (요청: {limit}개)")
+            # 5. 최종 결과 수 제한
+            final_results = filtered_results[:limit]
             
             return final_results
-                    
+            
         except Exception as e:
-            print(f"개인화된 임베딩 검색 실패: {e}")
+            print(f"카테고리별 펫 검색 실패: {e}")
             return []
-
-    def search_similar_products(self, query_embedding: List[float], limit: int = 10) -> List[dict]:
-        """기존 검색 함수 (하위 호환성 유지)"""
+    
+    def create_enhanced_query_for_search(self, query: str, pet_info: Dict[str, Any], category_keywords: List[str]) -> str:
+        """검색용 강화 쿼리 생성"""
+        pet_name = pet_info.get('name', 'N/A')
+        pet_breed = pet_info.get('breed', 'N/A')
+        pet_age = pet_info.get('age', 'N/A')
+        pet_gender = pet_info.get('gender', 'N/A')
+        pet_type = pet_info.get('type', 'N/A')
+        pet_weight = pet_info.get('weight', 'N/A')
+        
+        # 카테고리별 특화 키워드 추가
+        category_specific = ""
+        if '의류' in category_keywords:
+            category_specific = f"{pet_breed} {pet_type} 의류 옷"
+        elif '사료' in category_keywords:
+            category_specific = f"{pet_breed} {pet_type} 사료 먹이"
+        elif '간식' in category_keywords:
+            category_specific = f"{pet_breed} {pet_type} 간식 스낵"
+        elif '장난감' in category_keywords:
+            category_specific = f"{pet_breed} {pet_type} 장난감"
+        
+        enhanced_query = f"{query} {category_specific} {pet_breed} {pet_type}"
+        return enhanced_query.strip()
+    
+    def filter_products_by_pet_and_category(self, products: List[Dict[str, Any]], pet_info: Dict[str, Any], category_keywords: List[str], original_query: str) -> List[Dict[str, Any]]:
+        """펫 정보와 카테고리를 기반으로 상품 필터링"""
         try:
+            pet_name = pet_info.get('name', '').lower()
+            breed = pet_info.get('breed', '').lower()
+            age = pet_info.get('age', 0)
+            gender = pet_info.get('gender', '').lower()
+            pet_type = pet_info.get('type', '').lower()
+            weight = pet_info.get('weight', 0)
+            
+            # 카테고리별 필터링 키워드
+            category_filters = {
+                '의류': ['옷', '의류', 'clothes', 'wear', '티셔츠', '나시', '실내복', '올인원', '코트', '패딩', '조끼'],
+                '사료': ['사료', '먹이', '식사', 'food', 'feed', '드라이', '웻'],
+                '간식': ['간식', '스낵', 'treat', 'snack', '껌', '비스킷'],
+                '장난감': ['장난감', 'toy', 'play', '공', '로프', '인형'],
+                '용품': ['용품', '도구', 'tool', 'accessory', '목줄', '하네스', '배변패드', '캐리어'],
+                '건강': ['건강', '의료', 'health', 'medical', '영양제', '비타민', '프로바이오틱스'],
+                '미용': ['미용', 'grooming', '샴푸', '브러시', '가위', '클리퍼']
+            }
+            
+            filtered_products = []
+            for product in products:
+                title = product['title'].lower()
+                description = product.get('description', '').lower()
+                
+                score = 0
+                
+                # 1. 카테고리 매칭 점수
+                for category in category_keywords:
+                    if category in category_filters:
+                        for keyword in category_filters[category]:
+                            if keyword in title:
+                                score += 3
+                            if keyword in description:
+                                score += 1
+                
+                # 2. 펫 타입 매칭 점수
+                if pet_type in title:
+                    score += 2
+                if breed in title:
+                    score += 2
+                
+                # 3. 크기별 매칭 점수
+                if weight < 10:  # 소형
+                    if any(word in title for word in ['소형', '미니', '스몰', '퍼피']):
+                        score += 2
+                elif weight > 25:  # 대형
+                    if any(word in title for word in ['대형', '라지', '자이언트', '어덜트']):
+                        score += 2
+                else:  # 중형
+                    if any(word in title for word in ['중형', '미디엄']):
+                        score += 2
+                
+                # 4. 나이별 매칭 점수
+                if age <= 1:  # 어린
+                    if any(word in title for word in ['퍼피', '키튼', '유아', '어린']):
+                        score += 2
+                elif age >= 7:  # 노령
+                    if any(word in title for word in ['시니어', '노령', '어덜트']):
+                        score += 2
+                else:  # 성견
+                    if any(word in title for word in ['어덜트', '성견']):
+                        score += 2
+                
+                # 5. 기본 유사도 점수
+                score += product.get('similarity', 0) * 10
+                
+                if score > 0:
+                    product['pet_match_score'] = score
+                    filtered_products.append(product)
+            
+            # 점수로 정렬
+            filtered_products.sort(key=lambda x: x.get('pet_match_score', 0), reverse=True)
+            
+            return filtered_products
+            
+        except Exception as e:
+            print(f"펫 및 카테고리 필터링 실패: {e}")
+            return products
+
+    async def search_similar_products(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+        """임베딩 기반 상품 검색 (일반 검색용)"""
+        try:
+            # 1. 쿼리 임베딩 생성
+            query_embedding = self.generate_embedding(query)
+            if not query_embedding:
+                print("쿼리 임베딩 생성 실패")
+                return []
+            
+            # 2. 벡터 검색 실행
             query_vector_string = self.embedding_to_vector_string(query_embedding)
             
             with self.get_db_connection() as conn:
@@ -467,8 +637,9 @@ class EmbeddingUpdater:
                             'similarity': float(row[18]) if row[18] else 0.0
                         }
                         results.append(product)
-                    
-                    return results
+            
+            print(f"일반 검색 완료: {len(results)}개 상품")
+            return results
                     
         except Exception as e:
             print(f"임베딩 검색 실패: {e}")
