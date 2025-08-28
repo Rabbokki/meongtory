@@ -117,4 +117,23 @@ public class MyPetController {
             return ResponseEntity.badRequest().body(ResponseDto.fail("ERROR", e.getMessage()));
         }
     }
+
+    // 내부 통신용 펫 조회 (AI 서비스에서 사용)
+    @GetMapping("/internal/{myPetId}")
+    public ResponseEntity<ResponseDto<MyPetResponseDto>> getMyPetInternal(
+            @PathVariable Long myPetId,
+            @RequestHeader(value = "X-Internal-Key", required = false) String internalKey) {
+        try {
+            // 내부 통신 키 검증
+            String expectedKey = System.getenv("INTERNAL_API_KEY");
+            if (expectedKey == null || !expectedKey.equals(internalKey)) {
+                return ResponseEntity.status(403).body(ResponseDto.fail("ERROR", "Unauthorized internal access"));
+            }
+            
+            MyPetResponseDto response = myPetService.getMyPetInternal(myPetId);
+            return ResponseEntity.ok(ResponseDto.success(response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ResponseDto.fail("ERROR", e.getMessage()));
+        }
+    }
 } 

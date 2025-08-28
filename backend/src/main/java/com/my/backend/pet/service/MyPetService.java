@@ -95,6 +95,13 @@ public class MyPetService {
         return convertToResponseDto(myPet);
     }
 
+    // 내부 통신용 펫 조회 (AI 서비스에서 사용)
+    public MyPetResponseDto getMyPetInternal(Long myPetId) {
+        MyPet myPet = myPetRepository.findById(myPetId)
+                .orElseThrow(() -> new IllegalArgumentException("펫을 찾을 수 없습니다."));
+        return convertToResponseDto(myPet);
+    }
+
     // 이미지 업로드
     public String uploadPetImage(MultipartFile file) {
         return s3Service.uploadMyPetImage(file);

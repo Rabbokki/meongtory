@@ -1,12 +1,11 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Search, Plus, Clock } from "lucide-react"
-import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import axios from "axios" // axios 직접 import
 import { getBackendUrl } from '@/lib/api'
@@ -129,6 +128,11 @@ export default function StorePage({
   const [cursorPosition, setCursorPosition] = useState(0)
   const [selectedPetId, setSelectedPetId] = useState<number | null>(null)
   const [products, setProducts] = useState<Product[]>([])
+  
+  // ContentEditable 검색창용 ref
+  const searchInputRef = useRef<HTMLDivElement>(null)
+  
+
   const [naverProducts, setNaverProducts] = useState<NaverProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -490,6 +494,61 @@ export default function StorePage({
     }
   };
 
+
+
+  // 텍스트 하이라이팅 함수
+  const highlightText = (element: HTMLElement) => {
+    const text = element.textContent || ''
+    const highlightedText = text.replace(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g, '<span class="text-blue-600 font-medium">$1</span>')
+    element.innerHTML = highlightedText
+  }
+
+  // @태그 감지 및 MyPet 자동완성 (ContentEditable용)
+  const handleContentEditableInput = async (e: React.FormEvent<HTMLDivElement>) => {
+    const element = e.currentTarget
+    const text = element.textContent || ''
+    const selection = window.getSelection()
+    const position = selection?.anchorOffset || 0
+    
+    setSearchQuery(text)
+    setCursorPosition(position)
+    
+    // 하이라이팅 적용
+    highlightText(element)
+
+    // @ 태그 검출
+    const beforeCursor = text.substring(0, position)
+    const match = beforeCursor.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]*)$/)
+    
+    if (match) {
+      const keyword = match[1]
+      if (keyword.length >= 0) {
+        try {
+          const token = localStorage.getItem('accessToken')
+          if (token) {
+            const response = await axios.get(
+              `${getBackendUrl()}/api/mypet/search?keyword=${keyword}`,
+              { headers: { 
+                Authorization: `Bearer ${token}`,
+                'Access_Token': token
+              } }
+            )
+            if (response.data.success) {
+              setPetSuggestions(response.data.data || [])
+              setShowSuggestions(true)
+            }
+          }
+        } catch (error) {
+          console.error('MyPet 검색 실패:', error)
+          setPetSuggestions([])
+        }
+      }
+    } else {
+      setShowSuggestions(false)
+      setPetSuggestions([])
+    }
+  }
+
   // @태그 감지 및 MyPet 자동완성
   const handleSearchInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -574,10 +633,40 @@ export default function StorePage({
         
         if (response.data.success) {
           const searchResults = response.data.data;
-          // 검색 결과를 상품 목록에 적용
-          setProducts(searchResults.results || []);
-          // 추천 상품이 있으면 별도 표시 (향후 구현)
-          console.log('MyPet 기반 추천:', searchResults.recommendations);
+          const results = searchResults.results || [];
+          console.log('MyPet 기반 검색 결과:', results);
+          
+          // 검색 결과를 네이버 상품 형식으로 변환
+          const aiResults = results.map((item: any) => ({
+            id: Number(item.id) || Math.random(),
+            productId: item.productId || '',
+            title: item.title || '제목 없음',
+            description: item.description || '',
+            price: Number(item.price) || 0,
+            imageUrl: item.imageUrl || '/placeholder.svg',
+            mallName: item.mallName || '판매자 정보 없음',
+            productUrl: item.productUrl || '#',
+            brand: item.brand || '',
+            maker: item.maker || '',
+            category1: item.category1 || '',
+            category2: item.category2 || '',
+            category3: item.category3 || '',
+            category4: item.category4 || '',
+            reviewCount: Number(item.reviewCount) || 0,
+            rating: Number(item.rating) || 0,
+            searchCount: Number(item.searchCount) || 0,
+            createdAt: item.createdAt || new Date().toISOString(),
+            updatedAt: item.updatedAt || new Date().toISOString(),
+            relatedProductId: item.relatedProductId ? Number(item.relatedProductId) : undefined,
+            isSaved: true,
+            similarity: Number(item.similarity) || 0,
+            petScoreBoost: Number(item.pet_score_boost) || 0
+          }));
+          
+          setNaverProducts(aiResults);
+          setProducts([]); // 로컬 상품은 숨김
+          setShowNaverProducts(true);
+          setHasMore(false); // AI 검색은 한 번에 모든 결과 반환
           return;
         }
       } catch (error) {
@@ -1309,42 +1398,50 @@ export default function StorePage({
             )}
             
             <div className="relative flex-1 max-w-2xl mx-auto">
-              <Input
-                type="text"
-                placeholder="상품 검색"
-                value={searchQuery}
-                onChange={handleSearchInputChange}
-                className="w-full pl-4 pr-14 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    handleUnifiedSearch();
-                  }
-                }}
-                style={{
-                  color: searchQuery.includes('@') ? 'transparent' : 'inherit',
-                  caretColor: 'black'
-                }}
-              />
-              {/* MyPet 태그 오버레이 */}
-              {searchQuery && (
+              <div className="flex-1 relative">
+                <Input
+                  type="text"
+                  placeholder="상품 검색"
+                  value={searchQuery}
+                  onChange={handleSearchInputChange}
+                  className="w-full pl-4 pr-14 py-3 border-2 border-yellow-300 rounded-full focus:border-yellow-400 focus:ring-yellow-400"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleUnifiedSearch();
+                    }
+                  }}
+                  style={{
+                    color: 'transparent',
+                    caretColor: 'black',
+                    fontFamily: 'inherit',
+                    fontSize: '16px',
+                    lineHeight: '24px',
+                    letterSpacing: 'normal',
+                    fontWeight: 'normal'
+                  }}
+                />
+                {/* 하이라이트 오버레이 */}
                 <div 
                   className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center"
                   style={{
                     paddingLeft: '16px',
                     paddingRight: '56px',
                     fontSize: '16px',
-                    lineHeight: '24px'
+                    lineHeight: '24px',
+                    fontFamily: 'inherit',
+                    letterSpacing: 'normal',
+                    fontWeight: 'normal',
+                    whiteSpace: 'pre'
                   }}
                 >
                   {searchQuery.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
                     if (part.startsWith('@') && part.length > 1) {
-                      return <span key={index} style={{ color: '#2563eb', fontWeight: '500' }}>{part}</span>;
+                      return <span key={index} className="text-blue-600 font-medium">{part}</span>;
                     }
-                    return <span key={index} style={{ color: 'black' }}>{part}</span>;
+                    return <span key={index} className="text-black">{part}</span>;
                   })}
                 </div>
-              )}
-              {/* 검색 버튼을 오버레이 안에 배치 */}
+              </div>
               <Button
                 size="sm"
                 onClick={handleUnifiedSearch}

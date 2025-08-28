@@ -31,6 +31,7 @@ export default function Chatbot() {
   const [petSuggestions, setPetSuggestions] = useState<MyPetSuggestion[]>([])
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
+  const [selectedPetId, setSelectedPetId] = useState<number | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -117,12 +118,15 @@ export default function Chatbot() {
 
     // @ 태그 검출
     const beforeCursor = value.substring(0, position)
-    const match = beforeCursor.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]*)$/)
+    const afterCursor = value.substring(position)
     
-    console.log('handleInputChange 호출됨:', { value, position, beforeCursor, match })
+    // 커서 앞에서 가장 가까운 @태그 찾기
+    const atTagMatch = beforeCursor.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]*)$/)
     
-    if (match) {
-      const keyword = match[1]
+    console.log('handleInputChange 호출됨:', { value, position, beforeCursor, afterCursor, atTagMatch })
+    
+    if (atTagMatch) {
+      const keyword = atTagMatch[1]
       
       if (keyword.length >= 0) { // 빈 문자열도 허용하여 모든 펫 표시
         try {
@@ -151,6 +155,7 @@ export default function Chatbot() {
         }
       }
     } else {
+      // 커서 앞에 @태그가 없으면 자동완성 숨기기
       setShowSuggestions(false)
       setPetSuggestions([])
     }
@@ -161,45 +166,79 @@ export default function Chatbot() {
     const beforeCursor = inputMessage.substring(0, cursorPosition)
     const afterCursor = inputMessage.substring(cursorPosition)
     
-    // @ 이후 부분을 @펫이름
-    const beforeAt = beforeCursor.substring(0, beforeCursor.lastIndexOf('@'))
-    const newMessage = beforeAt + `@${pet.name} ` + afterCursor
+    // 커서 앞에서 가장 가까운 @태그의 시작 위치 찾기
+    const atTagStart = beforeCursor.lastIndexOf('@')
     
-    setInputMessage(newMessage)
-    setShowSuggestions(false)
-    setPetSuggestions([])
-    
-    // 입력창에 포커스 및 커서 위치 조정
-    setTimeout(() => {
-      if (inputRef.current) {
-        inputRef.current.focus();
-        // 커서를 텍스트 끝으로 이동
-        const range = document.createRange();
-        const selection = window.getSelection();
-        range.selectNodeContents(inputRef.current);
-        range.collapse(false);
-        selection?.removeAllRanges();
-        selection?.addRange(range);
-      }
-    }, 100)
+    if (atTagStart !== -1) {
+      // @태그 시작 위치부터 커서까지를 @펫이름으로 교체
+      const beforeAtTag = inputMessage.substring(0, atTagStart)
+      const newMessage = beforeAtTag + `@${pet.name} ` + afterCursor
+      
+      setInputMessage(newMessage)
+      setSelectedPetId(pet.myPetId)
+      setShowSuggestions(false)
+      setPetSuggestions([])
+      
+      // 입력창에 포커스 및 커서 위치 조정
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          // 커서를 @펫이름 다음 위치로 이동
+          const newCursorPosition = atTagStart + pet.name.length + 2 // @ + 이름 + 공백
+          inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition);
+        }
+      }, 100)
+    }
   }
 
   const sendMessage = async () => {
     if (inputMessage.trim()) {
-      // @MyPet 태그 추출
-      const petMatches = inputMessage.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g)
       let processedMessage = inputMessage
-      let selectedPetId = null
+      let currentPetId = selectedPetId
 
-      // @태그가 있으면 petId를 찾아서 처리
-      if (petMatches && petMatches.length > 0) {
-        const petName = petMatches[0].substring(1) // @ 제거
-        const matchedPet = petSuggestions.find(pet => pet.name === petName)
-        if (matchedPet) {
-          selectedPetId = matchedPet.myPetId
-          processedMessage = inputMessage.replace(/@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+/g, `@${petName}`)
+      // @태그가 있으면 해당 펫의 ID를 찾기
+      const atTagMatch = processedMessage.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/)
+      if (atTagMatch && !currentPetId) {
+        const petName = atTagMatch[1]
+        // 현재 펫 목록에서 해당 이름의 펫 찾기
+        const matchingPet = petSuggestions.find(pet => pet.name === petName)
+        if (matchingPet) {
+          currentPetId = matchingPet.myPetId
+        } else {
+          // 펫 목록에 없으면 API로 검색
+          try {
+            const token = localStorage.getItem('accessToken')
+            if (token) {
+              const response = await axios.get(`${getBackendUrl()}/api/mypet/search?keyword=${petName}`, { 
+                headers: { 
+                  Authorization: `Bearer ${token}`,
+                  'Access_Token': token
+                } 
+              })
+              if (response.data.success && response.data.data.length > 0) {
+                const exactMatch = response.data.data.find((pet: any) => pet.name === petName)
+                if (exactMatch) {
+                  currentPetId = exactMatch.myPetId
+                }
+              }
+            }
+          } catch (error) {
+            console.error('펫 정보 검색 실패:', error)
+          }
         }
       }
+
+      // 디버깅을 위한 로그 추가
+      console.log('sendMessage 호출됨:', {
+        inputMessage,
+        selectedPetId,
+        currentPetId,
+        hasPetTag: inputMessage.includes('@'),
+        atTagMatch
+      })
+
+      // 메시지 전송 후 selectedPetId 초기화
+      setSelectedPetId(null)
 
       // 사용자 메시지 즉시 추가
       const userMessage: ChatMessage = {
@@ -223,13 +262,27 @@ export default function Chatbot() {
         const endpoint = isInsuranceQuery ? '/api/chatbot/insurance' : '/api/chatbot/query';
         
         // @MyPet이 있으면 petId도 함께 전송
-        const requestData = selectedPetId 
-          ? { query: processedMessage, petId: selectedPetId }
-          : { query: processedMessage }
+        const token = localStorage.getItem('accessToken')
+        const requestData: any = { 
+          query: processedMessage 
+        }
+        
+        if (currentPetId) {
+          requestData.petId = currentPetId
+        }
+        
+        const headers: any = { 
+          "Content-Type": "application/json; charset=UTF-8"
+        }
+        
+        if (token) {
+          headers.Authorization = `Bearer ${token}`
+          headers['Access_Token'] = token
+        }
         
         const response = await axios.post(`${getBackendUrl()}${endpoint}`,
           requestData,
-          { headers: { "Content-Type": "application/json" } }
+          { headers }
         )
         const botResponse: ChatMessage = {
           id: Date.now() + 1,
@@ -371,29 +424,25 @@ export default function Chatbot() {
                     placeholder="메시지를 입력하세요..."
                     className="flex-1 text-sm"
                     style={{
-                      color: inputMessage.includes('@') ? 'transparent' : 'inherit',
+                      color: 'transparent',
                       caretColor: 'black'
                     }}
                   />
-                  {/* MyPet 태그 오버레이 */}
-                  {inputMessage && (
-                    <div 
-                      className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center"
-                      style={{
-                        paddingLeft: '12px',
-                        paddingRight: '12px',
-                        fontSize: '14px',
-                        lineHeight: '20px'
-                      }}
-                    >
-                      {inputMessage.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
-                        if (part.startsWith('@') && part.length > 1) {
-                          return <span key={index} style={{ color: '#2563eb', fontWeight: '500' }}>{part}</span>;
-                        }
-                        return <span key={index} style={{ color: 'black' }}>{part}</span>;
-                      })}
-                    </div>
-                  )}
+                  {/* 하이라이트 오버레이 */}
+                  <div 
+                    className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center px-3 py-2 text-sm"
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {inputMessage.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
+                      if (part.startsWith('@') && part.length > 1) {
+                        return <span key={index} className="text-blue-600 font-medium">{part}</span>;
+                      }
+                      return <span key={index} className="text-black">{part}</span>;
+                    })}
+                  </div>
                 </div>
                 <Button onClick={sendMessage} size="sm" className="bg-yellow-400 hover:bg-yellow-500 text-black px-3">
                   <Send className="w-4 h-4" />

@@ -8,10 +8,10 @@ import os
 import logging
 import psycopg2
 import json
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 # 로깅 설정
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # 환경 변수
@@ -88,7 +88,7 @@ def initialize_insurance_vectorstore():
                     logger.info("Existing data deleted")
 
         # 보험 상품 데이터를 DB에서 가져와서 벡터스토어에 삽입
-        logger.info("Fetching insurance products from database")
+        # logger.info("Fetching insurance products from database")
         insurance_docs = fetch_insurance_products_from_db()
         
         if insurance_docs:
@@ -96,10 +96,10 @@ def initialize_insurance_vectorstore():
                 # 기존 데이터가 있으면 건너뛰기
                 existing_docs = vectorstore.similarity_search("보험", k=1)
                 if existing_docs:
-                    logger.info("Insurance data already exists in vectorstore, skipping insertion")
+                    pass  # logger.info("Insurance data already exists in vectorstore, skipping insertion")
                 else:
                     vectorstore.add_documents(insurance_docs)
-                    logger.info(f"Inserted {len(insurance_docs)} insurance products into vectorstore")
+                    # logger.info(f"Inserted {len(insurance_docs)} insurance products into vectorstore")
             except Exception as e:
                 logger.warning(f"Failed to add insurance documents to vectorstore: {e}")
                 logger.info("Continuing without insurance vectorstore initialization")
@@ -226,10 +226,55 @@ def get_insurance_prompt_template():
 
 class InsuranceQueryRequest(BaseModel):
     query: str
+    petId: Optional[int] = None
 
-async def process_insurance_rag_query(query: str):
+    class Config:
+        # null 값을 허용하도록 설정
+        json_encoders = {
+            int: lambda v: v if v is not None else None
+        }
+
+async def process_insurance_rag_query(query: str, pet_id: Optional[int] = None):
     try:
-        logger.info(f"Processing insurance query: {query}")
+        # 한글 인코딩 확인 및 로깅
+        logger.info(f"Processing insurance query (raw): {repr(query)}")
+        logger.info(f"Processing insurance query (decoded): {query}")
+        logger.info(f"Received petId: {pet_id}")
+        
+        # petId가 있으면 MyPet 정보를 포함한 쿼리로 처리
+        if pet_id:
+            # MyPet 정보를 가져와서 쿼리에 포함
+            from main import get_mypet_info
+            pet_info = await get_mypet_info(pet_id)
+            if pet_info:
+                # 펫 정보 추출
+                pet_name = pet_info.get('name', '')
+                breed = pet_info.get('breed', '')
+                age = pet_info.get('age', '')
+                gender = pet_info.get('gender', '')
+                weight = pet_info.get('weight', '')
+                
+                # 사용자 질문에서 @태그를 펫 정보로 치환
+                import re
+                pet_tag_pattern = r'@' + re.escape(pet_name)
+                enhanced_query = re.sub(pet_tag_pattern, f"{breed} {age}세 {gender}", query)
+                
+                # 펫 정보를 구조화된 형태로 프롬프트에 포함
+                final_query = f"""
+펫 정보:
+- 이름: {pet_name}
+- 품종: {breed}
+- 나이: {age}세
+- 성별: {gender}
+- 체중: {weight}kg
+
+사용자 질문: {enhanced_query}
+                """.strip()
+                logger.info(f"Enhanced query with pet tag replacement: {final_query}")
+            else:
+                final_query = query
+        else:
+            final_query = query
         
         # 직접 데이터베이스에서 보험 상품 검색
         insurance_products = fetch_insurance_products_from_db()
@@ -238,7 +283,7 @@ async def process_insurance_rag_query(query: str):
             return {"answer": "죄송합니다. 현재 등록된 보험 상품 정보가 없습니다."}
         
         # 고급 필터링 시스템
-        filtered_products = filter_insurance_products(insurance_products, query)
+        filtered_products = filter_insurance_products(insurance_products, final_query)
         
         if not filtered_products:
             return {"answer": "죄송합니다. 검색 조건에 맞는 보험 상품을 찾을 수 없습니다. 다른 검색어로 다시 시도해보세요."}
@@ -259,13 +304,16 @@ async def process_insurance_rag_query(query: str):
             context_parts.append(product_info)
         
         context = "\n\n".join(context_parts)
+        logger.info(f"Retrieved insurance context: {context[:200]}...")  # 컨텍스트 앞부분만 로깅
         
         # 프롬프트 생성 및 LLM 호출
         prompt_template = get_insurance_prompt_template()
-        prompt = prompt_template.format(context=context, query=query)
-        response = llm.invoke(prompt)
+        prompt = prompt_template.format(context=context, query=final_query)
+        logger.info(f"Generated insurance prompt: {prompt[:200]}...")  # 프롬프트 앞부분만 로깅
         
-        logger.info(f"Insurance query response: {response.content}")
+        response = llm.invoke(prompt)
+        logger.info(f"Insurance LLM response: {response.content}")
+        
         return {"answer": response.content}
         
     except Exception as e:

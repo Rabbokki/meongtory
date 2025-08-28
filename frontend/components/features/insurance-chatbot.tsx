@@ -382,29 +382,25 @@ export default function InsuranceChatbot({ initialQuery, onClose }: InsuranceCha
                     className="flex-1 text-sm"
                     disabled={isLoading}
                     style={{
-                      color: inputMessage.includes('@') ? 'transparent' : 'inherit',
+                      color: 'transparent',
                       caretColor: 'black'
                     }}
                   />
-                  {/* MyPet 태그 오버레이 */}
-                  {inputMessage && (
-                    <div 
-                      className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center"
-                      style={{
-                        paddingLeft: '12px',
-                        paddingRight: '12px',
-                        fontSize: '14px',
-                        lineHeight: '20px'
-                      }}
-                    >
-                      {inputMessage.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
-                        if (part.startsWith('@') && part.length > 1) {
-                          return <span key={index} style={{ color: '#2563eb', fontWeight: '500' }}>{part}</span>;
-                        }
-                        return <span key={index} style={{ color: 'black' }}>{part}</span>;
-                      })}
-                    </div>
-                  )}
+                  {/* 하이라이트 오버레이 */}
+                  <div 
+                    className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center px-3 py-2 text-sm"
+                    style={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {inputMessage.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
+                      if (part.startsWith('@') && part.length > 1) {
+                        return <span key={index} className="text-blue-600 font-medium">{part}</span>;
+                      }
+                      return <span key={index} className="text-black">{part}</span>;
+                    })}
+                  </div>
                 </div>
                 <Button 
                   onClick={() => sendMessage()} 

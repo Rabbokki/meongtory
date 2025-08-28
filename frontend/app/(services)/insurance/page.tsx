@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -53,6 +53,9 @@ export default function PetInsurancePage({
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [cursorPosition, setCursorPosition] = useState(0)
   const [selectedPetId, setSelectedPetId] = useState<number | null>(null)
+  
+  // ContentEditable 검색창용 ref
+  const searchInputRef = useRef<HTMLDivElement>(null)
 
   // 최근 본 상품 사이드바
   const [showRecentSidebar, setShowRecentSidebar] = useState(false)
@@ -172,6 +175,108 @@ export default function PetInsurancePage({
     }
     fetchData()
   }, [])
+
+  // AI 응답 기반 필터링 함수
+  const filterInsuranceProductsByAIResponse = (products: InsuranceProduct[], aiResponse: string, originalQuery: string) => {
+    // AI 응답에서 보험사명과 상품명 추출
+    const mentionedCompanies: string[] = [];
+    const mentionedProducts: string[] = [];
+    
+    // 보험사명 패턴 매칭 (더 정확한 매칭)
+    const companyPatterns = [
+      '삼성화재', 'NH농협손해보험', 'KB손해보험', '현대해상', '메리츠화재', 'DB손해보험'
+    ];
+    
+    companyPatterns.forEach(company => {
+      if (aiResponse.includes(company)) {
+        mentionedCompanies.push(company);
+      }
+    });
+    
+    // 상품명 패턴 매칭 (더 구체적인 매칭)
+    const productPatterns = [
+      '펫보험', '동물보험', '다이렉트', '실비보험', '의료보험'
+    ];
+    
+    productPatterns.forEach(product => {
+      if (aiResponse.includes(product)) {
+        mentionedProducts.push(product);
+      }
+    });
+    
+    // AI 응답에서 "적합", "추천", "좋은" 등의 긍정적 표현 확인
+    const positiveKeywords = ['적합', '추천', '좋은', '최적', '적절', '선택'];
+    const hasPositiveRecommendation = positiveKeywords.some(keyword => aiResponse.includes(keyword));
+    
+    // AI 응답에서 "모든", "전체" 등의 포괄적 표현 확인
+    const broadKeywords = ['모든', '전체', '다', '모든 보험사', '모든 상품'];
+    const isBroadRecommendation = broadKeywords.some(keyword => aiResponse.includes(keyword));
+    
+    // 필터링된 상품들
+    const filteredProducts = [];
+    
+    for (const product of products) {
+      let score = 0;
+      const productText = `${product.company} ${product.productName} ${product.description}`.toLowerCase();
+      
+      // 1. AI 응답에서 언급된 보험사 매칭 (높은 점수)
+      for (const company of mentionedCompanies) {
+        if (product.company && product.company.toLowerCase().includes(company.toLowerCase())) {
+          // 포괄적 추천이면 점수 감소
+          if (isBroadRecommendation) {
+            score += 5; // 기본 점수 감소
+          } else {
+            score += 15; // 구체적 추천이면 높은 점수
+          }
+          break;
+        }
+      }
+      
+      // 2. AI 응답에서 언급된 상품명 매칭
+      for (const productName of mentionedProducts) {
+        if (product.productName && product.productName.toLowerCase().includes(productName.toLowerCase())) {
+          score += 8;
+        }
+      }
+      
+      // 3. 원본 쿼리와의 매칭
+      const queryLower = originalQuery.toLowerCase();
+      if (productText.includes(queryLower)) {
+        score += 5;
+      }
+      
+      // 4. 보장내역 매칭
+      if (product.features) {
+        for (const feature of product.features) {
+          if (aiResponse.includes(feature)) {
+            score += 3;
+          }
+        }
+      }
+      
+      // 5. 긍정적 추천이 있으면 추가 점수
+      if (hasPositiveRecommendation && mentionedCompanies.length > 0) {
+        // 언급된 보험사에 추가 점수
+        for (const company of mentionedCompanies) {
+          if (product.company && product.company.toLowerCase().includes(company.toLowerCase())) {
+            score += 10;
+            break;
+          }
+        }
+      }
+      
+      // 점수가 있는 상품만 포함
+      if (score > 0) {
+        filteredProducts.push({ ...product, aiScore: score });
+      }
+    }
+    
+    // 점수순으로 정렬
+    filteredProducts.sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
+    
+    // 상위 6개만 반환
+    return filteredProducts.slice(0, 20);
+  };
 
   // insurance_rag.py의 고급 필터링 시스템을 프론트엔드에서 구현
   const filterInsuranceProducts = (products: InsuranceProduct[], query: string) => {
@@ -300,6 +405,59 @@ export default function PetInsurancePage({
     return filteredProducts.slice(0, 6).map(item => item.product)
   }
 
+  // 텍스트 하이라이팅 함수
+  const highlightText = (element: HTMLElement) => {
+    const text = element.textContent || ''
+    const highlightedText = text.replace(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g, '<span class="text-blue-600 font-medium">$1</span>')
+    element.innerHTML = highlightedText
+  }
+
+  // @태그 감지 및 MyPet 자동완성 (ContentEditable용)
+  const handleContentEditableInput = async (e: React.FormEvent<HTMLDivElement>) => {
+    const element = e.currentTarget
+    const text = element.textContent || ''
+    const selection = window.getSelection()
+    const position = selection?.anchorOffset || 0
+    
+    setSearchQuery(text)
+    setCursorPosition(position)
+    
+    // 하이라이팅 적용
+    highlightText(element)
+
+    // @ 태그 검출
+    const beforeCursor = text.substring(0, position)
+    const match = beforeCursor.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]*)$/)
+    
+    if (match) {
+      const keyword = match[1]
+      if (keyword.length >= 0) {
+        try {
+          const token = localStorage.getItem('accessToken')
+          if (token) {
+            const response = await axios.get(
+              `${getBackendUrl()}/api/mypet/search?keyword=${keyword}`,
+              { headers: { 
+                Authorization: `Bearer ${token}`,
+                'Access_Token': token
+              } }
+            )
+            if (response.data.success) {
+              setPetSuggestions(response.data.data || [])
+              setShowSuggestions(true)
+            }
+          }
+        } catch (error) {
+          console.error('MyPet 검색 실패:', error)
+          setPetSuggestions([])
+        }
+      }
+    } else {
+      setShowSuggestions(false)
+      setPetSuggestions([])
+    }
+  }
+
   // @태그 감지 및 MyPet 자동완성
   const handleSearchInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -355,50 +513,50 @@ export default function PetInsurancePage({
     setPetSuggestions([])
   }
 
-  // 검색 실행
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) {
-      setFilteredProducts(products)
-      return
-    }
-
-    setIsSearching(true)
-    setShowSuggestions(false) // 자동완성 숨기기
-
-    // @MyPet이 있는 경우 백엔드 통합 검색 API 호출
-    const petMatches = searchQuery.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g)
-    if (petMatches && selectedPetId) {
-      try {
-        const response = await axios.get(`${getBackendUrl()}/api/global-search`, {
-          params: {
-            query: searchQuery,
-            petId: selectedPetId,
-            searchType: "insurance"
-          }
-        });
-        
-        if (response.data.success) {
-          const searchResults = response.data.data;
-          // 검색 결과를 보험 상품 목록에 적용
-          setFilteredProducts(searchResults.results || []);
-          // 추천 상품이 있으면 별도 표시 (향후 구현)
-          console.log('MyPet 기반 보험 추천:', searchResults.recommendations);
-          setIsSearching(false)
-          return;
+      // 검색 실행
+    const handleSearch = async () => {
+        if (!searchQuery.trim()) {
+            setFilteredProducts(products)
+            return
         }
-      } catch (error) {
-        console.error('MyPet 기반 보험 검색 실패:', error);
-        // 실패 시 일반 검색으로 폴백
-      }
+
+        setIsSearching(true)
+        setShowSuggestions(false) // 자동완성 숨기기
+
+        // @MyPet이 있는 경우 AI 서비스 직접 호출
+        const petMatches = searchQuery.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g)
+        if (petMatches && selectedPetId) {
+            try {
+                // AI 서비스의 보험 챗봇 엔드포인트 직접 호출
+                const response = await axios.post(`${getBackendUrl()}/api/chatbot/insurance`, {
+                    query: searchQuery,
+                    petId: selectedPetId
+                });
+                
+                if (response.data && response.data.answer) {
+                    // AI 응답을 기반으로 상품 필터링
+                    const aiResponse = response.data.answer;
+                    console.log('AI 서비스 응답:', aiResponse);
+                    
+                    // AI 응답에서 언급된 보험사나 상품명을 추출하여 필터링
+                    const filtered = filterInsuranceProductsByAIResponse(products, aiResponse, searchQuery);
+                    setFilteredProducts(filtered);
+                    setIsSearching(false);
+                    return;
+                }
+            } catch (error) {
+                console.error('AI 서비스 보험 검색 실패:', error);
+                // 실패 시 일반 검색으로 폴백
+            }
+        }
+        
+        // 일반 검색 실행
+        setTimeout(() => {
+            const filtered = filterInsuranceProducts(products, searchQuery)
+            setFilteredProducts(filtered)
+            setIsSearching(false)
+        }, 500)
     }
-    
-    // 일반 검색 실행
-    setTimeout(() => {
-      const filtered = filterInsuranceProducts(products, searchQuery)
-      setFilteredProducts(filtered)
-      setIsSearching(false)
-    }, 500)
-  }
 
   // 검색어 변경 시 자동 검색 (디바운싱) - @태그가 없을 때만
   useEffect(() => {
@@ -562,29 +720,36 @@ export default function PetInsurancePage({
                   className="pl-10 pr-10 py-3 text-base border-2 border-yellow-200 focus:border-yellow-400 rounded-xl bg-white/80 backdrop-blur-sm"
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                   style={{
-                    color: searchQuery.includes('@') ? 'transparent' : 'inherit',
-                    caretColor: 'black'
+                    color: 'transparent',
+                    caretColor: 'black',
+                    fontFamily: 'inherit',
+                    fontSize: '16px',
+                    lineHeight: '24px',
+                    letterSpacing: 'normal',
+                    fontWeight: 'normal'
                   }}
                 />
-                {/* MyPet 태그 오버레이 */}
-                {searchQuery && (
-                  <div 
-                    className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center"
-                    style={{
-                      paddingLeft: '40px',
-                      paddingRight: '40px',
-                      fontSize: '16px',
-                      lineHeight: '24px'
-                    }}
-                  >
-                    {searchQuery.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
-                      if (part.startsWith('@') && part.length > 1) {
-                        return <span key={index} style={{ color: '#2563eb', fontWeight: '500' }}>{part}</span>;
-                      }
-                      return <span key={index} style={{ color: 'black' }}>{part}</span>;
-                    })}
-                  </div>
-                )}
+                {/* 하이라이트 오버레이 */}
+                <div 
+                  className="absolute top-0 left-0 right-0 bottom-0 pointer-events-none flex items-center"
+                  style={{
+                    paddingLeft: '40px',
+                    paddingRight: '40px',
+                    fontSize: '16px',
+                    lineHeight: '24px',
+                    fontFamily: 'inherit',
+                    letterSpacing: 'normal',
+                    fontWeight: 'normal',
+                    whiteSpace: 'pre'
+                  }}
+                >
+                  {searchQuery.split(/(@[ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g).map((part, index) => {
+                    if (part.startsWith('@') && part.length > 1) {
+                      return <span key={index} className="text-blue-600 font-medium">{part}</span>;
+                    }
+                    return <span key={index} className="text-black">{part}</span>;
+                  })}
+                </div>
               </div>
               {searchQuery && (
                 <button
