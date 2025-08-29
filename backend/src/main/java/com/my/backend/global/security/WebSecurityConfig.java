@@ -67,7 +67,7 @@ public class WebSecurityConfig {
                 "https://localhost:*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*", "Authorization", "Content-Type", "Access_Token", "Refresh_Token"));
-        configuration.setAllowCredentials(false);
+        configuration.setAllowCredentials(true);
         configuration.addExposedHeader("Access_Token");
         configuration.addExposedHeader("Refresh_Token");
         configuration.addExposedHeader("Authorization");
