@@ -40,7 +40,7 @@ public class Diary {
     private String audioUrl;
     private String imageUrl;
     
-    @Column(name = "pet_id")
+    @Column(name = "pet_id", insertable = false, updatable = false)
     private Long petId;
 
     @Column(name = "is_deleted", nullable = false)

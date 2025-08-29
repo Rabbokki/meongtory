@@ -63,7 +63,6 @@ public class DiaryService {
         diary.setText(dto.getText());
         diary.setAudioUrl(dto.getAudioUrl());
         diary.setImageUrl(dto.getImageUrl());
-        diary.setPetId(dto.getPetId());
 
         // 텍스트 및 이미지 기반 카테고리 분류
         String[] textCategories = classifyDiaryContent(dto.getText());
