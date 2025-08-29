@@ -1,257 +1,16 @@
-# # AWS 인스턴스 배포 자동화 워크플로우 (ALB + Bastion Host 아키텍처)
-# # 
-# # 실행 방법:
-# # 1. 수동 실행: GitHub Actions에서 "Run workflow"로 실행 시 Bastion Host IP와 도메인 입력
-# # 2. 자동 실행: main 브랜치에 push/merge 시 자동 배포 (BASTION_IP, DOMAIN_NAME secret 필요)
-# # 3. 테스트 실행: feature/cd 브랜치에 push 시 테스트용 자동 실행
-# #
-# # 아키텍처:
-# # - Public Subnet: ALB, NAT Gateway, Bastion Host
-# # - Private Subnet: Service Instance (Frontend, Backend, AI, DB)
-# # - Route53 + ACM으로 도메인 인증서 관리
-# # - ALB로 Frontend(/) 와 API(/api) 라우팅 분리
+# AWS 인스턴스 배포 자동화 워크플로우 (ALB + Bastion Host 아키텍처)
+# 
+# 실행 방법:
+# 1. 수동 실행: GitHub Actions에서 "Run workflow"로 실행 시 Bastion Host IP와 도메인 입력
+# 2. 자동 실행: main 브랜치에 push/merge 시 자동 배포 (BASTION_IP, DOMAIN_NAME secret 필요)
+# 3. 테스트 실행: feature/cd 브랜치에 push 시 테스트용 자동 실행
+#
+# 아키텍처:
+# - Public Subnet: ALB, NAT Gateway, Bastion Host
+# - Private Subnet: Service Instance (Frontend, Backend, AI, DB)
+# - Route53 + ACM으로 도메인 인증서 관리
+# - ALB로 Frontend(/) 와 API(/api) 라우팅 분리
 
-# name: CD Pipeline
-
-# on:
-#   # 수동 실행 (Bastion Host IP와 도메인 입력)
-#   workflow_dispatch:
-#     inputs:
-#       bastion_ip:
-#         description: 'Bastion Host Public IP Address (예: 13.124.123.45)'
-#         required: true
-#         type: string
-#       domain_name:
-#         description: 'Service Domain Name (예: api.example.com)'
-#         required: true
-#         type: string
-#       service_instance_ip:
-#         description: 'Private Service Instance IP (예: 10.0.3.10)'
-#         required: true
-#         type: string
-  
-#   # main 브랜치에 push 시 자동 배포
-#   push:
-#     branches:
-#       - develop
-  
-#   # main 브랜치로 PR이 merge될 때 자동 배포
-#   pull_request:
-#     branches:
-#       - develop
-#     types:
-#       - closed
-
-# permissions:
-#   contents: read
-#   pull-requests: write
-
-# jobs:
-#   deploy:
-#     runs-on: ubuntu-latest
-#     # PR이 merged된 경우나 직접 push된 경우에만 실행
-#     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
-    
-#     env:
-#       # 환경변수 설정: workflow_dispatch일 때는 입력받은 값 사용, 자동 실행시엔 secrets 사용
-#       BASTION_IP: ${{ github.event.inputs.bastion_ip || secrets.BASTION_IP }}
-#       DOMAIN_NAME: ${{ github.event.inputs.domain_name || secrets.DOMAIN_NAME }}
-#       SERVICE_INSTANCE_IP: ${{ github.event.inputs.service_instance_ip || secrets.SERVICE_INSTANCE_IP }}
-    
-#     steps:
-#     # 소스 코드 체크아웃
-#     - name: Checkout code
-#       uses: actions/checkout@v4
-#       with:
-#         token: ${{ secrets.PAT_TOKEN }}
-
-#     # AWS 인증 설정
-#     - name: Configure AWS credentials
-#       uses: aws-actions/configure-aws-credentials@v4
-#       with:
-#         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-#         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#         aws-region: ${{ secrets.AWS_REGION }}
-
-#     # ECR 로그인
-#     - name: Login to Amazon ECR
-#       id: login-ecr
-#       uses: aws-actions/amazon-ecr-login@v2
-
-
-#     # 프론트엔드 이미지 빌드 및 푸시 (도메인 기반 URL 주입)
-#     - name: Build and push Frontend image
-#       run: |
-#         docker build \
-#           --no-cache \
-#           --build-arg NEXT_PUBLIC_BACKEND_URL=https://${{ env.DOMAIN_NAME }} \
-#           --build-arg NEXT_PUBLIC_TOSS_CLIENT_KEY=${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }} \
-#           -t ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest \
-#           ./frontend
-#         docker push ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
-
-#     # 백엔드 이미지 빌드 및 푸시
-#     - name: Build and push Backend image
-#       run: |
-#         docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
-#         docker push ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
-
-#     # AI 모델 다운로드
-#     - name: Download AI Model from S3
-#       run: |
-#         mkdir -p ./ai/emotion/checkpoints_finetune
-#         aws s3 cp s3://meongtory/emotion/best_model.pth ./ai/emotion/checkpoints_finetune/best_model.pth
-
-#     # AI 서비스 이미지 빌드 및 푸시
-#     - name: Build and push AI image
-#       run: |
-#         docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-ai:latest ./ai
-#         docker push ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
-
-#     # 데이터베이스 이미지 빌드 및 푸시
-#     - name: Build and push DB image
-#       run: |
-#         docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-db:latest ./db
-#         docker push ${{ secrets.ECR_REGISTRY }}/mt-db:latest
-
-#     # docker-compose.production.yml에 환경변수 주입
-#     - name: Configure docker-compose with secrets
-#       run: |
-#         # GitHub Secrets을 사용하여 환경변수 치환
-#         # Frontend 환경변수 (ALB를 통한 도메인 기반 접근)
-#         sed -i "s|\${NEXT_PUBLIC_BACKEND_URL}|https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
-        
-#         # Backend 환경변수  
-#         sed -i "s|\${BACKEND_PORT}|${{ secrets.BACKEND_PORT }}|g" docker-compose.production.yml
-#         sed -i "s|\${DB_NAME}|${{ secrets.DB_NAME }}|g" docker-compose.production.yml
-#         sed -i "s|\${DB_USER}|${{ secrets.DB_USER }}|g" docker-compose.production.yml
-#         sed -i "s|\${DB_PASSWORD}|${{ secrets.DB_PASSWORD }}|g" docker-compose.production.yml
-#         sed -i "s|\${JWT_SECRET_KEY}|${{ secrets.JWT_SECRET_KEY }}|g" docker-compose.production.yml
-#         sed -i "s|\${GOOGLE_CLIENT_ID}|${{ secrets.GOOGLE_CLIENT_ID }}|g" docker-compose.production.yml
-#         sed -i "s|\${GOOGLE_CLIENT_SECRET}|${{ secrets.GOOGLE_CLIENT_SECRET }}|g" docker-compose.production.yml
-#         sed -i "s|\${KAKAO_CLIENT_ID}|${{ secrets.KAKAO_CLIENT_ID }}|g" docker-compose.production.yml
-#         sed -i "s|\${KAKAO_CLIENT_SECRET}|${{ secrets.KAKAO_CLIENT_SECRET }}|g" docker-compose.production.yml
-#         sed -i "s|\${NAVER_CLIENT_ID}|${{ secrets.NAVER_CLIENT_ID }}|g" docker-compose.production.yml
-#         sed -i "s|\${NAVER_CLIENT_SECRET}|${{ secrets.NAVER_CLIENT_SECRET }}|g" docker-compose.production.yml
-#         sed -i "s|\${AWS_ACCESS_KEY_ID}|${{ secrets.AWS_ACCESS_KEY_ID }}|g" docker-compose.production.yml
-#         sed -i "s|\${AWS_SECRET_ACCESS_KEY}|${{ secrets.AWS_SECRET_ACCESS_KEY }}|g" docker-compose.production.yml
-#         sed -i "s|\${AWS_S3_REGION}|${{ secrets.AWS_S3_REGION }}|g" docker-compose.production.yml
-#         sed -i "s|\${AWS_S3_BUCKET_NAME}|${{ secrets.AWS_S3_BUCKET_NAME }}|g" docker-compose.production.yml
-#         sed -i "s|\${AI_SERVICE_URL}|${{ secrets.AI_SERVICE_URL }}|g" docker-compose.production.yml
-#         sed -i "s|\${TOSS_SECRET_KEY}|${{ secrets.TOSS_SECRET_KEY }}|g" docker-compose.production.yml
-#         sed -i "s|\${NEXT_PUBLIC_TOSS_CLIENT_KEY}|${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}|g" docker-compose.production.yml
-#         sed -i "s|\${NAVER_API_CLIENT_ID}|${{ secrets.NAVER_API_CLIENT_ID }}|g" docker-compose.production.yml
-#         sed -i "s|\${NAVER_API_CLIENT_SECRET}|${{ secrets.NAVER_API_CLIENT_SECRET }}|g" docker-compose.production.yml
-        
-#         # AI 서비스 환경변수
-#         sed -i "s|\${DB_PORT}|${{ secrets.DB_PORT }}|g" docker-compose.production.yml
-#         sed -i "s|\${OPENAI_API_KEY}|${{ secrets.OPENAI_API_KEY }}|g" docker-compose.production.yml
-#         sed -i "s|\${OPENAI_MODEL}|${{ secrets.OPENAI_MODEL }}|g" docker-compose.production.yml
-#         sed -i "s|\${OPENAI_IMAGE_MODEL}|${{ secrets.OPENAI_IMAGE_MODEL }}|g" docker-compose.production.yml
-#         sed -i "s|\${OPENAI_BREEDING_MODEL}|${{ secrets.OPENAI_BREEDING_MODEL }}|g" docker-compose.production.yml
-#         sed -i "s|\${BACKEND_SERVICE_URL}|${{ secrets.BACKEND_SERVICE_URL }}|g" docker-compose.production.yml
-#         sed -i "s|\${EMBEDDING_MODEL_NAME}|${{ secrets.EMBEDDING_MODEL_NAME }}|g" docker-compose.production.yml
-#         sed -i "s|\${VECTORSTORE_COLLECTION_NAME}|${{ secrets.VECTORSTORE_COLLECTION_NAME }}|g" docker-compose.production.yml
-#         sed -i "s|\${VECTORSTORE_DISTANCE_STRATEGY}|${{ secrets.VECTORSTORE_DISTANCE_STRATEGY }}|g" docker-compose.production.yml
-#         sed -i "s|\${VECTORSTORE_SEARCH_LIMIT}|${{ secrets.VECTORSTORE_SEARCH_LIMIT }}|g" docker-compose.production.yml
-#         sed -i "s|\${SAMPLE_DATA_PATH}|${{ secrets.SAMPLE_DATA_PATH }}|g" docker-compose.production.yml
-#         sed -i "s|\${PROMPT_TEMPLATE_PATH}|${{ secrets.PROMPT_TEMPLATE_PATH }}|g" docker-compose.production.yml
-        
-#         # OAuth2 및 Frontend URL 환경변수 (새로 추가된 변수들)
-#         sed -i "s|OAUTH2_REDIRECT_URI_BASE=https://meongtory.shop|OAUTH2_REDIRECT_URI_BASE=https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
-#         sed -i "s|FRONTEND_URL=https://meongtory.shop|FRONTEND_URL=https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
-        
-#         cat docker-compose.production.yml
-
-#     # Service Instance 정리 작업 (Bastion을 통한 터널링)
-#     - name: Clean up service instance via bastion
-#       uses: appleboy/ssh-action@v1.0.3
-#       with:
-#         host: ${{ env.BASTION_IP }}
-#         username: ubuntu
-#         key: ${{ secrets.AWS_PEM_KEY }}
-#         script: |
-          
-#           # Service instance SSH 키 설정
-#           echo '${{ secrets.AWS_PEM_KEY }}' > /tmp/service_key.pem
-#           chmod 600 /tmp/service_key.pem
-          
-#           # Bastion에서 Service Instance로 SSH 터널링하여 정리 작업
-#           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
-            
-#             # Stop existing containers
-#             if [ -f docker-compose.yml ]; then
-#               docker-compose down || true
-#             fi
-            
-#             # Clean up old files
-#             rm -rf docker-compose.yml init-db/
-            
-#             # Clean up Docker resources (remove all unused images)
-#             docker system prune -a -f || true
-            
-#           EOF
-          
-#           # 보안을 위해 키 파일 삭제
-#           rm -f /tmp/service_key.pem
-
-#     # 배포 파일을 Bastion Host에 먼저 전송
-#     - name: Copy files to bastion host
-#       uses: appleboy/scp-action@v0.1.7
-#       with:
-#         host: ${{ env.BASTION_IP }}
-#         username: ubuntu
-#         key: ${{ secrets.AWS_PEM_KEY }}
-#         source: "docker-compose.production.yml,db/init-db"
-#         target: "/home/ubuntu/"
-
-#     # Bastion Host에서 Service Instance로 파일 전송 및 서비스 시작
-#     - name: Deploy to service instance via bastion
-#       uses: appleboy/ssh-action@v1.0.3
-#       with:
-#         host: ${{ env.BASTION_IP }}
-#         username: ubuntu
-#         key: ${{ secrets.AWS_PEM_KEY }}
-#         script: |
-          
-#           # Service instance SSH 키 설정
-#           echo '${{ secrets.AWS_PEM_KEY }}' > /tmp/service_key.pem
-#           chmod 600 /tmp/service_key.pem
-          
-#           # 배포 파일을 service instance로 전송
-#           scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem docker-compose.production.yml ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
-#           scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem -r db/init-db ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
-          
-          
-#           # Service instance에서 서비스 시작
-#           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
-#             mv docker-compose.production.yml docker-compose.yml
-            
-            
-#             # Configure AWS CLI for ECR access
-#             aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-#             aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-#             aws configure set default.region ${{ secrets.AWS_REGION }}
-            
-#             # Login to ECR
-#             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
-            
-#             # Pull latest images
-#             docker pull ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
-#             docker pull ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
-#             docker pull ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
-#             docker pull ${{ secrets.ECR_REGISTRY }}/mt-db:latest
-            
-#             # Start services
-#             docker-compose up -d
-            
-#             # Show running containers
-#             docker ps
-            
-#           EOF
-          
-#           # 보안을 위해 키 파일 삭제
-#           rm -f /tmp/service_key.pem
 name: CD Pipeline
 
 on:
@@ -263,7 +22,7 @@ on:
         required: true
         type: string
       domain_name:
-        description: 'Service Domain Name (예: meongtory.shop)'
+        description: 'Service Domain Name (예: api.example.com)'
         required: true
         type: string
       service_instance_ip:
@@ -271,12 +30,12 @@ on:
         required: true
         type: string
   
-  # develop 브랜치에 push 시 자동 배포
+  # main 브랜치에 push 시 자동 배포
   push:
     branches:
       - develop
   
-  # develop 브랜치로 PR이 merge될 때 자동 배포
+  # main 브랜치로 PR이 merge될 때 자동 배포
   pull_request:
     branches:
       - develop
@@ -290,9 +49,11 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # PR이 merged된 경우나 직접 push된 경우에만 실행
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
     
     env:
+      # 환경변수 설정: workflow_dispatch일 때는 입력받은 값 사용, 자동 실행시엔 secrets 사용
       BASTION_IP: ${{ github.event.inputs.bastion_ip || secrets.BASTION_IP }}
       DOMAIN_NAME: ${{ github.event.inputs.domain_name || secrets.DOMAIN_NAME }}
       SERVICE_INSTANCE_IP: ${{ github.event.inputs.service_instance_ip || secrets.SERVICE_INSTANCE_IP }}
@@ -317,12 +78,8 @@ jobs:
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v2
 
-    # Gradle 캐시 정리
-    - name: Clear Gradle cache
-      run: |
-        rm -rf ~/.gradle/caches
 
-    # 프론트엔드 이미지 빌드 및 푸시
+    # 프론트엔드 이미지 빌드 및 푸시 (도메인 기반 URL 주입)
     - name: Build and push Frontend image
       run: |
         docker build \
@@ -336,9 +93,7 @@ jobs:
     # 백엔드 이미지 빌드 및 푸시
     - name: Build and push Backend image
       run: |
-        cd backend
-        ./gradlew clean build --no-daemon -Dspring.profiles.active=prod
-        docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest .
+        docker build --no-cache -t ${{ secrets.ECR_REGISTRY }}/mt-backend:latest ./backend
         docker push ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
 
     # AI 모델 다운로드
@@ -363,7 +118,10 @@ jobs:
     - name: Configure docker-compose with secrets
       run: |
         # GitHub Secrets을 사용하여 환경변수 치환
+        # Frontend 환경변수 (ALB를 통한 도메인 기반 접근)
         sed -i "s|\${NEXT_PUBLIC_BACKEND_URL}|https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
+        
+        # Backend 환경변수  
         sed -i "s|\${BACKEND_PORT}|${{ secrets.BACKEND_PORT }}|g" docker-compose.production.yml
         sed -i "s|\${DB_NAME}|${{ secrets.DB_NAME }}|g" docker-compose.production.yml
         sed -i "s|\${DB_USER}|${{ secrets.DB_USER }}|g" docker-compose.production.yml
@@ -384,6 +142,8 @@ jobs:
         sed -i "s|\${NEXT_PUBLIC_TOSS_CLIENT_KEY}|${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}|g" docker-compose.production.yml
         sed -i "s|\${NAVER_API_CLIENT_ID}|${{ secrets.NAVER_API_CLIENT_ID }}|g" docker-compose.production.yml
         sed -i "s|\${NAVER_API_CLIENT_SECRET}|${{ secrets.NAVER_API_CLIENT_SECRET }}|g" docker-compose.production.yml
+        
+        # AI 서비스 환경변수
         sed -i "s|\${DB_PORT}|${{ secrets.DB_PORT }}|g" docker-compose.production.yml
         sed -i "s|\${OPENAI_API_KEY}|${{ secrets.OPENAI_API_KEY }}|g" docker-compose.production.yml
         sed -i "s|\${OPENAI_MODEL}|${{ secrets.OPENAI_MODEL }}|g" docker-compose.production.yml
@@ -396,13 +156,14 @@ jobs:
         sed -i "s|\${VECTORSTORE_SEARCH_LIMIT}|${{ secrets.VECTORSTORE_SEARCH_LIMIT }}|g" docker-compose.production.yml
         sed -i "s|\${SAMPLE_DATA_PATH}|${{ secrets.SAMPLE_DATA_PATH }}|g" docker-compose.production.yml
         sed -i "s|\${PROMPT_TEMPLATE_PATH}|${{ secrets.PROMPT_TEMPLATE_PATH }}|g" docker-compose.production.yml
+        
+        # OAuth2 및 Frontend URL 환경변수 (새로 추가된 변수들)
         sed -i "s|OAUTH2_REDIRECT_URI_BASE=https://meongtory.shop|OAUTH2_REDIRECT_URI_BASE=https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
         sed -i "s|FRONTEND_URL=https://meongtory.shop|FRONTEND_URL=https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
-        # 디버깅: 치환된 파일 내용 출력
-        echo "=== docker-compose.production.yml after substitution ==="
+        
         cat docker-compose.production.yml
 
-    # Service Instance 정리 작업
+    # Service Instance 정리 작업 (Bastion을 통한 터널링)
     - name: Clean up service instance via bastion
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -410,23 +171,31 @@ jobs:
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         script: |
+          
+          # Service instance SSH 키 설정
           echo '${{ secrets.AWS_PEM_KEY }}' > /tmp/service_key.pem
           chmod 600 /tmp/service_key.pem
+          
+          # Bastion에서 Service Instance로 SSH 터널링하여 정리 작업
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
+            
             # Stop existing containers
-            if [ -f /home/ubuntu/docker-compose.yml ]; then
-              docker-compose -f /home/ubuntu/docker-compose.yml down || true
+            if [ -f docker-compose.yml ]; then
+              docker-compose down || true
             fi
+            
             # Clean up old files
-            rm -rf /home/ubuntu/docker-compose.yml /home/ubuntu/init-db/
-            # Clean up Docker resources
+            rm -rf docker-compose.yml init-db/
+            
+            # Clean up Docker resources (remove all unused images)
             docker system prune -a -f || true
-            # 디버깅: 디렉토리 상태 확인
-            ls -l /home/ubuntu/
+            
           EOF
+          
+          # 보안을 위해 키 파일 삭제
           rm -f /tmp/service_key.pem
 
-    # 배포 파일을 Bastion Host에 전송
+    # 배포 파일을 Bastion Host에 먼저 전송
     - name: Copy files to bastion host
       uses: appleboy/scp-action@v0.1.7
       with:
@@ -444,37 +213,42 @@ jobs:
         username: ubuntu
         key: ${{ secrets.AWS_PEM_KEY }}
         script: |
+          
+          # Service instance SSH 키 설정
           echo '${{ secrets.AWS_PEM_KEY }}' > /tmp/service_key.pem
           chmod 600 /tmp/service_key.pem
-          # 디버깅: Bastion Host에서 파일 확인
-          ls -l /home/ubuntu/docker-compose.production.yml
-          ls -lR /home/ubuntu/db/init-db
-          # 파일 전송
-          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem /home/ubuntu/docker-compose.production.yml ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/docker-compose.yml
-          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem -r /home/ubuntu/db/init-db ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
-          # Service instance에서 배포
+          
+          # 배포 파일을 service instance로 전송
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem docker-compose.production.yml ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
+          scp -o StrictHostKeyChecking=no -o ConnectTimeout=30 -i /tmp/service_key.pem -r db/init-db ubuntu@${{ env.SERVICE_INSTANCE_IP }}:/home/ubuntu/
+          
+          
+          # Service instance에서 서비스 시작
           ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 -o ServerAliveInterval=60 -o ServerAliveCountMax=3 -i /tmp/service_key.pem ubuntu@${{ env.SERVICE_INSTANCE_IP }} << 'EOF'
-            # 디버깅: 전송된 파일 확인
-            ls -l /home/ubuntu/docker-compose.yml
-            ls -lR /home/ubuntu/init-db
-            # 디버깅: docker-compose.yml 내용 출력
-            cat /home/ubuntu/docker-compose.yml
+            mv docker-compose.production.yml docker-compose.yml
+            
+            
             # Configure AWS CLI for ECR access
             aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
             aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
             aws configure set default.region ${{ secrets.AWS_REGION }}
+            
             # Login to ECR
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+            
             # Pull latest images
             docker pull ${{ secrets.ECR_REGISTRY }}/mt-frontend:latest
             docker pull ${{ secrets.ECR_REGISTRY }}/mt-backend:latest
             docker pull ${{ secrets.ECR_REGISTRY }}/mt-ai:latest
             docker pull ${{ secrets.ECR_REGISTRY }}/mt-db:latest
+            
             # Start services
-            docker-compose -f /home/ubuntu/docker-compose.yml up -d
+            docker-compose up -d
+            
             # Show running containers
             docker ps
-            # 디버깅: 백엔드 컨테이너 로그 출력
-            docker logs backend-1
+            
           EOF
+          
+          # 보안을 위해 키 파일 삭제
           rm -f /tmp/service_key.pem
