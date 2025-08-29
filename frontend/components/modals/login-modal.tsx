@@ -61,27 +61,28 @@ export default function LoginModal({
         { headers: { "Content-Type": "application/json" } }
       );
 
+      // 수정: 로그인 요청 URL 로그 추가
       console.log("로그인 요청 URL:", `${getBackendUrl()}/api/accounts/login`);
       console.log("로그인 응답:", response.data);
 
       const { data } = response.data;
       const { id, email: userEmail, name, role, accessToken, refreshToken } = data;
 
+      // 로컬 스토리지에 토큰 저장
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);
-      console.log("=== 로그인 후 localStorage 상태 ===");
-      console.log("accessToken:", localStorage.getItem("accessToken"));
-      console.log("refreshToken:", localStorage.getItem("refreshToken"));
       localStorage.setItem("email", userEmail);
       localStorage.setItem("nickname", name);
       localStorage.setItem("role", role);
 
+      // 수정: 토큰 저장 후 확인 로그 강화
       console.log("=== 로그인 모달에서 토큰 저장 ===");
       console.log("저장된 Access Token:", accessToken ? "존재함" : "없음");
       console.log("저장된 Refresh Token:", refreshToken ? "존재함" : "없음");
       console.log("Access Token 길이:", accessToken?.length);
       console.log("localStorage에서 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
 
+      // onLoginSuccess 호출
       onLoginSuccess({
         id,
         email: userEmail,
@@ -106,13 +107,10 @@ export default function LoginModal({
     }
   };
 
-  // OAuth 로그인 처리
+  // 수정: OAuth 요청 URL 디버깅 함수 추가
   const handleOAuthLogin = (provider: string) => {
-    // OAuth2 인증은 백엔드로 직접 리다이렉트
     const oauthUrl = `${getBackendUrl()}/oauth2/authorization/${provider}`;
-    console.log(`${provider} OAuth 리다이렉트 URL:`, oauthUrl);
-    
-    // 브라우저에서 백엔드 OAuth2 엔드포인트로 직접 리다이렉트
+    console.log(`${provider} OAuth 요청 URL:`, oauthUrl);
     window.location.href = oauthUrl;
   };
 

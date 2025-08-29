@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -72,10 +73,22 @@ public class SearchService {
         try {
             String aiServiceUrl = "http://ai:9000/search-embeddings";
             
+            log.info("=== AI 서비스 임베딩 검색 호출 시작 ===");
+            log.info("AI 서비스 URL: {}", aiServiceUrl);
+            log.info("검색어: {}", query);
+            log.info("제한 개수: {}", limit);
+            
             // 요청 데이터 생성
             Map<String, Object> requestData = new HashMap<>();
             requestData.put("query", query);
             requestData.put("limit", limit);
+            
+            log.info("AI 서비스 요청 데이터: {}", requestData);
+            
+            // ObjectMapper를 사용하여 JSON 직렬화 확인
+            ObjectMapper objectMapper = new ObjectMapper();
+            String jsonRequest = objectMapper.writeValueAsString(requestData);
+            log.info("JSON 직렬화된 요청 데이터: {}", jsonRequest);
             
             // RestTemplate을 사용하여 AI 서비스 호출
             RestTemplate restTemplate = new RestTemplate();
@@ -84,16 +97,14 @@ public class SearchService {
             
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestData, headers);
             
-                         log.info("AI 서비스 호출 URL: {}", aiServiceUrl);
-             log.info("AI 서비스 요청 데이터: {}", requestData);
-             log.info("AI 서비스 호출 시작...");
+            log.info("AI 서비스 호출 시작...");
             
-                         ResponseEntity<Map> response = restTemplate.postForEntity(aiServiceUrl, entity, Map.class);
-             
-             log.info("AI 서비스 응답 상태 코드: {}", response.getStatusCode());
-             log.info("AI 서비스 응답 바디: {}", response.getBody());
-             
-             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            ResponseEntity<Map> response = restTemplate.postForEntity(aiServiceUrl, entity, Map.class);
+            
+            log.info("AI 서비스 응답 상태 코드: {}", response.getStatusCode());
+            log.info("AI 서비스 응답 바디: {}", response.getBody());
+            
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                 Map<String, Object> responseBody = response.getBody();
                 Boolean success = (Boolean) responseBody.get("success");
                 
@@ -114,6 +125,7 @@ public class SearchService {
             
         } catch (Exception e) {
             log.error("AI 서비스 임베딩 검색 API 호출 실패: {}", e.getMessage(), e);
+            log.error("스택 트레이스: ", e);
             return new ArrayList<>();
         }
     }

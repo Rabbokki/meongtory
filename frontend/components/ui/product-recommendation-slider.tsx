@@ -19,6 +19,7 @@ interface ProductRecommendationSliderProps {
     externalMallName?: string;
     brand?: string;
     description?: string;
+    similarity?: number; // 유사도 추가
   }>;
   onAddToCart?: (productId: number, productInfo?: any) => void;
   title: string;
@@ -117,11 +118,17 @@ export function ProductRecommendationSlider({
                     네이버
                   </Badge>
                 )}
+                {/* 유사도 표시 */}
+                {product.similarity !== undefined && (
+                  <Badge className="absolute bottom-2 right-2 bg-blue-500 hover:bg-blue-600 text-white">
+                    유사도: {(product.similarity * 100).toFixed(1)}%
+                  </Badge>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-4 pt-2">
               <CardTitle className="text-lg font-semibold mb-2 truncate">
-                {product.name}
+                {product.name.replace(/<[^>]*>/g, '')}
               </CardTitle>
               
               <div className="mb-3">
