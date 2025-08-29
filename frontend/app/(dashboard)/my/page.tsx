@@ -472,14 +472,35 @@ export default function MyPage() {
 
   // 펫 삭제 처리
   const handleDeletePet = async (petId: number) => {
-    if (confirm("정말로 이 펫을 삭제하시겠습니까?")) {
+    const pet = myPets.find(p => p.myPetId === petId)
+    const petName = pet?.name || '펫'
+    
+    if (confirm(`정말로 "${petName}"을(를) 삭제하시겠습니까?\n\n⚠️ 주의: 삭제된 펫 정보는 복구할 수 없습니다.\n- 펫과 관련된 모든 데이터가 삭제됩니다.\n- 업로드된 이미지도 함께 삭제됩니다.`)) {
       try {
+        console.log(`펫 삭제 시작: ${petName} (ID: ${petId})`)
         await myPetApi.deleteMyPet(petId)
-        alert("펫이 삭제되었습니다.")
+        console.log(`펫 삭제 완료: ${petName}`)
+        alert(`"${petName}"이(가) 성공적으로 삭제되었습니다.`)
         fetchMyPets()
-      } catch (error) {
+      } catch (error: any) {
         console.error('펫 삭제 오류:', error)
-        alert('펫 삭제에 실패했습니다.')
+        
+        // 더 구체적인 에러 메시지 표시
+        let errorMessage = '펫 삭제에 실패했습니다.'
+        
+        if (error?.response?.status === 400) {
+          errorMessage = '잘못된 요청입니다. 펫 정보를 확인해주세요.'
+        } else if (error?.response?.status === 403) {
+          errorMessage = '펫을 삭제할 권한이 없습니다.'
+        } else if (error?.response?.status === 404) {
+          errorMessage = '삭제하려는 펫을 찾을 수 없습니다.'
+        } else if (error?.response?.status === 500) {
+          errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+        } else if (error?.message) {
+          errorMessage = `삭제 중 오류가 발생했습니다: ${error.message}`
+        }
+        
+        alert(errorMessage)
       }
     }
   }
