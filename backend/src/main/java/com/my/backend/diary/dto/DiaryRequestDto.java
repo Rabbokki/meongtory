@@ -7,10 +7,9 @@ import lombok.Setter;
 @Setter
 public class DiaryRequestDto {
     private Long userId;
-    private Long petId; // MyPet의 ID 추가
+    private Long petId;
     private String title;
     private String text;
     private String audioUrl;
     private String imageUrl;
-    private Long petId;
 }
