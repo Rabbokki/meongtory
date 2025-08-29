@@ -11,4 +11,5 @@ public class DiaryRequestDto {
     private String text;
     private String audioUrl;
     private String imageUrl;
+    private Long petId;
 }
