@@ -2,6 +2,7 @@ package com.my.backend.account.service;
 
 import com.my.backend.account.dto.AccountRegisterRequestDto;
 import com.my.backend.account.dto.AccountResponseDto;
+import com.my.backend.account.dto.LoginResponseDto;
 import com.my.backend.account.dto.LoginRequestDto;
 import com.my.backend.account.entity.Account;
 import com.my.backend.account.entity.RefreshToken;
@@ -100,7 +101,7 @@ public class AccountService {
     }
 
     @Transactional
-    public TokenDto accountLogin(LoginRequestDto request) {
+    public LoginResponseDto accountLogin(LoginRequestDto request) {
         Account account = accountRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 이메일입니다."));
 
@@ -115,7 +116,16 @@ public class AccountService {
                 .build();
         refreshTokenRepository.save(refreshToken);
         log.info("로그인 성공: {}", account.getEmail());
-        return tokenDto;
+        
+        // 사용자 정보와 토큰을 모두 포함한 응답 반환
+        return new LoginResponseDto(
+                account.getId(),
+                account.getEmail(),
+                account.getName(),
+                account.getRole(),
+                tokenDto.getAccessToken(),
+                tokenDto.getRefreshToken()
+        );
     }
 
     @Transactional

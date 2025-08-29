@@ -65,7 +65,18 @@ export default function LoginModal({
       console.log("로그인 응답:", response.data);
 
       const { data } = response.data;
+      console.log("=== 백엔드 응답 data 부분 ===");
+      console.log("data:", data);
+      console.log("data.role:", data.role);
+      
       const { id, email: userEmail, name, role, accessToken, refreshToken } = data;
+      
+      console.log("=== 추출된 값들 ===");
+      console.log("id:", id);
+      console.log("email:", userEmail);
+      console.log("name:", name);
+      console.log("role:", role);
+      console.log("role 타입:", typeof role);
 
       localStorage.setItem("accessToken", accessToken);
       localStorage.setItem("refreshToken", refreshToken);

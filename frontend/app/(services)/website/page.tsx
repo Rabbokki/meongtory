@@ -255,60 +255,7 @@ export default function PetServiceWebsite() {
   }, []);
   */
 
-  // OAuth 콜백 처리
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const urlParams = new URLSearchParams(window.location.search);
-    const success = urlParams.get("success");
-    const error = urlParams.get("error");
-    const accessToken = urlParams.get("accessToken");
-    const refreshToken = urlParams.get("refreshToken");
-    if (success && accessToken && refreshToken) {
-      localStorage.setItem("accessToken", accessToken);
-      localStorage.setItem("refreshToken", refreshToken);
-      console.log("=== 로그인 후 localStorage 상태 ===");
-      console.log("accessToken:", localStorage.getItem("accessToken"));
-      console.log("refreshToken:", localStorage.getItem("refreshToken"));
-      const fetchUserInfo = async () => {
-        try {
-          const response = await axios.get(`${getBackendUrl()}/api/accounts/me`, {
-            headers: { 
-              Access_Token: localStorage.getItem("accessToken"),
-              "access_token": localStorage.getItem("accessToken")
-            }
-          });
-          const userData = response.data?.data
-          if (!userData) throw new Error("사용자 데이터가 없습니다")
-          const { id, email, name, role } = userData
-          setCurrentUser({ id, email, name })
-          setIsLoggedIn(true)
-          setIsAdmin(role === "ADMIN")
-          toast.success("OAuth 로그인 되었습니다", { duration: 5000 })
-          router.push("/")
-        } catch (err: any) {
-          console.error("사용자 정보 조회 실패:", err);
-          let errorMessage = "사용자 정보 조회 실패";
-          if (err.response) {
-            errorMessage += ": " + (err.response.data?.message || err.response.statusText);
-          } else if (err.request) {
-            errorMessage += ": 서버에 연결할 수 없습니다";
-          } else {
-            errorMessage += ": " + err.message;
-          }
-          toast.error(errorMessage, { duration: 5000 });
-          localStorage.removeItem("accessToken");
-          localStorage.removeItem("refreshToken");
-          setIsLoggedIn(false);
-          setCurrentUser(null);
-          setIsAdmin(false);
-        }
-      };
-      fetchUserInfo();
-    } else if (error) {
-      toast.error(decodeURIComponent(error), { duration: 5000 });
-      router.push("/");
-    }
-  }, [router]);
+  // OAuth 콜백 처리는 Navigation 컴포넌트의 AuthContext에서 처리됨
 
   // 이벤트 핸들러 (기존과 동일)
   const handleAddToWishlist = (item: WishlistItem) => {
