@@ -610,8 +610,8 @@ async def search_embeddings(request: EmbeddingSearchRequest):
             logger.info(f"@태그 발견: {pet_tags}, 일반 검색으로 처리")
             # TODO: petId를 어떻게 받을지 결정 필요
         
-        # 일반 임베딩 검색 수행
-        similar_products = await updater.search_similar_products(request.query, request.limit)
+        # 일반 임베딩 검색 수행 (최소 유사도 0.3 적용)
+        similar_products = await updater.search_similar_products(request.query, request.limit, min_similarity=0.3)
         
         logger.info(f"임베딩 검색 완료: {len(similar_products)}개 결과")
         
