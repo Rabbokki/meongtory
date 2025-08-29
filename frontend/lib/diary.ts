@@ -29,6 +29,8 @@ async function handleUnauthorized(res: any) {
 export interface DiaryEntry {
   diaryId: number;
   userId?: number;
+  petId?: number; // MyPet의 ID 추가
+  petName?: string; // MyPet의 이름 추가
   title: string;
   text: string;
   audioUrl?: string;
@@ -40,6 +42,7 @@ export interface DiaryEntry {
 
 export interface CreateDiaryRequest {
   userId: number;
+  petId?: number; // MyPet의 ID 추가 (선택사항)
   title: string;
   text: string;
   audioUrl?: string;
