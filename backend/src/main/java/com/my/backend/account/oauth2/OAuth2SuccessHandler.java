@@ -25,7 +25,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final JwtUtil jwtUtil;
     private final AccountRepository accountRepository; // 추가: 사용자 정보 조회용
 
-    @Value("${frontend.url:https://meongtory.shop}")
+    @Value("${FRONTEND_URL:https://meongtory.shop}")
     private String frontendUrl;
 
     @Override
