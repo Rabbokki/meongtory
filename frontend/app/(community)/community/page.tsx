@@ -157,9 +157,14 @@ export default function CommunityPage({
     return matchesSearch;
   });
 
-  const sortedPosts = filteredPosts || [];
+  // 항상 createdAt DESC 순서로 정렬 유지 (좋아요 클릭 시에도 순서 변경 방지)
+  const sortedPosts = (filteredPosts || []).sort((a, b) => {
+    const dateA = new Date(a.date).getTime();
+    const dateB = new Date(b.date).getTime();
+    return dateB - dateA; // 최신순 정렬
+  });
 
-  const popularPosts = posts?.sort((a, b) => b.views - a.views).slice(0, 5) || [];
+  const popularPosts = posts ? [...posts].sort((a, b) => b.views - a.views).slice(0, 5) : [];
 
   const handleLike = async (postId: number) => {
     try {
@@ -178,6 +183,7 @@ export default function CommunityPage({
       });
 
       if (response.ok) {
+        // 해당 게시글의 likes 값만 업데이트하고 배열 순서는 절대 변경하지 않음
         const updatedPosts = posts.map((post) =>
           post.id === postId ? { ...post, likes: post.likes + 1 } : post
         );
