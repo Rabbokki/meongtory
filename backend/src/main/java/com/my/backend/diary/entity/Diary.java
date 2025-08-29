@@ -1,6 +1,7 @@
 package com.my.backend.diary.entity;
 
 import com.my.backend.account.entity.Account;
+import com.my.backend.pet.entity.MyPet;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,6 +23,10 @@ public class Diary {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", referencedColumnName = "account_id", nullable = false)
     private Account user;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pet_id", referencedColumnName = "my_pet_id")
+    private MyPet pet;
 
     @Column(nullable = false, length = 255)
     private String title;
