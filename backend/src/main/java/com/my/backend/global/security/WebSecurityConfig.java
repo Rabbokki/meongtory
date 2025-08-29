@@ -49,9 +49,8 @@ public class WebSecurityConfig {
         return (web) -> web.ignoring().requestMatchers(
                 "/h2-console/**",
                 "/api/health",
-                "/actuator/**",
-                "/oauth2/**",
-                "/login/oauth2/**"
+                "/actuator/**"
+                // OAuth2 경로는 제거 - Spring Security가 처리하도록 함
         );
     }
 
