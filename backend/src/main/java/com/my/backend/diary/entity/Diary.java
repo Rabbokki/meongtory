@@ -39,6 +39,9 @@ public class Diary {
 
     private String audioUrl;
     private String imageUrl;
+    
+    @Column(name = "pet_id")
+    private Long petId;
 
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted = false;

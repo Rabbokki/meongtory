@@ -8,11 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label"; // Label 컴포넌트 추가
 import { Card, CardContent } from "@/components/ui/card"; // Card 컴포넌트 추가
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Select 컴포넌트 추가
 import Image from "next/image";
 import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-react"; // 음성 관련 아이콘 추가
-import { createDiary, uploadImageToS3, uploadAudioToS3 } from "@/lib/diary"
-import { myPetApi, MyPetResponseDto } from "@/lib/mypet";
+import { createDiary, uploadImageToS3, uploadAudioToS3, getPetList, type Pet, type PetListResponse } from "@/lib/diary"
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { getBackendUrl } from "@/lib/api";
@@ -28,8 +27,6 @@ export default function GrowthDiaryWritePage({
 }: GrowthDiaryWritePageProps) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [selectedPetId, setSelectedPetId] = useState<string>(""); // 선택된 펫 ID
-  const [myPets, setMyPets] = useState<MyPetResponseDto[]>([]); // 사용자의 펫 목록
   const [images, setImages] = useState<string[]>([]); // State to store image URLs
   const [imageFiles, setImageFiles] = useState<File[]>([]); // State to store actual image files
   const [milestones, setMilestones] = useState<string>(""); // 마일스톤 상태 추가
@@ -38,7 +35,11 @@ export default function GrowthDiaryWritePage({
   const [tags, setTags] = useState<string>(""); // 태그 상태 추가
   const [isUploading, setIsUploading] = useState(false); // 이미지 업로드 상태
   const [isSubmitting, setIsSubmitting] = useState(false); // 제출 중복 방지 상태
-  const [isLoadingPets, setIsLoadingPets] = useState(false); // 펫 목록 로딩 상태
+  
+  // 펫 관련 상태
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [selectedPetId, setSelectedPetId] = useState<string>(""); // Select 컴포넌트는 string 값 사용
+  const [isLoadingPets, setIsLoadingPets] = useState(false);
 
   // 음성 녹음 관련 상태
   const [isRecording, setIsRecording] = useState(false);
@@ -53,26 +54,29 @@ export default function GrowthDiaryWritePage({
   const { toast } = useToast();
   const router = useRouter();
 
-  // 컴포넌트 마운트 시 사용자의 펫 목록 가져오기
+  // 펫 목록 로드
   useEffect(() => {
-    const fetchMyPets = async () => {
+    const loadPets = async () => {
       try {
         setIsLoadingPets(true);
-        const response = await myPetApi.getMyPets();
-        setMyPets(response.myPets);
-      } catch (error) {
-        console.error("펫 목록 가져오기 실패:", error);
-        toast({
-          title: "펫 목록 로드 실패",
-          description: "펫 목록을 가져오는 중 오류가 발생했습니다.",
-          variant: "destructive",
-        });
+        const petData = await getPetList();
+        setPets(petData.myPets || []);
+      } catch (error: any) {
+        console.error("펫 목록 로드 실패:", error);
+        // 로그인이 필요한 경우가 아닌 경우에만 에러 토스트 표시
+        if (!error.message?.includes("로그인이 필요합니다")) {
+          toast({
+            title: "펫 목록 로드 실패",
+            description: "펫 목록을 불러오는 중 오류가 발생했습니다.",
+            variant: "destructive",
+          });
+        }
       } finally {
         setIsLoadingPets(false);
       }
     };
 
-    fetchMyPets();
+    loadPets();
   }, [toast]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -82,7 +86,6 @@ export default function GrowthDiaryWritePage({
 
     console.log("Title:", title);
     console.log("Content:", content);
-    console.log("Selected Pet ID:", selectedPetId);
     console.log("Title trimmed:", title.trim());
     console.log("Content trimmed:", content.trim());
 
@@ -181,11 +184,11 @@ export default function GrowthDiaryWritePage({
       
       const diaryData = {
         userId: Number(finalUserId),
-        petId: selectedPetId ? Number(selectedPetId) : undefined, // 선택된 펫 ID 추가
         title: title,  
         text: content,
         imageUrl: uploadedImageUrls[0] || undefined,
         audioUrl: uploadedAudioUrl,
+        petId: selectedPetId ? Number(selectedPetId) : undefined,
       };
 
       console.log("Creating diary with data:", diaryData);
@@ -411,27 +414,6 @@ export default function GrowthDiaryWritePage({
         <Card className="p-6">
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-6">
-              {/* MyPet 선택 */}
-              <div className="space-y-2">
-                <Label htmlFor="pet-select">반려동물 선택 (선택사항)</Label>
-                <Select value={selectedPetId} onValueChange={setSelectedPetId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="반려동물을 선택하세요" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">반려동물 없이 작성</SelectItem>
-                    {myPets.map((pet) => (
-                      <SelectItem key={pet.myPetId} value={pet.myPetId.toString()}>
-                        {pet.name} ({pet.breed || '품종 미상'})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {isLoadingPets && (
-                  <p className="text-sm text-gray-500">펫 목록을 불러오는 중...</p>
-                )}
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="title">제목</Label>
                 <Input
@@ -441,6 +423,29 @@ export default function GrowthDiaryWritePage({
                   onChange={(e) => setTitle(e.target.value)}
                   required
                 />
+              </div>
+
+              {/* 펫 선택 섹션 */}
+              <div className="space-y-2">
+                <Label htmlFor="pet-select">펫 선택</Label>
+                {isLoadingPets ? (
+                  <div className="text-sm text-gray-500">펫 목록을 불러오는 중...</div>
+                ) : pets.length === 0 ? (
+                  <div className="text-sm text-gray-500">등록된 펫이 없습니다</div>
+                ) : (
+                  <Select value={selectedPetId} onValueChange={setSelectedPetId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="펫을 선택하세요" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {pets.map((pet) => (
+                        <SelectItem key={pet.myPetId} value={pet.myPetId.toString()}>
+                          {pet.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
 
               <div className="space-y-2">

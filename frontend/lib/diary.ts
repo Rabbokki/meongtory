@@ -47,6 +47,24 @@ export interface CreateDiaryRequest {
   text: string;
   audioUrl?: string;
   imageUrl?: string;
+  petId?: number;
+}
+
+// 펫 관련 인터페이스
+export interface Pet {
+  myPetId: number;
+  name: string;
+  breed: string;
+  age: number;
+  gender: string;
+  type: string;
+  weight: number;
+  imageUrl?: string;
+}
+
+export interface PetListResponse {
+  myPets: Pet[];
+  totalCount: number;
 }
 
 export interface UpdateDiaryRequest {
@@ -272,5 +290,28 @@ export async function uploadAudioToS3(file: File): Promise<string> {
     }
     
     throw new Error(`Failed to upload audio: ${error.response?.status || error.message}`);
+  }
+}
+
+// 펫 목록 조회 API
+export async function getPetList(): Promise<PetListResponse> {
+  const accessToken = getAccessTokenOrRedirect();
+
+  try {
+    const response = await axios.get(`${getBackendUrl()}/api/mypet`, {
+      headers: {
+        "Access_Token": accessToken,
+        "Content-Type": "application/json",
+      },
+    });
+
+    // 백엔드 응답이 { success: true, data: {...} } 형태라고 가정
+    return response.data.data || response.data;
+  } catch (error: any) {
+    console.error("펫 목록 조회 실패:", error);
+    if (error.response?.status === 401) {
+      await handleUnauthorized(error.response);
+    }
+    throw new Error("펫 목록을 가져오는데 실패했습니다.");
   }
 }
