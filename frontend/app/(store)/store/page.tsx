@@ -1163,7 +1163,10 @@ export default function StorePage({
                   </div>
                 </div>
                 <CardContent className="p-4 cursor-pointer" onClick={() => window.location.href = `/store/${product.id}`}>
-                  <h3 className="font-medium text-sm text-gray-900 mb-2 line-clamp-2 leading-tight">{product.name}</h3>
+                  <div className="h-[3rem] mb-2 flex flex-col justify-start">
+                    <h3 className="font-medium text-sm text-gray-900 line-clamp-2 leading-tight">{product.name}</h3>
+                    <div className="flex-1"></div>
+                  </div>
                   <p className="text-lg font-bold text-yellow-600">{product.price.toLocaleString()}원</p>
                   {product.stock === 0 && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
@@ -1262,9 +1265,12 @@ export default function StorePage({
                       window.location.href = targetUrl;
                     }
                   }}>
-                    <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 mb-1">
-                      {removeHtmlTags(naverProduct.title)}
-                    </h3>
+                    <div className="h-[3rem] mb-1 flex flex-col justify-start">
+                      <h3 className="font-semibold text-sm text-gray-900 line-clamp-2">
+                        {removeHtmlTags(naverProduct.title)}
+                      </h3>
+                      <div className="flex-1"></div>
+                    </div>
                     <p className="text-xs text-gray-500 mb-1">{naverProduct.mallName}</p>
                     <p className="text-xs text-blue-600 mb-2">{naverProduct.category1 || '용품'}</p>
                     <div className="mb-2">

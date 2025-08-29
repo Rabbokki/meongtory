@@ -1,6 +1,31 @@
 import axios from 'axios'
 import { getBackendUrl } from './api'
 
+// 검색어 전처리 함수
+const preprocessSearchQuery = (query: string): string => {
+  if (!query) return "";
+  
+  // 1. 공백 제거 및 정규화
+  let processedQuery = query.trim();
+  
+  // 2. 특수문자 제거 (한글, 영문, 숫자, 공백만 허용)
+  processedQuery = processedQuery.replace(/[^\w\s가-힣]/g, '');
+  
+  // 3. 연속된 공백을 하나로 변환
+  processedQuery = processedQuery.replace(/\s+/g, ' ');
+  
+  // 4. 너무 짧은 단어 필터링 (2글자 미만 제거)
+  const words = processedQuery.split(' ');
+  const filteredWords = words.filter(word => word.length >= 2);
+  
+  // 5. 결과가 비어있으면 원본 반환 (최소 2글자)
+  if (filteredWords.length === 0 && processedQuery.length >= 2) {
+    return processedQuery;
+  }
+  
+  return filteredWords.join(' ');
+};
+
 // 타입 정의
 export interface Product {
   id: number
@@ -205,8 +230,15 @@ export const storeApi = {
   // 임베딩 검색 (백엔드를 통해)
   searchWithEmbedding: async (query: string, limit: number = 20): Promise<NaverProduct[]> => {
     try {
+      // 검색어 전처리
+      const preprocessedQuery = preprocessSearchQuery(query);
+      if (!preprocessedQuery || preprocessedQuery.length < 2) {
+        console.log('검색어가 너무 짧거나 유효하지 않습니다.');
+        return [];
+      }
+      
       const response = await axios.get(`${getBackendUrl()}/api/search`, {
-        params: { query, limit }
+        params: { query: preprocessedQuery, limit }
       });
       
       const responseData = response.data;

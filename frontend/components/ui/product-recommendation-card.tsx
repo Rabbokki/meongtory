@@ -73,9 +73,12 @@ export function ProductRecommendationCard({
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-2">
-        <CardTitle className="text-lg font-semibold mb-2 line-clamp-2">
-          {product.name.replace(/<[^>]*>/g, '')}
-        </CardTitle>
+        <div className="h-[3rem] mb-2 flex flex-col justify-start">
+          <CardTitle className="text-lg font-semibold line-clamp-2">
+            {product.name.replace(/<[^>]*>/g, '')}
+          </CardTitle>
+          <div className="flex-1"></div>
+        </div>
         
         <div className="mb-3">
           <p className="text-2xl font-bold text-primary">

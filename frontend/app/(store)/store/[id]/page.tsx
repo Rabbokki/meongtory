@@ -1204,8 +1204,8 @@ export default function StoreProductDetailPage({
              <CardHeader>
                <div className="flex items-center justify-between">
                  <div className="flex items-center gap-2">
-                   <Sparkles className="w-5 h-5 text-orange-500" />
-                   <CardTitle className="text-xl">AI 맞춤 추천 (네이버 상품)</CardTitle>
+                   <Sparkles className="w-6 h-6 text-orange-500" />
+                   <CardTitle className="text-2xl">맞춤 추천</CardTitle>
                  </div>
                  {myPets.length > 1 && (
                    <Select value={selectedPet?.myPetId?.toString() || ""} onValueChange={handlePetChange}>
@@ -1223,8 +1223,8 @@ export default function StoreProductDetailPage({
                  )}
                </div>
                {selectedPet && (
-                 <p className="text-sm text-gray-600">
-                   {selectedPet.name} ({selectedPet.breed}, {selectedPet.age}살)을 위한 네이버 쇼핑 맞춤 상품을 추천해드려요
+                 <p className="text-base text-gray-600">
+                   {selectedPet.name} ({selectedPet.breed}, {selectedPet.age}살)을 위한 맞춤 상품을 추천해드려요
                  </p>
                )}
              </CardHeader>
@@ -1472,30 +1472,30 @@ export default function StoreProductDetailPage({
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-orange-500" />
-                  <CardTitle className="text-xl">AI 맞춤 추천</CardTitle>
-                </div>
-                {myPets.length > 1 && (
-                  <Select value={selectedPet?.myPetId?.toString() || ""} onValueChange={handlePetChange}>
-                    <SelectTrigger className="w-40">
-                      <SelectValue placeholder="펫 선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {myPets.map((pet) => (
-                        <SelectItem key={pet.myPetId} value={pet.myPetId.toString()}>
-                          {pet.name} ({pet.breed})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-              {selectedPet && (
-                <p className="text-sm text-gray-600">
-                  {selectedPet.name} ({selectedPet.breed}, {selectedPet.age}살)을 위한 맞춤 상품을 추천해드려요
-                </p>
-              )}
+                                 <div className="flex items-center gap-2">
+                   <Sparkles className="w-6 h-6 text-orange-500" />
+                   <CardTitle className="text-2xl">맞춤 추천</CardTitle>
+                 </div>
+                 {myPets.length > 1 && (
+                   <Select value={selectedPet?.myPetId?.toString() || ""} onValueChange={handlePetChange}>
+                     <SelectTrigger className="w-40">
+                       <SelectValue placeholder="펫 선택" />
+                     </SelectTrigger>
+                     <SelectContent>
+                       {myPets.map((pet) => (
+                         <SelectItem key={pet.myPetId} value={pet.myPetId.toString()}>
+                           {pet.name} ({pet.breed})
+                         </SelectItem>
+                       ))}
+                     </SelectContent>
+                   </Select>
+                 )}
+               </div>
+               {selectedPet && (
+                 <p className="text-base text-gray-600">
+                   {selectedPet.name} ({selectedPet.breed}, {selectedPet.age}살)을 위한 맞춤 상품을 추천해드려요
+                 </p>
+               )}
             </CardHeader>
             <CardContent>
               {!selectedPet ? (

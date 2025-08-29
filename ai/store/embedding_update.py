@@ -51,7 +51,7 @@ class EmbeddingUpdater:
             
             data = {
                 'input': text,
-                'model': 'text-embedding-ada-002'
+                'model': 'text-embedding-3-small'
             }
             
             response = requests.post(
@@ -79,6 +79,32 @@ class EmbeddingUpdater:
         
         vector_str = '[' + ','.join(map(str, embedding)) + ']'
         return vector_str
+    
+    def preprocess_query(self, query: str) -> str:
+        """검색어 전처리"""
+        if not query:
+            return ""
+        
+        import re
+        
+        # 1. 공백 제거 및 정규화
+        query = query.strip()
+        
+        # 2. 특수문자 제거 (한글, 영문, 숫자, 공백만 허용)
+        query = re.sub(r'[^\w\s가-힣]', '', query)
+        
+        # 3. 연속된 공백을 하나로 변환
+        query = re.sub(r'\s+', ' ', query)
+        
+        # 4. 너무 짧은 단어 필터링 (2글자 미만 제거)
+        words = query.split()
+        filtered_words = [word for word in words if len(word) >= 2]
+        
+        # 5. 결과가 비어있으면 원본 반환 (최소 2글자)
+        if not filtered_words and len(query) >= 2:
+            return query
+        
+        return ' '.join(filtered_words)
     
     def get_naver_products_without_embedding(self, limit: int = 500) -> List[tuple]:
         """임베딩이 없는 네이버 상품들을 조회"""
@@ -811,22 +837,28 @@ class EmbeddingUpdater:
             print(f"펫 및 카테고리 필터링 실패: {e}")
             return products
 
-    async def search_similar_products(self, query: str, limit: int = 10) -> List[Dict[str, Any]]:
+    async def search_similar_products(self, query: str, limit: int = 10, min_similarity: float = 0.3) -> List[Dict[str, Any]]:
         """임베딩 기반 상품 검색 (일반 검색용)"""
         try:
-            # 1. 쿼리 임베딩 생성
+            # 1. 검색어 전처리
+            query = self.preprocess_query(query)
+            if not query or len(query.strip()) < 2:
+                print("검색어가 너무 짧거나 유효하지 않습니다.")
+                return []
+            
+            # 2. 쿼리 임베딩 생성
             query_embedding = self.generate_embedding(query)
             if not query_embedding:
                 print("쿼리 임베딩 생성 실패")
                 return []
             
-            # 2. 벡터 검색 실행
+            # 3. 벡터 검색 실행
             query_vector_string = self.embedding_to_vector_string(query_embedding)
             
             with self.get_db_connection() as conn:
                 with conn.cursor() as cursor:
 
-                    # 네이버 상품과 일반 상품을 모두 검색
+                    # 네이버 상품과 일반 상품을 모두 검색 (유사도 임계값 적용)
                     cursor.execute("""
                         (SELECT 
                             'naver' as type,
@@ -851,7 +883,8 @@ class EmbeddingUpdater:
                             updated_at,
                             1 - (title_embedding <=> %s::vector) as similarity
                         FROM naver_product 
-                        WHERE title_embedding IS NOT NULL)
+                        WHERE title_embedding IS NOT NULL
+                        AND 1 - (title_embedding <=> %s::vector) >= %s)
                         
                         UNION ALL
                         
@@ -878,11 +911,12 @@ class EmbeddingUpdater:
                             registration_date as updated_at,
                             1 - (name_embedding <=> %s::vector) as similarity
                         FROM product 
-                        WHERE name_embedding IS NOT NULL)
+                        WHERE name_embedding IS NOT NULL
+                        AND 1 - (name_embedding <=> %s::vector) >= %s)
                         
                         ORDER BY similarity DESC
                         LIMIT %s
-                    """, (query_vector_string, query_vector_string, limit))
+                    """, (query_vector_string, query_vector_string, min_similarity, query_vector_string, query_vector_string, min_similarity, limit))
                     
                     results = []
                     for row in cursor.fetchall():
@@ -911,8 +945,11 @@ class EmbeddingUpdater:
                         }
                         results.append(product)
             
-            print(f"일반 검색 완료: {len(results)}개 상품")
-            return results
+            # 유사도 임계값으로 결과 필터링
+            filtered_results = [product for product in results if product.get('similarity', 0) >= min_similarity]
+            
+            print(f"일반 검색 완료: {len(filtered_results)}개 상품 (임계값: {min_similarity})")
+            return filtered_results
                     
         except Exception as e:
             print(f"임베딩 검색 실패: {e}")
