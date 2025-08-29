@@ -77,14 +77,15 @@ public class CustomOAuth2UserService implements OAuth2UserService<OAuth2UserRequ
     }
 
     private OAuth2UserInfo getOAuth2UserInfo(String registrationId, Map<String, Object> attributes) {
+        log.info("Processing OAuth2 user info for provider: {}", registrationId);
         if ("google".equals(registrationId)) {
-            log.info("Processing Google OAuth2 user info: {}", attributes);
+            log.info("Google OAuth2 attributes: {}", attributes);
             return new GoogleUserDetails(attributes);
         } else if ("naver".equals(registrationId)) {
-            log.info("Processing Naver OAuth2 user info: {}", attributes);
+            log.info("Naver OAuth2 attributes: {}", attributes);
             return new NaverUserDetails(attributes);
         } else if ("kakao".equals(registrationId)) {
-            log.info("Processing Kakao OAuth2 user info: {}", attributes);
+            log.info("Kakao OAuth2 attributes: {}", attributes);
             return new KakaoUserDetails(attributes);
         } else {
             log.error("Unsupported OAuth2 provider: {}", registrationId);
