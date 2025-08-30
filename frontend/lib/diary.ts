@@ -40,6 +40,18 @@ export interface DiaryEntry {
   updatedAt: string;
 }
 
+// 페이징 응답 인터페이스 추가
+export interface DiaryPageResponse {
+  content: DiaryEntry[];
+  totalElements: number;
+  totalPages: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+  numberOfElements: number;
+}
+
 export interface CreateDiaryRequest {
   userId: number;
   petId?: number; // MyPet의 ID 추가 (선택사항)
@@ -47,7 +59,6 @@ export interface CreateDiaryRequest {
   text: string;
   audioUrl?: string;
   imageUrl?: string;
-  petId?: number;
 }
 
 // 펫 관련 인터페이스
@@ -74,16 +85,27 @@ export interface UpdateDiaryRequest {
   imageUrl?: string;
 }
 
-export async function fetchDiaries(category?: string): Promise<DiaryEntry[]> {
+export async function fetchDiaries(
+  category?: string, 
+  page: number = 0, 
+  size: number = 7, 
+  sort: string = "latest",
+  date?: string
+): Promise<DiaryPageResponse> {
   console.log("=== fetchDiaries called ===");
   console.log("Category filter:", category);
+  console.log("Page:", page, "Size:", size, "Sort:", sort);
+  console.log("Date filter:", date);
   
   const accessToken = getAccessTokenOrRedirect();
   console.log("Access token obtained:", accessToken ? "Yes" : "No");
 
-  const url = category 
-    ? `${getBackendUrl()}/api/diary?category=${encodeURIComponent(category)}`
-    : `${getBackendUrl()}/api/diary`;
+  let url = `${getBackendUrl()}/api/diary?page=${page}&size=${size}&sort=${sort}`;
+  if (date) {
+    url += `&date=${encodeURIComponent(date)}`;
+  } else if (category) {
+    url += `&category=${encodeURIComponent(category)}`;
+  }
     
   console.log("Making request to:", url);
   console.log("Request headers:", {
@@ -102,8 +124,9 @@ export async function fetchDiaries(category?: string): Promise<DiaryEntry[]> {
     console.log("Response headers:", response.headers["content-type"]);
     console.log("Raw response data:", response.data);
     console.log("Data type:", typeof response.data);
-    console.log("Is array:", Array.isArray(response.data));
-    console.log("Data length:", response.data?.length);
+    console.log("Is page response:", response.data.content !== undefined);
+    console.log("Content length:", response.data.content?.length);
+    console.log("Total pages:", response.data.totalPages);
     
     return response.data;
   } catch (error: any) {

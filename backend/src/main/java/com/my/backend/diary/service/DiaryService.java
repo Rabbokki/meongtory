@@ -16,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -26,6 +28,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -176,6 +179,47 @@ public class DiaryService {
         return diaryRepository.findByIsDeletedFalseOrderByCreatedAtDesc().stream()
                 .map(DiaryResponseDto::from)
                 .collect(Collectors.toList());
+    }
+
+    // 페이징 지원 메서드들 추가
+    public Page<DiaryResponseDto> getUserDiariesWithPaging(Long userId, Pageable pageable) {
+        Account user = accountRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        return diaryRepository.findByUserAndIsDeletedFalse(user, pageable)
+                .map(DiaryResponseDto::from);
+    }
+
+    public Page<DiaryResponseDto> getAllDiariesWithPaging(Pageable pageable) {
+        return diaryRepository.findByIsDeletedFalse(pageable)
+                .map(DiaryResponseDto::from);
+    }
+
+    public Page<DiaryResponseDto> getDiariesByCategoryWithPaging(String category, Long userId, String userRole, Pageable pageable) {
+        if ("ADMIN".equals(userRole)) {
+            return diaryRepository.findByCategoryWithPaging(category, pageable)
+                    .map(DiaryResponseDto::from);
+        } else {
+            return diaryRepository.findByCategoryAndUserWithPaging(category, userId, pageable)
+                    .map(DiaryResponseDto::from);
+        }
+    }
+
+    // 날짜별 조회 메서드 추가
+    public Page<DiaryResponseDto> getDiariesByDateWithPaging(String date, Long userId, String userRole, Pageable pageable) {
+        // 날짜 파싱 (yyyy-MM-dd 형식)
+        LocalDateTime startOfDay = LocalDateTime.parse(date + "T00:00:00");
+        LocalDateTime endOfDay = LocalDateTime.parse(date + "T23:59:59");
+        
+        if ("ADMIN".equals(userRole)) {
+            return diaryRepository.findByCreatedAtBetween(pageable, startOfDay, endOfDay)
+                    .map(DiaryResponseDto::from);
+        } else {
+            Account user = accountRepository.findById(userId)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+            return diaryRepository.findByUserAndCreatedAtBetween(pageable, user, startOfDay, endOfDay)
+                    .map(DiaryResponseDto::from);
+        }
     }
 
     public DiaryResponseDto updateDiary(Long id, DiaryUpdateDto dto, Long currentUserId, String userRole) {
