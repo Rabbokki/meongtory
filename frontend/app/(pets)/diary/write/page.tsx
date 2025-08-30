@@ -11,10 +11,11 @@ import { Card, CardContent } from "@/components/ui/card"; // Card 컴포넌트 �
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Select 컴포넌트 추가
 import Image from "next/image";
 import { ChevronLeft, ImageIcon, X, Mic, MicOff, Play, Pause } from "lucide-react"; // 음성 관련 아이콘 추가
-import { createDiary, uploadImageToS3, uploadAudioToS3, getPetList, type Pet, type PetListResponse } from "@/lib/diary"
+import { uploadImageToS3, uploadAudioToS3, getPetList, type Pet, type PetListResponse } from "@/lib/diary"
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { getBackendUrl } from "@/lib/api";
+import axios from 'axios';
 
 interface GrowthDiaryWritePageProps {
   onBack: () => void;
@@ -84,6 +85,12 @@ export default function GrowthDiaryWritePage({
     e.preventDefault();
     setError("");
 
+    // 중복 제출 방지
+    if (isSubmitting) {
+      console.log("=== Already submitting, ignoring request ===");
+      return;
+    }
+
     console.log("Title:", title);
     console.log("Content:", content);
     console.log("Title trimmed:", title.trim());
@@ -101,6 +108,9 @@ export default function GrowthDiaryWritePage({
     }
 
     console.log("=== Validation passed, proceeding with diary creation ===");
+    
+    // 제출 상태 활성화 (버튼 비활성화 및 "작성 중..." 표시)
+    setIsSubmitting(true);
 
     // 현재 로그인된 사용자의 실제 ID 가져오기
     console.log("Getting userId from localStorage...");
@@ -194,7 +204,12 @@ export default function GrowthDiaryWritePage({
       console.log("Creating diary with data:", diaryData);
       console.log("Calling createDiary API...");
 
-      const result = await createDiary(diaryData);
+      const result = await axios.post(`${getBackendUrl()}/api/diary`, diaryData, {
+        headers: {
+          "Access_Token": localStorage.getItem('accessToken') || '',
+          "Content-Type": "application/json",
+        },
+      });
 
       console.log("Diary created successfully:", result);
       console.log("Result type:", typeof result);
@@ -215,6 +230,16 @@ export default function GrowthDiaryWritePage({
       }, 1000);
     } catch (err: any) {
       console.error("작성 실패:", err);
+      
+      // 중복 등록 에러 처리
+      if (err.response?.status === 409 || err.message.includes("동일한 내용의 일기가 최근에 등록되었습니다")) {
+        toast({
+          title: "중복 등록",
+          description: "동일한 내용의 일기가 최근에 등록되었습니다.",
+          variant: "destructive",
+        });
+        return;
+      }
       
       // 인증 관련 에러 처리
       if (err.message.includes("로그인이 필요합니다") || err.message.includes("세션이 만료")) {
@@ -237,6 +262,7 @@ export default function GrowthDiaryWritePage({
       });
     } finally {
       setIsUploading(false);
+      setIsSubmitting(false); // 제출 상태 비활성화
     }
   };
 
@@ -591,9 +617,10 @@ export default function GrowthDiaryWritePage({
 
               <Button
                 type="submit"
-                disabled={isUploading}
+                disabled={isUploading || isSubmitting}
+                className={isSubmitting ? "opacity-50 cursor-not-allowed" : ""}
               >
-                {isUploading ? "업로드 중..." : "작성 완료"}
+                {isSubmitting ? "작성 중..." : isUploading ? "업로드 중..." : "작성 완료"}
               </Button>
             </CardContent>
           </form>

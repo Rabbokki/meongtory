@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface DiaryRepository extends JpaRepository<Diary, Long> {
     List<Diary> findByUser(Account user);
@@ -45,4 +46,13 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     @Modifying
     @Query("DELETE FROM Diary d WHERE d.pet.myPetId = :myPetId")
     int deleteByMyPetId(@Param("myPetId") Long myPetId);
+    
+    // 최근 5초 이내에 동일한 사용자가 동일한 제목과 내용으로 작성한 일기가 있는지 확인
+    @Query("SELECT COUNT(d) > 0 FROM Diary d WHERE d.user.id = :userId AND d.title = :title AND d.text = :text AND d.createdAt >= :fiveSecondsAgo")
+    boolean existsByUserIdAndTitleAndTextAndCreatedAtAfter(@Param("userId") Long userId, @Param("title") String title, @Param("text") String text, @Param("fiveSecondsAgo") LocalDateTime fiveSecondsAgo);
+    
+    // 같은 userId가 최근에 동일한 title+text로 작성한 일기를 찾는 메서드
+    Optional<Diary> findTopByUserIdAndTitleAndTextOrderByCreatedAtDesc(
+        Long userId, String title, String text
+    );
 }

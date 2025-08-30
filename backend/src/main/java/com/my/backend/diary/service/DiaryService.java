@@ -52,6 +52,17 @@ public class DiaryService {
         Account user = accountRepository.findById(dto.getUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         
+        // 같은 userId가 최근 5초 이내에 동일한 title+text로 저장하려는 경우 중복 등록 차단
+        Optional<Diary> existingDiary = diaryRepository.findTopByUserIdAndTitleAndTextOrderByCreatedAtDesc(
+            dto.getUserId(), dto.getTitle(), dto.getText());
+        
+        if (existingDiary.isPresent()) {
+            LocalDateTime fiveSecondsAgo = LocalDateTime.now().minusSeconds(5);
+            if (existingDiary.get().getCreatedAt().isAfter(fiveSecondsAgo)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "동일한 내용의 일기가 최근에 등록되었습니다.");
+            }
+        }
+        
         // MyPet 정보 가져오기 (petId가 제공된 경우)
         MyPet pet = null;
         if (dto.getPetId() != null) {
