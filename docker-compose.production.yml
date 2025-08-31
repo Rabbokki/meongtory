@@ -4,7 +4,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_BACKEND_URL=https://${DOMAIN_NAME}
+      - NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}
+      - NEXT_PUBLIC_AI_URL=${NEXT_PUBLIC_AI_URL}
       - NEXT_PUBLIC_TOSS_CLIENT_KEY=${NEXT_PUBLIC_TOSS_CLIENT_KEY}
     depends_on:
       - backend
@@ -71,6 +72,10 @@ services:
       - SAMPLE_DATA_PATH=${SAMPLE_DATA_PATH}
       - PROMPT_TEMPLATE_PATH=${PROMPT_TEMPLATE_PATH}
       - INTERNAL_API_KEY=${INTERNAL_API_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_S3_REGION=${AWS_S3_REGION}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
     depends_on:
       - db
     networks:
