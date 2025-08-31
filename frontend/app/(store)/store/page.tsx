@@ -176,7 +176,6 @@ export default function StorePage({
   const [naverSearchQuery, setNaverSearchQuery] = useState("")
   const [naverSearchLoading, setNaverSearchLoading] = useState(false)
   const [naverInitialLoading, setNaverInitialLoading] = useState(false)
-  const [localPetSuggestions, setLocalPetSuggestions] = useState<any[]>([])
   const [hasMore, setHasMore] = useState(true)
   const [currentPage, setCurrentPageState] = useState(0)
   const [localNaverProducts, setNaverProducts] = useState<NaverProduct[]>([])
@@ -575,18 +574,15 @@ export default function StorePage({
               } }
             )
             if (response.data.success) {
-              setLocalPetSuggestions(response.data.data || [])
               setShowSuggestions(true)
             }
           }
         } catch (error) {
           console.error('MyPet 검색 실패:', error)
-          setLocalPetSuggestions([])
         }
       }
     } else {
       setShowSuggestions(false)
-      setLocalPetSuggestions([])
     }
   }
 
@@ -623,7 +619,6 @@ export default function StorePage({
     setSearchQuery(newQuery)
     setSelectedPetId(pet.myPetId)
     setShowSuggestions(false)
-    setLocalPetSuggestions([])
   }
 
   // 통합 검색 함수 (React Query 기반)
@@ -927,27 +922,38 @@ export default function StorePage({
         <div className="flex justify-center mb-8">
           <div className="relative w-full max-w-md">
             {/* MyPet 자동완성 드롭다운 */}
-            {showSuggestions && (petSuggestions.length > 0 || localPetSuggestions.length > 0) && (
+            {showSuggestions && petSuggestions.length > 0 && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
-                {(petSuggestions.length > 0 ? petSuggestions : localPetSuggestions).map((pet) => (
-                  <div
-                    key={pet.myPetId}
-                    onClick={() => selectPet(pet)}
-                    className="flex items-center p-3 hover:bg-gray-100 cursor-pointer"
-                  >
-                    {pet.imageUrl && (
-                      <img 
-                        src={pet.imageUrl} 
-                        alt={pet.name}
-                        className="w-8 h-8 rounded-full mr-3 object-cover"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <div className="text-sm font-medium">@{pet.name}</div>
-                      <div className="text-xs text-gray-500">{pet.breed} • {pet.type}</div>
-                    </div>
+                {petSearchLoading ? (
+                  <div className="p-3 text-center text-gray-500">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mx-auto mb-2"></div>
+                    검색 중...
                   </div>
-                ))}
+                ) : petSuggestions.length > 0 ? (
+                  petSuggestions.map((pet: any) => (
+                    <div
+                      key={pet.myPetId}
+                      onClick={() => selectPet(pet)}
+                      className="flex items-center p-3 hover:bg-gray-100 cursor-pointer"
+                    >
+                      {pet.imageUrl && (
+                        <img 
+                          src={pet.imageUrl} 
+                          alt={pet.name}
+                          className="w-8 h-8 rounded-full mr-3 object-cover"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">@{pet.name}</div>
+                        <div className="text-xs text-gray-500">{pet.breed} • {pet.type}</div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3 text-center text-gray-500">
+                    검색 결과가 없습니다.
+                  </div>
+                )}
               </div>
             )}
             

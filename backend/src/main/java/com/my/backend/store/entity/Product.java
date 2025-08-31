@@ -61,6 +61,9 @@ public class Product {
     @Column(name = "external_mall_name")
     private String externalMallName;
 
+    @Column(columnDefinition = "vector(1536)")
+    private String nameEmbedding;
+
     @OneToMany(mappedBy = "product")
     @JsonIgnore
     @Builder.Default

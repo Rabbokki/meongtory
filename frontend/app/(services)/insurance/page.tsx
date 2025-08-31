@@ -47,6 +47,7 @@ export default function PetInsurancePage({
   // 검색 상태
   const [searchQuery, setSearchQuery] = useState("")
   const [isSearching, setIsSearching] = useState(false)
+  const [aiResponse, setAiResponse] = useState<string>("")
   
   // @MyPet 자동완성 관련 상태
   const [petSuggestions, setPetSuggestions] = useState<any[]>([])
@@ -178,39 +179,153 @@ export default function PetInsurancePage({
 
   // AI 응답 기반 필터링 함수
   const filterInsuranceProductsByAIResponse = (products: InsuranceProduct[], aiResponse: string, originalQuery: string) => {
-    // AI 응답에서 보험사명과 상품명 추출
-    const mentionedCompanies: string[] = [];
-    const mentionedProducts: string[] = [];
-    
-    // 보험사명 패턴 매칭 (더 정확한 매칭)
-    const companyPatterns = [
-      '삼성화재', 'NH농협손해보험', 'KB손해보험', '현대해상', '메리츠화재', 'DB손해보험'
-    ];
-    
-    companyPatterns.forEach(company => {
-      if (aiResponse.includes(company)) {
-        mentionedCompanies.push(company);
+    // 자연어 처리 - 엔티티 추출
+    const extractEntities = (text: string) => {
+      const entities = {
+        companies: [] as string[],
+        products: [] as string[],
+        features: [] as string[],
+        petTypes: [] as string[],
+        ages: [] as string[],
+        sentiments: {
+          positive: false,
+          negative: false,
+          neutral: false
+        },
+        recommendations: {
+          specific: false,
+          broad: false,
+          alternative: false
+        },
+        recommendedCompanies: [] as string[],
+        excludedCompanies: [] as string[]
+      };
+
+      // 보험사명 추출 (정교한 패턴 매칭)
+      const companyPatterns = [
+        { name: '삼성화재', patterns: ['삼성화재', '삼성', 'samsung'] },
+        { name: 'NH농협손해보험', patterns: ['nh', '농협', '농협손해보험', 'nh농협'] },
+        { name: 'KB손해보험', patterns: ['kb', '국민', 'kb손해보험'] },
+        { name: '현대해상', patterns: ['현대', '현대해상', 'hi'] },
+        { name: '메리츠화재', patterns: ['메리츠', 'meritz'] },
+        { name: 'DB손해보험', patterns: ['db', 'db손해보험'] },
+        { name: '롯데손해보험', patterns: ['롯데', 'lotte'] },
+        { name: '한화손해보험', patterns: ['한화', 'hanwha'] },
+        { name: '흥국화재', patterns: ['흥국', 'heungkuk'] },
+        { name: 'AXA손해보험', patterns: ['axa', '엑사'] },
+        { name: '교보손해보험', patterns: ['교보', 'kyobo'] }
+      ];
+
+      companyPatterns.forEach(company => {
+        if (company.patterns.some(pattern => text.toLowerCase().includes(pattern.toLowerCase()))) {
+          entities.companies.push(company.name);
+        }
+      });
+
+      // 상품 유형 추출
+      const productPatterns = [
+        { name: '펫보험', patterns: ['펫보험', '동물보험', '반려동물보험'] },
+        { name: '실비보험', patterns: ['실비보험', '실손보험', '실비'] },
+        { name: '상해보험', patterns: ['상해보험', '상해', '사고보험'] },
+        { name: '종합보험', patterns: ['종합보험', '종합'] },
+        { name: '의료보험', patterns: ['의료보험', '의료', '치료보험'] },
+        { name: '다이렉트', patterns: ['다이렉트', 'direct'] },
+        { name: '온라인', patterns: ['온라인', 'online'] },
+        { name: '스마트', patterns: ['스마트', 'smart'] },
+        { name: '프리미엄', patterns: ['프리미엄', 'premium'] },
+        { name: '베이직', patterns: ['베이직', 'basic'] }
+      ];
+
+      productPatterns.forEach(product => {
+        if (product.patterns.some(pattern => text.toLowerCase().includes(pattern.toLowerCase()))) {
+          entities.products.push(product.name);
+        }
+      });
+
+      // 보장내역 추출
+      const featurePatterns = [
+        { name: '의료비', patterns: ['의료비', '치료비', '병원비', '진료비'] },
+        { name: '수술비', patterns: ['수술비', '수술', '외과수술'] },
+        { name: '입원', patterns: ['입원', '입원치료', '입원비'] },
+        { name: '통원', patterns: ['통원', '통원치료', '외래'] },
+        { name: '검사비', patterns: ['검사비', '검사', '진단'] },
+        { name: '약품비', patterns: ['약품비', '약', '처방'] },
+        { name: '재활치료', patterns: ['재활', '재활치료', '물리치료'] },
+        { name: '안과치료', patterns: ['안과', '눈', '시력'] },
+        { name: '치과치료', patterns: ['치과', '치아', '치료'] },
+        { name: '피부과치료', patterns: ['피부과', '피부', '알레르기'] }
+      ];
+
+      featurePatterns.forEach(feature => {
+        if (feature.patterns.some(pattern => text.toLowerCase().includes(pattern.toLowerCase()))) {
+          entities.features.push(feature.name);
+        }
+      });
+
+      // 반려동물 종류 추출
+      const petTypePatterns = [
+        { name: '강아지', patterns: ['강아지', '반려견', '개', 'puppy', 'dog'] },
+        { name: '고양이', patterns: ['고양이', '반려묘', '묘', 'cat', 'kitten'] }
+      ];
+
+      petTypePatterns.forEach(petType => {
+        if (petType.patterns.some(pattern => text.toLowerCase().includes(pattern.toLowerCase()))) {
+          entities.petTypes.push(petType.name);
+        }
+      });
+
+      // 나이 정보 추출 (정규식 사용)
+      const ageRegex = /(만\s*\d+세|\d+세|생후\s*\d+개월|\d+개월)/g;
+      const ageMatches = text.match(ageRegex);
+      if (ageMatches) {
+        entities.ages = ageMatches;
       }
-    });
-    
-    // 상품명 패턴 매칭 (더 구체적인 매칭)
-    const productPatterns = [
-      '펫보험', '동물보험', '다이렉트', '실비보험', '의료보험'
-    ];
-    
-    productPatterns.forEach(product => {
-      if (aiResponse.includes(product)) {
-        mentionedProducts.push(product);
-      }
-    });
-    
-    // AI 응답에서 "적합", "추천", "좋은" 등의 긍정적 표현 확인
-    const positiveKeywords = ['적합', '추천', '좋은', '최적', '적절', '선택'];
-    const hasPositiveRecommendation = positiveKeywords.some(keyword => aiResponse.includes(keyword));
-    
-    // AI 응답에서 "모든", "전체" 등의 포괄적 표현 확인
-    const broadKeywords = ['모든', '전체', '다', '모든 보험사', '모든 상품'];
-    const isBroadRecommendation = broadKeywords.some(keyword => aiResponse.includes(keyword));
+
+      // 감정 분석 및 추천/제외 보험사 분류
+      const positivePatterns = [
+        '적합', '추천', '좋은', '최적', '적절', '선택', '가능', '추천드립니다', 
+        '좋습니다', '가입 가능', '적합한', '추천합니다', '괜찮', '나쁘지 않',
+        '보장 가능', '커버', '든든', '좋은 선택'
+      ];
+      const negativePatterns = [
+        '제한적', '어렵', '불가능', '해당되지 않', '아쉽게', '가입 불가', 
+        '가입 제한', '불가능', '안되', '안 좋', '부적합', '어려워요'
+      ];
+
+      entities.sentiments.positive = positivePatterns.some(pattern => text.includes(pattern));
+      entities.sentiments.negative = negativePatterns.some(pattern => text.includes(pattern));
+      entities.sentiments.neutral = !entities.sentiments.positive && !entities.sentiments.negative;
+
+      // 추천된 보험사와 제외된 보험사 분류
+      entities.recommendedCompanies = [] as string[];
+      entities.excludedCompanies = [] as string[];
+
+      // 각 보험사별로 감정 분석
+      entities.companies.forEach(company => {
+        const companyPattern = new RegExp(`${company}[^가-힣]*(${positivePatterns.join('|')})`, 'i');
+        const negativePattern = new RegExp(`${company}[^가-힣]*(${negativePatterns.join('|')})`, 'i');
+        
+        if (negativePattern.test(text)) {
+          entities.excludedCompanies.push(company);
+        } else if (companyPattern.test(text) || entities.sentiments.positive) {
+          entities.recommendedCompanies.push(company);
+        }
+      });
+
+      // 추천 유형 분석
+      const specificPatterns = ['특히', '특별히', '구체적으로', '정확히'];
+      const broadPatterns = ['모든', '전체', '다', '다양한', '여러'];
+      const alternativePatterns = ['대신', '대안', '다른', '또는', '혹은'];
+
+      entities.recommendations.specific = specificPatterns.some(pattern => text.includes(pattern));
+      entities.recommendations.broad = broadPatterns.some(pattern => text.includes(pattern));
+      entities.recommendations.alternative = alternativePatterns.some(pattern => text.includes(pattern));
+
+      return entities;
+    };
+
+    // AI 응답에서 엔티티 추출
+    const entities = extractEntities(aiResponse);
     
     // 필터링된 상품들
     const filteredProducts = [];
@@ -219,49 +334,107 @@ export default function PetInsurancePage({
       let score = 0;
       const productText = `${product.company} ${product.productName} ${product.description}`.toLowerCase();
       
-      // 1. AI 응답에서 언급된 보험사 매칭 (높은 점수)
-      for (const company of mentionedCompanies) {
-        if (product.company && product.company.toLowerCase().includes(company.toLowerCase())) {
-          // 포괄적 추천이면 점수 감소
-          if (isBroadRecommendation) {
-            score += 5; // 기본 점수 감소
+      // 1. 제외된 보험사는 완전히 제외
+      const isExcludedCompany = entities.excludedCompanies.some(company => 
+        product.company && product.company.toLowerCase().includes(company.toLowerCase())
+      );
+      
+      if (isExcludedCompany) {
+        continue; // 완전히 제외
+      }
+      
+      // 2. 추천된 보험사 매칭
+      const isRecommendedCompany = entities.recommendedCompanies.some(company => 
+        product.company && product.company.toLowerCase().includes(company.toLowerCase())
+      );
+      
+      if (isRecommendedCompany) {
+        if (entities.recommendations.broad) {
+          score += 5; // 포괄적 추천
+        } else if (entities.recommendations.specific) {
+          score += 20; // 구체적 추천
+        } else {
+          score += 15; // 일반 추천
+        }
+      } else if (entities.recommendedCompanies.length > 0) {
+        // 추천된 보험사가 있는데 이 상품은 추천되지 않은 경우 낮은 점수
+        score += 2;
+      }
+      
+      // 3. 상품 유형 매칭 (더 정교한 매칭)
+      for (const productType of entities.products) {
+        if (product.productName && product.productName.toLowerCase().includes(productType.toLowerCase())) {
+          // 구체적인 상품명 매칭 (다이렉트, 온라인 등)은 더 높은 점수
+          if (['다이렉트', '온라인', '스마트', '프리미엄', '베이직'].includes(productType)) {
+            score += 15;
           } else {
-            score += 15; // 구체적 추천이면 높은 점수
+            score += 8;
           }
-          break;
         }
       }
       
-      // 2. AI 응답에서 언급된 상품명 매칭
-      for (const productName of mentionedProducts) {
-        if (product.productName && product.productName.toLowerCase().includes(productName.toLowerCase())) {
-          score += 8;
+      // 3-1. 구체적인 상품명 매칭 (AI가 특정 상품을 추천한 경우)
+      const specificProductMatch = entities.recommendedCompanies.length > 0 && entities.products.length > 0;
+      if (specificProductMatch) {
+        const companyMatch = entities.recommendedCompanies.some(company => 
+          product.company && product.company.toLowerCase().includes(company.toLowerCase())
+        );
+        const productMatch = entities.products.some(productType => 
+          product.productName && product.productName.toLowerCase().includes(productType.toLowerCase())
+        );
+        
+        if (companyMatch && productMatch) {
+          score += 25; // 구체적인 상품 추천 시 매우 높은 점수
         }
-      }
-      
-      // 3. 원본 쿼리와의 매칭
-      const queryLower = originalQuery.toLowerCase();
-      if (productText.includes(queryLower)) {
-        score += 5;
       }
       
       // 4. 보장내역 매칭
       if (product.features) {
         for (const feature of product.features) {
-          if (aiResponse.includes(feature)) {
-            score += 3;
+          for (const mentionedFeature of entities.features) {
+            if (feature.toLowerCase().includes(mentionedFeature.toLowerCase())) {
+              score += 5;
+              break;
+            }
           }
         }
       }
       
-      // 5. 긍정적 추천이 있으면 추가 점수
-      if (hasPositiveRecommendation && mentionedCompanies.length > 0) {
-        // 언급된 보험사에 추가 점수
-        for (const company of mentionedCompanies) {
+      // 5. 반려동물 종류 매칭
+      for (const petType of entities.petTypes) {
+        if (productText.includes(petType.toLowerCase())) {
+          score += 4;
+          break;
+        }
+      }
+      
+      // 6. 나이 관련 매칭
+      if (entities.ages.length > 0) {
+        if (product.description && !product.description.includes('나이') && !product.description.includes('연령')) {
+          score += 8; // 나이 제한이 없는 상품
+        } else {
+          score += 2; // 나이 제한이 있는 상품
+        }
+      }
+      
+      // 7. 긍정적 감정이 있으면 추가 점수
+      if (entities.sentiments.positive && entities.companies.length > 0 && !entities.sentiments.negative) {
+        for (const company of entities.companies) {
           if (product.company && product.company.toLowerCase().includes(company.toLowerCase())) {
             score += 10;
             break;
           }
+        }
+      }
+      
+      // 8. 대안 추천이 있는 경우
+      if (entities.recommendations.alternative && !entities.sentiments.negative) {
+        // 언급되지 않은 보험사에 추가 점수
+        const isMentionedCompany = entities.companies.some(company => 
+          product.company && product.company.toLowerCase().includes(company.toLowerCase())
+        );
+        if (!isMentionedCompany) {
+          score += 5;
         }
       }
       
@@ -274,8 +447,35 @@ export default function PetInsurancePage({
     // 점수순으로 정렬
     filteredProducts.sort((a, b) => (b.aiScore || 0) - (a.aiScore || 0));
     
-    // 상위 6개만 반환
-    return filteredProducts.slice(0, 20);
+    // 추천된 보험사가 있는 경우
+    if (entities.recommendedCompanies.length > 0) {
+      // 추천된 보험사의 상품만 필터링
+      const recommendedCompanyProducts = filteredProducts.filter(product => 
+        entities.recommendedCompanies.some(company => 
+          product.company && product.company.toLowerCase().includes(company.toLowerCase())
+        )
+      );
+      
+      if (recommendedCompanyProducts.length > 0) {
+        // 구체적인 상품명도 함께 추천된 경우 (예: 삼성화재 다이렉트)
+        if (entities.products.length > 0) {
+          const specificProducts = recommendedCompanyProducts.filter(product => 
+            entities.products.some(productType => 
+              product.productName && product.productName.toLowerCase().includes(productType.toLowerCase())
+            )
+          );
+          if (specificProducts.length > 0) {
+            return specificProducts.slice(0, 3); // 구체적인 상품만 최대 3개
+          }
+        }
+        
+        // 보험사만 추천된 경우 해당 보험사의 모든 상품
+        return recommendedCompanyProducts.slice(0, 6);
+      }
+    }
+    
+    // 추천된 보험사가 없는 일반적인 경우 상위 6개 반환
+    return filteredProducts.slice(0, 6);
   };
 
   // insurance_rag.py의 고급 필터링 시스템을 프론트엔드에서 구현
@@ -425,7 +625,7 @@ export default function PetInsurancePage({
     // 하이라이팅 적용
     highlightText(element)
 
-    // @ 태그 검출
+    // @ 태그 검색
     const beforeCursor = text.substring(0, position)
     const match = beforeCursor.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]*)$/)
     
@@ -496,6 +696,12 @@ export default function PetInsurancePage({
     } else {
       setShowSuggestions(false)
       setPetSuggestions([])
+      
+      // @태그가 없으면 selectedPetId 초기화
+      if (!value.includes('@')) {
+        setSelectedPetId(null)
+        setAiResponse("")
+      }
     }
   }
 
@@ -523,34 +729,81 @@ export default function PetInsurancePage({
         setIsSearching(true)
         setShowSuggestions(false) // 자동완성 숨기기
 
-        // @MyPet이 있는 경우 AI 서비스 직접 호출
-        const petMatches = searchQuery.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g)
-        if (petMatches && selectedPetId) {
-            try {
-                // AI 서비스의 보험 챗봇 엔드포인트 직접 호출
-                const response = await axios.post(`${getBackendUrl()}/api/chatbot/insurance`, {
-                    query: searchQuery,
-                    petId: selectedPetId
-                });
+        // @태그가 없으면 selectedPetId 초기화
+        if (!searchQuery.includes('@')) {
+            setSelectedPetId(null)
+            setAiResponse("")
+        }
+
+        // AI 검색이 필요한지 판단하는 함수
+        const needsAISearch = (query: string) => {
+            // @태그가 있고 실제로 MyPet이 선택되었을 때만 AI 검색
+            if (query.includes('@') && selectedPetId) return true;
+            
+            // 완전한 문장 패턴이 있을 때만 AI 검색
+            const completeSentencePatterns = [
+                '추천해줘', '추천해', '추천해주세요', '추천해주세요',
+                '어떤게 좋을까', '어떤 것이 좋을까', '어떤 상품이 좋을까',
+                '보장해주는', '보장하는', '포함하는', '포함된',
+                '필요한', '원하는', '찾고 있어', '찾고 있습니다',
+                '비교해줘', '비교해', '차이가 뭐야', '차이가 뭔가요',
+                '어떻게 해야', '어떤게 맞을까', '어떤 상품이 맞을까'
+            ];
+            
+            // 단순 키워드만 있는 경우는 제외
+            const simpleKeywords = ['의료비', '수술비', '입원', '통원', '검사비', '약품비', '삼성화재', 'NH농협', 'KB', '현대해상', '메리츠', 'DB', '롯데', '한화', '흥국', 'AXA', '교보'];
+            const hasOnlySimpleKeywords = simpleKeywords.some(keyword => query.trim() === keyword);
+            
+            if (hasOnlySimpleKeywords) return false;
+            
+            return completeSentencePatterns.some(pattern => query.includes(pattern));
+        };
+
+        // 단순 키워드 검색인지 확인
+        const isSimpleKeyword = !needsAISearch(searchQuery);
+        
+        if (isSimpleKeyword) {
+            // 단순 키워드 검색 - 일반 필터링만 사용
+            const filtered = filterInsuranceProducts(products, searchQuery);
+            setFilteredProducts(filtered);
+            setIsSearching(false);
+            return;
+        }
+
+        // 복잡한 검색 - AI 서비스 호출
+        const petMatches = searchQuery.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g);
+        
+        try {
+            // AI 서비스의 보험 챗봇 엔드포인트 호출
+            const requestBody = selectedPetId 
+                ? { query: searchQuery, petId: selectedPetId }
+                : { query: searchQuery };
                 
-                if (response.data && response.data.answer) {
-                    // AI 응답을 기반으로 상품 필터링
-                    const aiResponse = response.data.answer;
-                    console.log('AI 서비스 응답:', aiResponse);
-                    
-                    // AI 응답에서 언급된 보험사나 상품명을 추출하여 필터링
-                    const filtered = filterInsuranceProductsByAIResponse(products, aiResponse, searchQuery);
+            const response = await axios.post(`${getBackendUrl()}/api/chatbot/insurance`, requestBody);
+            
+            if (response.data && response.data.answer) {
+                // AI 응답을 기반으로 상품 필터링
+                const aiResponseText = response.data.answer;
+                setAiResponse(aiResponseText);
+                
+                // AI 응답에서 언급된 보험사나 상품명을 추출하여 필터링
+                const filtered = filterInsuranceProductsByAIResponse(products, aiResponseText, searchQuery);
+                
+                // 필터링 결과가 없으면 빈 배열로 설정 (가입 가능한 상품이 없음을 의미)
+                if (filtered.length === 0) {
+                    setFilteredProducts([]);
+                } else {
                     setFilteredProducts(filtered);
-                    setIsSearching(false);
-                    return;
                 }
-            } catch (error) {
-                console.error('AI 서비스 보험 검색 실패:', error);
-                // 실패 시 일반 검색으로 폴백
+                setIsSearching(false);
+                return;
             }
+        } catch (error) {
+            console.error('AI 서비스 보험 검색 실패:', error);
+            // 실패 시 일반 검색으로 폴백
         }
         
-        // 일반 검색 실행
+        // AI 검색 실패 시 일반 검색 실행
         setTimeout(() => {
             const filtered = filterInsuranceProducts(products, searchQuery)
             setFilteredProducts(filtered)
@@ -558,17 +811,18 @@ export default function PetInsurancePage({
         }, 500)
     }
 
-  // 검색어 변경 시 자동 검색 (디바운싱) - @태그가 없을 때만
+  // 검색어 변경 시 자동 검색 (디바운싱)
   useEffect(() => {
     const timer = setTimeout(() => {
-      // @태그가 있으면 자동 검색하지 않음 (Enter나 버튼 클릭으로만)
-      const hasAtTag = searchQuery.includes('@')
+      // @태그가 있으면 자동 검색하지 않음 (MyPet 선택 후 Enter나 버튼 클릭으로만)
+      const hasAtTag = searchQuery.trim().includes('@')
+      
       if (searchQuery.trim() && !hasAtTag) {
         handleSearch()
       } else if (!searchQuery.trim()) {
         setFilteredProducts(products)
       }
-    }, 300)
+    }, 1000) // 디바운싱 시간을 1초로 증가
 
     return () => clearTimeout(timer)
   }, [searchQuery, products])
@@ -580,6 +834,7 @@ export default function PetInsurancePage({
     setShowSuggestions(false)
     setPetSuggestions([])
     setSelectedPetId(null)
+    setAiResponse("")
   }
 
   const handleCoverageChange = (coverageId: string, checked: boolean) => {
@@ -677,7 +932,7 @@ export default function PetInsurancePage({
             🐾 우리 아이를 위한 펫보험 🐾
           </h1>
           <p className="text-sm sm:text-lg text-gray-600 mb-1 sm:mb-2">사랑하는 반려동물을 위한 특별한 보험</p>
-          <p className="text-xs sm:text-sm text-gray-500">자연어로 원하는 보험을 찾아보세요!</p>
+          <p className="text-xs sm:text-sm text-gray-500">검색으로 원하는 보험을 찾아보세요!</p>
         </div>
 
         {/* AI 검색 섹션 */}
@@ -772,11 +1027,15 @@ export default function PetInsurancePage({
                 "고양이 보험",
                 "수술비 보장",
                 "입원치료 보험",
-                "할인 혜택"
+                "할인 혜택",
+                "의료비 강한 상품 추천해줘",
               ].map((example, index) => (
                 <button
                   key={index}
-                  onClick={() => setSearchQuery(example)}
+                  onClick={() => {
+                    setSearchQuery(example)
+                    // 검색 예시 클릭 시 즉시 검색하지 않고 사용자가 Enter를 누르거나 디바운싱을 기다리도록 함
+                  }}
                   className="text-xs bg-yellow-100 hover:bg-yellow-200 text-yellow-700 px-3 py-1 rounded-full transition-colors"
                 >
                   {example}
@@ -804,6 +1063,29 @@ export default function PetInsurancePage({
                 </>
               )}
             </p>
+            {/* 검색 조건 안내 */}
+            {!isSearching && searchQuery && searchQuery.includes('@') && !selectedPetId && (
+              <p className="text-xs text-gray-500 mt-1">
+                💡 MyPet을 선택한 후 Enter를 눌러 검색하세요
+              </p>
+            )}
+            {!isSearching && searchQuery && searchQuery.trim().length < 2 && !searchQuery.includes('@') && (
+              <p className="text-xs text-gray-500 mt-1">
+                💡 2글자 이상 입력하거나 Enter를 눌러 검색하세요
+              </p>
+            )}
+            {/* AI 응답 표시 */}
+            {aiResponse && !isSearching && (
+              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-800 font-medium mb-1">🤖 AI 상담사 답변:</p>
+                <p className="text-sm text-blue-700">{aiResponse}</p>
+                {filteredProducts.length > 0 && (
+                  <p className="text-xs text-blue-600 mt-2">
+                    💡 AI가 추천한 {filteredProducts.length}개의 상품을 찾았습니다.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -872,16 +1154,33 @@ export default function PetInsurancePage({
             return (
               <div className="text-center py-8 sm:py-12">
                 <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-4 sm:p-6 max-w-md mx-auto">
-                  <p className="text-yellow-600 text-sm sm:text-base">🔍 검색 조건에 맞는 보험 상품이 없습니다.</p>
-                  <p className="text-yellow-500 text-xs mt-2">다른 검색어를 시도해보세요!</p>
-                  <div className="mt-4 space-y-2">
-                    <p className="text-xs text-gray-500">💡 검색 팁:</p>
-                    <div className="text-xs text-gray-600 space-y-1">
-                      <p>• "삼성화재 보험" → 특정 보험사 검색</p>
-                      <p>• "강아지 의료비" → 반려동물 종류 + 보장내역</p>
-                      <p>• "수술비 보장" → 특정 보장내역 검색</p>
-                    </div>
-                  </div>
+                  {aiResponse ? (
+                    <>
+                      <p className="text-yellow-600 text-sm sm:text-base">😔 현재 가입 가능한 보험 상품이 없습니다.</p>
+                      <p className="text-yellow-500 text-xs mt-2">AI 상담사가 확인한 결과, 현재 조건으로는 가입 가능한 상품이 제한적입니다.</p>
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs text-gray-500">💡 다른 방법:</p>
+                        <div className="text-xs text-gray-600 space-y-1">
+                          <p>• 다른 반려동물로 검색해보세요</p>
+                          <p>• 나이 조건을 확인해보세요</p>
+                          <p>• 다른 보험사를 시도해보세요</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-yellow-600 text-sm sm:text-base">🔍 검색 조건에 맞는 보험 상품이 없습니다.</p>
+                      <p className="text-yellow-500 text-xs mt-2">다른 검색어를 시도해보세요!</p>
+                      <div className="mt-4 space-y-2">
+                        <p className="text-xs text-gray-500">💡 검색 팁:</p>
+                        <div className="text-xs text-gray-600 space-y-1">
+                          <p>• "삼성화재 보험" → 특정 보험사 검색</p>
+                          <p>• "강아지 의료비" → 반려동물 종류 + 보장내역</p>
+                          <p>• "수술비 보장" → 특정 보장내역 검색</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             )
