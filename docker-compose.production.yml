@@ -40,6 +40,7 @@ services:
       - OAUTH2_REDIRECT_URI_BASE=https://${DOMAIN_NAME}
       - FRONTEND_URL=https://${DOMAIN_NAME}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
     depends_on:
       - db
       - ai
@@ -69,6 +70,7 @@ services:
       - VECTORSTORE_SEARCH_LIMIT=${VECTORSTORE_SEARCH_LIMIT}
       - SAMPLE_DATA_PATH=${SAMPLE_DATA_PATH}
       - PROMPT_TEMPLATE_PATH=${PROMPT_TEMPLATE_PATH}
+      - INTERNAL_API_KEY=${INTERNAL_API_KEY}
     depends_on:
       - db
     networks:

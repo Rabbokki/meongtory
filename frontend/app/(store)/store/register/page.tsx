@@ -80,7 +80,6 @@ function StoreProductRegistrationPageContent({
   };
 
   const handleSaveProduct = async () => {
-
     // 유효성 검사
     if (!formData.name.trim()) {
       alert("상품명을 입력해주세요.")

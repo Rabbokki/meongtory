@@ -142,6 +142,7 @@ jobs:
         sed -i "s|\${NEXT_PUBLIC_TOSS_CLIENT_KEY}|${{ secrets.NEXT_PUBLIC_TOSS_CLIENT_KEY }}|g" docker-compose.production.yml
         sed -i "s|\${NAVER_API_CLIENT_ID}|${{ secrets.NAVER_API_CLIENT_ID }}|g" docker-compose.production.yml
         sed -i "s|\${NAVER_API_CLIENT_SECRET}|${{ secrets.NAVER_API_CLIENT_SECRET }}|g" docker-compose.production.yml
+        sed -i "s|\${INTERNAL_API_KEY}|${{ secrets.INTERNAL_API_KEY }}|g" docker-compose.production.yml
         
         # AI 서비스 환경변수
         sed -i "s|\${DB_PORT}|${{ secrets.DB_PORT }}|g" docker-compose.production.yml
@@ -156,6 +157,7 @@ jobs:
         sed -i "s|\${VECTORSTORE_SEARCH_LIMIT}|${{ secrets.VECTORSTORE_SEARCH_LIMIT }}|g" docker-compose.production.yml
         sed -i "s|\${SAMPLE_DATA_PATH}|${{ secrets.SAMPLE_DATA_PATH }}|g" docker-compose.production.yml
         sed -i "s|\${PROMPT_TEMPLATE_PATH}|${{ secrets.PROMPT_TEMPLATE_PATH }}|g" docker-compose.production.yml
+
         
         # OAuth2 및 Frontend URL 환경변수 (새로 추가된 변수들)
         sed -i "s|OAUTH2_REDIRECT_URI_BASE=https://meongtory.shop|OAUTH2_REDIRECT_URI_BASE=https://${{ env.DOMAIN_NAME }}|g" docker-compose.production.yml
