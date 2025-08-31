@@ -63,8 +63,7 @@ public class WebSecurityConfig {
                 "http://localhost:3000",
                 "https://meongtory.shop",
                 "http://frontend:3000",
-                "http://localhost:*",
-                "https://localhost:*"));
+                "http://localhost:*"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*", "Authorization", "Content-Type", "Access_Token", "Refresh_Token"));
         configuration.setAllowCredentials(true);
@@ -102,10 +101,13 @@ public class WebSecurityConfig {
                                 "/ws/**",
                                 "/post/**",
                                 "/api/products/**",
+                                "/api/naver-shopping/**",
                                 "/api/orders/**",
                                 "/api/diary/**",
                                 "/api/ai/**",
+                                "/api/breed/**",
                                 "/api/emotion/**",
+                                "/api/pets/**",
                                 "/api/community/**",
                                 "/api/carts/**",
                                 "/api/insurance/**",

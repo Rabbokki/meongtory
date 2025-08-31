@@ -31,7 +31,7 @@ public class BreedService {
         headers.setContentType(MediaType.MULTIPART_FORM_DATA);
         
         MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
-        body.add("file", new ByteArrayResource(image.getBytes()) {
+        body.add("image", new ByteArrayResource(image.getBytes()) {
             @Override
             public String getFilename() {
                 return image.getOriginalFilename();
@@ -41,7 +41,7 @@ public class BreedService {
         HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
         
         ResponseEntity<BreedPredictionResponseDto> response = restTemplate.postForEntity(
-            aiServiceUrl + "/predict",
+            aiServiceUrl + "/api/ai/predict",
             requestEntity,
             BreedPredictionResponseDto.class
         );
