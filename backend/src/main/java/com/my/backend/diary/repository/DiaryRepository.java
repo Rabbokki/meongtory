@@ -22,18 +22,24 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     Page<Diary> findByUserAndIsDeletedFalse(Account user, Pageable pageable);
     Page<Diary> findByIsDeletedFalse(Pageable pageable);
     
-    @Query(value = "SELECT * FROM diary d WHERE :category = ANY(d.categories) AND d.is_deleted = false ORDER BY d.created_at DESC", nativeQuery = true)
-    List<Diary> findByCategory(@Param("category") String category);
+                                    // 카테고리별 조회 메서드들
+    @Query(value = "SELECT DISTINCT d.* FROM diary d CROSS JOIN unnest(d.categories) AS cat WHERE cat = :category AND d.is_deleted = false ORDER BY d.created_at DESC LIMIT :limit OFFSET :offset",
+           nativeQuery = true)
+    List<Diary> findByCategoryWithPaging(@Param("category") String category, @Param("limit") int limit, @Param("offset") int offset);
+
+    @Query(value = "SELECT COUNT(DISTINCT d.diary_id) FROM diary d CROSS JOIN unnest(d.categories) AS cat WHERE cat = :category AND d.is_deleted = false",
+           nativeQuery = true)
+    long countByCategory(@Param("category") String category);
+
+    @Query(value = "SELECT DISTINCT d.* FROM diary d CROSS JOIN unnest(d.categories) AS cat WHERE cat = :category AND d.user_id = :userId AND d.is_deleted = false ORDER BY d.created_at DESC LIMIT :limit OFFSET :offset",
+           nativeQuery = true)
+    List<Diary> findByCategoryAndUserWithPaging(@Param("category") String category, @Param("userId") Long userId, @Param("limit") int limit, @Param("offset") int offset);
+
+    @Query(value = "SELECT COUNT(DISTINCT d.diary_id) FROM diary d CROSS JOIN unnest(d.categories) AS cat WHERE cat = :category AND d.user_id = :userId AND d.is_deleted = false",
+           nativeQuery = true)
+    long countByCategoryAndUser(@Param("category") String category, @Param("userId") Long userId);
     
-    @Query(value = "SELECT * FROM diary d WHERE :category = ANY(d.categories) AND d.user_id = :userId AND d.is_deleted = false ORDER BY d.created_at DESC", nativeQuery = true)
-    List<Diary> findByCategoryAndUser(@Param("category") String category, @Param("userId") Long userId);
-    
-    // 페이징 지원 카테고리 조회 메서드들 추가
-    @Query(value = "SELECT * FROM diary d WHERE :category = ANY(d.categories) AND d.is_deleted = false", nativeQuery = true)
-    Page<Diary> findByCategoryWithPaging(@Param("category") String category, Pageable pageable);
-    
-    @Query(value = "SELECT * FROM diary d WHERE :category = ANY(d.categories) AND d.user_id = :userId AND d.is_deleted = false", nativeQuery = true)
-    Page<Diary> findByCategoryAndUserWithPaging(@Param("category") String category, @Param("userId") Long userId, Pageable pageable);
+
     
     // 날짜별 조회 메서드들 추가
     @Query("SELECT d FROM Diary d WHERE d.createdAt >= :startOfDay AND d.createdAt < :endOfDay AND d.isDeleted = false")

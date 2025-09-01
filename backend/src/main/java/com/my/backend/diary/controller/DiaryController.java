@@ -6,6 +6,7 @@ import com.my.backend.diary.dto.DiaryUpdateDto;
 import com.my.backend.diary.service.DiaryService;
 import com.my.backend.global.security.user.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +24,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/diary")
 @RequiredArgsConstructor
+@Slf4j
 public class DiaryController {
 
     private final DiaryService diaryService;
@@ -71,7 +73,13 @@ public class DiaryController {
         }
         // 카테고리 파라미터가 있으면 카테고리별 조회
         else if (category != null && !category.trim().isEmpty()) {
-            result = diaryService.getDiariesByCategoryWithPaging(category, userId, userRole, pageable);
+            log.info("=== 컨트롤러에서 카테고리 조회 요청 ===");
+            log.info("Category 파라미터: '{}'", category);
+            log.info("UserId: {}", userId);
+            log.info("UserRole: {}", userRole);
+            log.info("Pageable: page={}, size={}, sort={}", page, size, sort);
+            result = diaryService.getDiariesByCategory(category, userId, userRole, pageable);
+            log.info("컨트롤러에서 조회 완료: {} 개의 일기", result.getContent().size());
         } else {
             // 관리자인 경우 모든 일기 반환, 일반 사용자는 자신의 일기만 반환
             if ("ADMIN".equals(userRole)) {
