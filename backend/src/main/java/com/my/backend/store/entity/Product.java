@@ -46,6 +46,7 @@ public class Product {
 
     private String registeredBy;
 
+    
     // StoreAI 관련 필드들
     @Enumerated(EnumType.STRING)
     @Column(name = "product_source")
