@@ -18,9 +18,26 @@ import { useQueryClient } from "@tanstack/react-query"
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `${token}`;
+    // 공개 엔드포인트 목록
+    const PUBLIC_ENDPOINTS = [
+      '/accounts/register',
+      '/accounts/login',
+      '/accounts/refresh',
+      '/naver-shopping',
+      '/products'
+    ];
+    
+    // PUBLIC_ENDPOINTS에 포함된 경로에는 토큰을 추가하지 않음
+    const isPublicEndpoint = PUBLIC_ENDPOINTS.some((endpoint) =>
+      config.url?.includes(endpoint)
+    );
+    
+    if (!isPublicEndpoint) {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        config.headers.Authorization = `${token}`;
+        config.headers['Access_Token'] = token;
+      }
     }
     return config;
   },
@@ -631,8 +648,20 @@ export default function StorePage({
       // 검색어가 없으면 검색 모드 해제
       setIsSearchMode(false)
       setSearchKeyword("")
+      setAiSearchResults([])
+      // React Query 캐시도 초기화
+      queryClient.removeQueries({ queryKey: ['naverProductSearch'] })
+      queryClient.removeQueries({ queryKey: ['embeddingSearch'] })
       return;
     }
+
+    // 새로운 검색 시작 시 이전 결과 초기화
+    setAiSearchResults([])
+    setSearchKeyword("")
+    
+    // React Query 캐시 초기화
+    queryClient.removeQueries({ queryKey: ['naverProductSearch'] })
+    queryClient.removeQueries({ queryKey: ['embeddingSearch'] })
 
     // @MyPet이 있는 경우 백엔드 통합 검색 API 호출 (기존 로직 유지)
     const petMatches = searchQuery.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g)
@@ -1107,6 +1136,11 @@ export default function StorePage({
                 setSelectedCategory(null);
                 setIsSearchMode(false);
                 setSearchKeyword("");
+                setSearchQuery(""); 
+                setAiSearchResults([]); 
+                // React Query 캐시도 초기화
+                queryClient.removeQueries({ queryKey: ['naverProductSearch'] })
+                queryClient.removeQueries({ queryKey: ['embeddingSearch'] })
               }}
             >
               <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-colors ${
@@ -1125,6 +1159,11 @@ export default function StorePage({
                   setSelectedCategory(category.key);
                   setIsSearchMode(false);
                   setSearchKeyword("");
+                  setSearchQuery(""); 
+                  setAiSearchResults([]); 
+                  // React Query 캐시도 초기화
+                  queryClient.removeQueries({ queryKey: ['naverProductSearch'] })
+                  queryClient.removeQueries({ queryKey: ['embeddingSearch'] })
                 }}
               >
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-colors ${

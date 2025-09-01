@@ -529,6 +529,7 @@ class EmbeddingUpdater:
             return []
     
     def extract_pet_tags_from_query(self, query: str) -> List[str]:
+        """쿼리에서 @태그들을 추출하고 정규화"""
         """쿼리에서 @태그들을 추출"""
         import re
         pet_matches = re.findall(r'@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)', query)
