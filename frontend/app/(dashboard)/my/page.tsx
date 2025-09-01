@@ -103,6 +103,11 @@ export default function MyPage() {
   const [orders, setOrders] = useState<any[]>([])
   const [ordersLoading, setOrdersLoading] = useState(false)
 
+  // HTML 태그 제거 함수
+  const removeHtmlTags = (text: string) => {
+    return text.replace(/<[^>]*>/g, '');
+  };
+
   // 주문 내역 가져오기
   const fetchOrders = async () => {
     setOrdersLoading(true)
@@ -724,7 +729,7 @@ export default function MyPage() {
                                 className="rounded-md object-cover"
                               />
                             </TableCell>
-                            <TableCell className="font-medium">{orderItem?.productName || "상품명 없음"}</TableCell>
+                            <TableCell className="font-medium">{orderItem?.productName ? removeHtmlTags(orderItem.productName) : "상품명 없음"}</TableCell>
                             <TableCell>{orderItem?.productId || "N/A"}</TableCell>
                             <TableCell>{orderItem?.quantity || 0}</TableCell>
                             <TableCell>{((order.amount || 0)).toLocaleString()}원</TableCell>
