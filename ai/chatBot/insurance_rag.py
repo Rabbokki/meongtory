@@ -371,7 +371,7 @@ def filter_insurance_products(products, query):
     """
     검색어에 따라 보험 상품을 필터링하는 고급 시스템
     """
-    query_lower = query.lower()
+    query_lower = query.lower() if query else ""
     filtered_products = []
     
     # 검색 조건 정의
