@@ -1,0 +1,191 @@
+{
+  "site_info": {
+    "title": "LEGODT 레고트 공식 스토어",
+    "description": "Let Life Be Your Playground, 일상에 새로운 이야기를 더해줄 라이프스타일 브랜드",
+    "keywords": "LEGODT",
+    "logo_url": "",
+    "theme_colors": [],
+    "layout_info": {
+      "header": {
+        "exists": true,
+        "classes": []
+      },
+      "nav": {
+        "exists": true,
+        "classes": [
+          "navigation-menu"
+        ]
+      },
+      "footer": {
+        "exists": true,
+        "classes": []
+      }
+    }
+  },
+  "categories": [
+    {
+      "name": "Home",
+      "url": "https://legodt.kr/",
+      "slug": "home"
+    },
+    {
+      "name": "Login",
+      "url": "https://legodt.kr/member/login.html",
+      "slug": "login"
+    },
+    {
+      "name": "Join",
+      "url": "https://legodt.kr/member/join.html",
+      "slug": "join"
+    },
+    {
+      "name": "Cart",
+      "url": "https://legodt.kr/order/basket.html",
+      "slug": "cart"
+    },
+    {
+      "name": "Tumggu",
+      "url": "https://legodt.kr/tumggu.html?ifdotrk_campaign=iframe",
+      "slug": "tumggu"
+    },
+    {
+      "name": "New",
+      "url": "https://legodt.kr/category/new/23/",
+      "slug": "new"
+    },
+    {
+      "name": "상품 보기",
+      "url": "https://legodt.kr#none",
+      "slug": "상품-보기"
+    },
+    {
+      "name": "Tumbler",
+      "url": "https://legodt.kr/category/tumbler/24/",
+      "slug": "tumbler"
+    },
+    {
+      "name": "상품보기",
+      "url": "https://legodt.kr#none",
+      "slug": "상품보기"
+    },
+    {
+      "name": "Life",
+      "url": "https://legodt.kr/category/life/25/",
+      "slug": "life"
+    },
+    {
+      "name": "Bag",
+      "url": "https://legodt.kr/category/bag/26/",
+      "slug": "bag"
+    },
+    {
+      "name": "{#text_1}",
+      "url": "https://legodt.kr/%7B#link_1%7D",
+      "slug": "text_1"
+    }
+  ],
+  "products": [
+    {
+      "name": "루프 텀블러 멀티 400ml (핑크)",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "https://legodt.kr/web/product/medium/42205_01.webp",
+      "product_url": "https://legodt.kr/product/루프-텀블러-멀티-400ml-핑크/105/category/1/display/2/",
+      "category": "",
+      "is_sold_out": true,
+      "brand": "legodt"
+    },
+    {
+      "name": "판매가",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "",
+      "product_url": "",
+      "category": "",
+      "is_sold_out": false,
+      "brand": "legodt"
+    },
+    {
+      "name": "아크릴 링 (레인보우)",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "https://legodt.kr/web/product/medium/11935_01.webp",
+      "product_url": "https://legodt.kr/product/아크릴-링-레인보우/141/category/1/display/3/",
+      "category": "",
+      "is_sold_out": true,
+      "brand": "legodt"
+    },
+    {
+      "name": "Shop Now",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "",
+      "product_url": "https://legodt.kr/%7B#link%7D",
+      "category": "",
+      "is_sold_out": false,
+      "brand": "legodt"
+    },
+    {
+      "name": "이지폴딩 UV차단 양우산 (베이지)",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "https://legodt.kr/web/product/medium/46881_1.webp",
+      "product_url": "https://legodt.kr/product/이지폴딩-uv차단-양우산-베이지/355/category/1/display/4/",
+      "category": "",
+      "is_sold_out": true,
+      "brand": "legodt"
+    },
+    {
+      "name": "루프 텀블러 핸디 1000ml (그라데이션블루)",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "https://legodt.kr/web/product/medium/42211_1.webp",
+      "product_url": "https://legodt.kr/product/루프-텀블러-핸디-1000ml-그라데이션블루/94/category/1/display/5/",
+      "category": "",
+      "is_sold_out": true,
+      "brand": "legodt"
+    },
+    {
+      "name": "핸디 큐브 파우치 S (그린)",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "https://legodt.kr/web/product/medium/46922_1.webp",
+      "product_url": "https://legodt.kr/product/핸디-큐브-파우치-s-그린/338/category/1/display/6/",
+      "category": "",
+      "is_sold_out": true,
+      "brand": "legodt"
+    },
+    {
+      "name": "텀꾸 튜브 키링 (옐로우)",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "https://legodt.kr/web/product/medium/46869_1.webp",
+      "product_url": "https://legodt.kr/product/텀꾸-튜브-키링-옐로우/333/category/1/display/7/",
+      "category": "",
+      "is_sold_out": true,
+      "brand": "legodt"
+    },
+    {
+      "name": "버킷 런치백 (그린)",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "https://legodt.kr/web/product/medium/46929_1.webp",
+      "product_url": "https://legodt.kr/product/버킷-런치백-그린/351/category/1/display/9/",
+      "category": "",
+      "is_sold_out": true,
+      "brand": "legodt"
+    },
+    {
+      "name": "{#name}",
+      "price": 0,
+      "original_price": 0,
+      "image_url": "https://legodt.kr/%7B#imgSmall%7D",
+      "product_url": "https://legodt.kr/%7B#link%7D",
+      "category": "",
+      "is_sold_out": false,
+      "brand": "legodt"
+    }
+  ],
+  "crawled_at": "2025-09-01 15:01:27",
+  "total_products": 10
+}
