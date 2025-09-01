@@ -114,7 +114,19 @@ export default function AdoptionAgentPage() {
       const data = await response.json();
       if (data.success) {
         dispatch({ type: 'SET_SESSION_ID', payload: sessionId });
-        dispatch({ type: 'SET_STAGE', payload: data.stage });
+        
+        // 단계 업데이트
+        if (data.stage) {
+          console.log('Initial stage from API:', data.stage);
+          dispatch({ type: 'SET_STAGE', payload: data.stage });
+        }
+        
+        // 진행률 업데이트
+        if (data.progress) {
+          console.log('Initial progress from API:', data.progress);
+          dispatch({ type: 'SET_PROGRESS', payload: data.progress });
+        }
+        
         dispatch({ type: 'ADD_MESSAGE', payload: { 
           type: 'assistant', 
           content: data.message 
@@ -146,13 +158,29 @@ export default function AdoptionAgentPage() {
       });
       
       const data: AgentResponse = await response.json();
+      console.log('Full API Response:', data); // 전체 응답 로그
+      
       if (data.success) {
         dispatch({ type: 'ADD_MESSAGE', payload: { 
           type: 'assistant', 
           content: data.response 
         }});
-        dispatch({ type: 'SET_STAGE', payload: data.stage });
-        dispatch({ type: 'SET_PROGRESS', payload: data.progress });
+        
+        // 단계 업데이트
+        if (data.stage) {
+          console.log('Updating stage from API:', data.stage);
+          dispatch({ type: 'SET_STAGE', payload: data.stage });
+        }
+        
+        // 진행률 업데이트
+        if (data.progress) {
+          console.log('Updating progress from API:', data.progress);
+          dispatch({ type: 'SET_PROGRESS', payload: data.progress });
+        } else if (data.stage_info?.progress) {
+          // stage_info 안에 progress가 있는 경우
+          console.log('Updating progress from stage_info:', data.stage_info.progress);
+          dispatch({ type: 'SET_PROGRESS', payload: data.stage_info.progress });
+        }
         
         // 단계별 데이터 업데이트
         if (data.data?.recommended_pets) {
@@ -366,12 +394,33 @@ export default function AdoptionAgentPage() {
                     <span className="font-medium">{getStageTitle(state.stage)}</span>
                   </div>
                   <div className="text-sm text-gray-600">
-                    {state.stage === 'initial' && '원하는 강아지 특성을 알려주세요'}
-                    {state.stage === 'pet_search' && '추천 강아지를 확인하세요'}
-                    {state.stage === 'pet_selected' && '보험 추천을 준비하고 있습니다'}
-                    {state.stage === 'insurance' && '적합한 보험을 추천드립니다'}
-                    {state.stage === 'products' && '필요한 용품을 추천드립니다'}
-                    {state.stage === 'completed' && '모든 추천이 완료되었습니다'}
+                    {(() => {
+                      switch (state.stage) {
+                        case 'initial':
+                          return '원하는 강아지 특성을 알려주세요';
+                        case 'pet_search':
+                          return '추천 강아지를 검색하고 있습니다';
+                        case 'pet_selected':
+                          return '보험 추천을 준비하고 있습니다';
+                        case 'insurance':
+                          return '적합한 보험을 추천드립니다';
+                        case 'products':
+                          return '필요한 용품을 추천드립니다';
+                        case 'completed':
+                          return '모든 추천이 완료되었습니다';
+                        default:
+                          return '입양 상담이 진행 중입니다';
+                      }
+                    })()}
+                  </div>
+                  
+                  {/* 진행률 표시 */}
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>진행률</span>
+                      <span>{state.progress.percentage}%</span>
+                    </div>
+                    <Progress value={state.progress.percentage} className="h-1.5" />
                   </div>
                 </div>
               </CardContent>

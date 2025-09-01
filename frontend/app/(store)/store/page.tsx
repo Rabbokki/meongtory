@@ -1180,9 +1180,6 @@ export default function StorePage({
             {/* 우리 스토어 상품들 */}
             {sortedLocalProducts.map((product, index) => (
               <Card key={`local-${product.id}-${index}`} className="group cursor-pointer hover:shadow-lg transition-shadow relative">
-                <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
-                  멍토리
-                </div>
                 <div className="relative">
                   <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden cursor-pointer" onClick={() => window.location.href = `/store/${product.id}`}>
                     <img
@@ -1193,10 +1190,12 @@ export default function StorePage({
                   </div>
                 </div>
                 <CardContent className="p-4 cursor-pointer" onClick={() => window.location.href = `/store/${product.id}`}>
-                  <div className="h-[3rem] mb-2 flex flex-col justify-start">
-                    <h3 className="font-medium text-sm text-gray-900 line-clamp-2 leading-tight">{product.name}</h3>
+                  <div className="h-[3rem] mb-1 flex flex-col justify-start">
+                    <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 leading-tight">{product.name}</h3>
                     <div className="flex-1"></div>
                   </div>
+                  <p className="text-xs text-gray-500 mb-1">멍토리</p>
+                  <p className="text-xs text-blue-600 mb-2">{product.category || '용품'}</p>
                   <p className="text-lg font-bold text-yellow-600">{product.price.toLocaleString()}원</p>
                   {product.stock === 0 && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">

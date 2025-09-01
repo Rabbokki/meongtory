@@ -362,7 +362,7 @@ public class OrderService {
         // 네이버 상품인 경우
         else if (order.getNaverProduct() != null) {
             Long naverProductId = order.getNaverProduct().getId();
-            String productName = order.getNaverProduct().getTitle();
+            String productName = removeHtmlTags(order.getNaverProduct().getTitle());
             String imageUrl = order.getNaverProduct().getImageUrl() != null ? order.getNaverProduct().getImageUrl() : "/placeholder.svg";
             
             return OrderResponseDto.builder()
@@ -397,6 +397,14 @@ public class OrderService {
                     .isNaverProduct(false)
                     .build();
         }
+    }
+
+    // HTML 태그 제거 메서드
+    private String removeHtmlTags(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replaceAll("<[^>]*>", "");
     }
 
     // merchantOrderId 자동 생성
