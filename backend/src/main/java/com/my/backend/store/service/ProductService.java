@@ -14,6 +14,7 @@ import com.my.backend.s3.S3Service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductService {
 
     private final ProductRepository productRepository;
@@ -29,6 +31,7 @@ public class ProductService {
     private final OrderRepository orderRepository;
     private final RecentProductRepository recentProductRepository;
     private final S3Service s3Service;
+    // private final EmbeddingService embeddingService; // 임베딩 기능 제거
 
     public List<Product> getAllProducts() {
         List<Product> products = productRepository.findAll();
@@ -36,12 +39,17 @@ public class ProductService {
     }
 
     public Product createProduct(Product product) {
+        log.info("=== ProductService.createProduct 시작 ===");
+        log.info("입력 상품: {}", product);
+        
         if (product.getRegistrationDate() == null) {
             product.setRegistrationDate(LocalDate.now());
+            log.info("등록일 설정: {}", product.getRegistrationDate());
         }
 
         if (product.getRegisteredBy() == null || product.getRegisteredBy().trim().isEmpty()) {
             product.setRegisteredBy("admin");
+            log.info("등록자 설정: {}", product.getRegisteredBy());
         }
 
         if (product.getImageUrl() != null && product.getImageUrl().startsWith("data:")) {
@@ -54,7 +62,12 @@ public class ProductService {
             }
         }
 
+        log.info("데이터베이스 저장 시도...");
         Product savedProduct = productRepository.save(product);
+        log.info("데이터베이스 저장 성공: ID={}", savedProduct.getId());
+        
+        log.info("새 상품 등록됨: '{}'", savedProduct.getName());
+        
         return savedProduct;
     }
 
@@ -67,10 +80,20 @@ public class ProductService {
 
     public Product updateProduct(Long id, Product updatedProduct) {
         Product product = getProductById(id);
+        
+        // 상품명이 변경되었는지 확인
+        boolean nameChanged = !product.getName().equals(updatedProduct.getName());
+        String oldName = product.getName();
+        
         product.setName(updatedProduct.getName());
         product.setDescription(updatedProduct.getDescription());
         product.setPrice(updatedProduct.getPrice());
         product.setStock(updatedProduct.getStock());
+        
+        // 카테고리 업데이트 (Category enum을 문자열로 변환)
+        if (updatedProduct.getCategory() != null) {
+            product.setCategory(updatedProduct.getCategory().name());
+        }
 
         String oldImageUrl = product.getImageUrl();
 
@@ -92,6 +115,10 @@ public class ProductService {
             }
         } else if (updatedProduct.getImageUrl() != null) {
             product.setImageUrl(updatedProduct.getImageUrl());
+        }
+
+        if (nameChanged) {
+            log.info("상품명이 변경됨: '{}' -> '{}'", oldName, updatedProduct.getName());
         }
 
         return productRepository.save(product);

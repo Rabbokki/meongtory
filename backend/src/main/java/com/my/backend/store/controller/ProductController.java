@@ -43,38 +43,55 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    public Product getProduct(@PathVariable Long id) {
+    public ResponseDto<Product> getProduct(@PathVariable Long id) {
         try {
             if (id == null) {
                 System.out.println("ERROR: 상품 ID가 null입니다.");
-                throw new IllegalArgumentException("상품 ID가 null입니다.");
+                return ResponseDto.fail("INVALID_PRODUCT_ID", "상품 ID가 null입니다.");
             }
 
             if (id <= 0) {
                 System.out.println("ERROR: 상품 ID가 유효하지 않습니다: " + id);
-                throw new IllegalArgumentException("상품 ID가 유효하지 않습니다: " + id);
+                return ResponseDto.fail("INVALID_PRODUCT_ID", "상품 ID가 유효하지 않습니다: " + id);
             }
 
             Product product = productService.getProductById(id);
 
             if (product == null) {
                 System.out.println("ERROR: 상품을 찾을 수 없습니다: " + id);
-                throw new RuntimeException("상품을 찾을 수 없습니다: " + id);
+                return ResponseDto.fail("PRODUCT_NOT_FOUND", "상품을 찾을 수 없습니다: " + id);
             }
 
-            return product;
+            return ResponseDto.success(product);
         } catch (NumberFormatException e) {
             System.out.println("ERROR: 상품 ID 형식이 올바르지 않습니다: " + id);
-            throw new IllegalArgumentException("상품 ID 형식이 올바르지 않습니다: " + id);
+            return ResponseDto.fail("INVALID_PRODUCT_ID_FORMAT", "상품 ID 형식이 올바르지 않습니다: " + id);
         } catch (Exception e) {
+            System.out.println("ERROR: 상품 조회 중 오류 발생: " + e.getMessage());
             e.printStackTrace();
-            throw e;
+            return ResponseDto.fail("PRODUCT_FETCH_ERROR", "상품 조회 중 오류가 발생했습니다: " + e.getMessage());
         }
     }
 
     @PutMapping("/{id}")
-    public Product updateProduct(@PathVariable Long id, @RequestBody Product product) {
-        return productService.updateProduct(id, product);
+    public ResponseDto<Product> updateProduct(@PathVariable Long id, @RequestBody Product product) {
+        try {
+            if (id == null || id <= 0) {
+                System.out.println("ERROR: 유효하지 않은 상품 ID: " + id);
+                return ResponseDto.fail("INVALID_PRODUCT_ID", "유효하지 않은 상품 ID입니다.");
+            }
+
+            Product updatedProduct = productService.updateProduct(id, product);
+            if (updatedProduct == null) {
+                return ResponseDto.fail("PRODUCT_UPDATE_FAILED", "상품 수정에 실패했습니다.");
+            }
+
+            return ResponseDto.success(updatedProduct);
+        } catch (Exception e) {
+            System.out.println("ERROR: 상품 수정 중 오류 발생: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseDto.fail("PRODUCT_UPDATE_ERROR", "상품 수정 중 오류가 발생했습니다: " + e.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")

@@ -187,25 +187,59 @@ public class NaverShoppingController {
      * 네이버 상품을 카트에 추가 (상품 정보와 함께)
      */
     @PostMapping("/cart/add")
-    public ResponseEntity<ResponseDto> addToCartWithProduct(@RequestBody NaverProductDto naverProductDto,
+    public ResponseEntity<ResponseDto> addToCartWithProduct(@RequestBody(required = false) NaverProductDto naverProductDto,
                                                            @RequestParam(defaultValue = "1") int quantity,
                                                            @AuthenticationPrincipal UserDetailsImpl userDetails) {
         try {
+            log.info("=== 네이버 상품 장바구니 추가 요청 시작 ===");
+            log.info("요청 데이터: {}", naverProductDto);
+            log.info("수량: {}", quantity);
+            log.info("사용자: {}", userDetails != null ? userDetails.getUsername() : "null");
+            
+            // 요청 데이터 검증
+            if (naverProductDto == null) {
+                log.error("요청 데이터가 null입니다.");
+                return ResponseEntity.badRequest().body(ResponseDto.fail("INVALID_REQUEST", "요청 데이터가 null입니다."));
+            }
+            
+            if (naverProductDto.getProductId() == null || naverProductDto.getProductId().trim().isEmpty()) {
+                log.error("productId가 비어있습니다.");
+                return ResponseEntity.badRequest().body(ResponseDto.fail("INVALID_PRODUCT_ID", "productId가 비어있습니다."));
+            }
+            
+            if (naverProductDto.getTitle() == null || naverProductDto.getTitle().trim().isEmpty()) {
+                log.error("title이 비어있습니다.");
+                return ResponseEntity.badRequest().body(ResponseDto.fail("INVALID_TITLE", "title이 비어있습니다."));
+            }
+            
+            if (naverProductDto.getPrice() == null || naverProductDto.getPrice() <= 0) {
+                log.error("가격이 유효하지 않습니다: {}", naverProductDto.getPrice());
+                return ResponseEntity.badRequest().body(ResponseDto.fail("INVALID_PRICE", "가격이 유효하지 않습니다."));
+            }
+            
             Long accountId = getCurrentUserId(userDetails);
+            log.info("사용자 ID: {}", accountId);
             
             // 네이버 상품을 데이터베이스에 저장하거나 업데이트
+            log.info("상품 저장 시작 - productId: {}, title: {}", naverProductDto.getProductId(), naverProductDto.getTitle());
             NaverShoppingService.NaverProductSaveResult result = naverShoppingService.saveOrUpdateNaverProduct(naverProductDto);
+            log.info("상품 저장 결과: {}", result);
             
             if (result.getProductId() == null) {
+                log.error("상품 저장 실패: {}", result.getMessage());
                 return ResponseEntity.badRequest().body(ResponseDto.fail("SAVE_FAILED", "네이버 상품 저장에 실패했습니다: " + result.getMessage()));
             }
             
             // 카트에 추가
             cartService.addNaverProductToCart(accountId, result.getProductId(), quantity);
+            log.info("장바구니 추가 성공");
             
+            log.info("=== 네이버 상품 장바구니 추가 요청 완료 ===");
             return ResponseEntity.ok(ResponseDto.success("네이버 상품을 카트에 추가했습니다"));
         } catch (Exception e) {
-            log.error("네이버 상품 카트 추가 실패: {}", e.getMessage());
+            log.error("=== 네이버 상품 카트 추가 실패 ===");
+            log.error("오류 메시지: {}", e.getMessage());
+            log.error("오류 스택 트레이스:", e);
             return ResponseEntity.badRequest().body(ResponseDto.fail("CART_ADD_FAILED", "네이버 상품을 카트에 추가하는데 실패했습니다: " + e.getMessage()));
         }
     }

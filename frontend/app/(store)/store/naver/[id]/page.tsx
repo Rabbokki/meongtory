@@ -333,31 +333,38 @@ export default function NaverProductDetailPage({ params }: PageProps) {
       setIsLoading(true);
       const accessToken = localStorage.getItem("accessToken");
       
+      // 요청 데이터 준비 및 검증
+      const requestData = {
+        productId: product.productId || '',
+        title: product.title || '',
+        description: product.description || product.title || '',
+        price: product.price || 0,
+        imageUrl: product.imageUrl || '',
+        mallName: product.mallName || '',
+        productUrl: product.productUrl || '',
+        brand: product.brand || '',
+        maker: product.maker || '',
+        category1: product.category1 || '',
+        category2: product.category2 || '',
+        category3: product.category3 || '',
+        category4: product.category4 || '',
+        reviewCount: product.reviewCount || 0,
+        rating: product.rating || 0.0,
+        searchCount: product.searchCount || 0
+      };
+      
+      console.log("장바구니 추가 요청 데이터:", requestData);
+      
       // 네이버 상품 전용 API 사용
-      const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, {
-        productId: product.productId,
-        title: product.title,
-        description: product.description,
-        price: product.price,
-        imageUrl: product.imageUrl,
-        mallName: product.mallName,
-        productUrl: product.productUrl,
-        brand: product.brand,
-        maker: product.maker,
-        category1: product.category1,
-        category2: product.category2,
-        category3: product.category3,
-        category4: product.category4,
-        reviewCount: product.reviewCount,
-        rating: product.rating,
-        searchCount: product.searchCount
-      }, {
+      const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, requestData, {
         params: { quantity },
         headers: {
           "Access_Token": accessToken,
           "Content-Type": "application/json"
         }
       });
+      
+      console.log("장바구니 추가 응답:", response.data);
       
       if (response.status === 200 && response.data.success) {
         alert("네이버 상품이 장바구니에 추가되었습니다!");
@@ -368,6 +375,9 @@ export default function NaverProductDetailPage({ params }: PageProps) {
       }
     } catch (error: any) {
       console.error("네이버 상품 장바구니 추가 오류:", error);
+      console.error("오류 상세 정보:", error.response?.data);
+      console.error("오류 상태 코드:", error.response?.status);
+      console.error("오류 메시지:", error.response?.data?.error?.message);
       alert("네이버 상품 장바구니 추가에 실패했습니다.");
     } finally {
       setIsLoading(false);

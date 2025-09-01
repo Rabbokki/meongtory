@@ -159,6 +159,8 @@ export default function StorePage({
   // 검색 관련 상태
   const [isSearchMode, setIsSearchMode] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState("")
+  const [aiSearchResults, setAiSearchResults] = useState<any[]>([])
+  const [isAiSearchLoading, setIsAiSearchLoading] = useState(false)
   const { data: searchResults, isLoading: searchLoading } = useNaverProductSearch(searchKeyword, isSearchMode)
   const { data: embeddingResults, isLoading: embeddingLoading } = useEmbeddingSearch(searchKeyword, isSearchMode && searchKeyword.trim().length > 0)
   
@@ -166,7 +168,7 @@ export default function StorePage({
   
   // MyPet 자동완성
   const [petSearchKeyword, setPetSearchKeyword] = useState("")
-  const { data: petSuggestions = [] } = useMyPetSearch(petSearchKeyword, petSearchKeyword.length > 0)
+  const { data: petSuggestions = [], isLoading: petSearchLoading } = useMyPetSearch(petSearchKeyword, petSearchKeyword.length >= 0)
   
   // 기존 상태들 (React Query로 대체되지 않는 것들)
   const [showNaverProducts, setShowNaverProducts] = useState(true)
@@ -647,6 +649,9 @@ export default function StorePage({
   // MyPet 기반 검색 (기존 로직 유지)
   const handlePetBasedSearch = async () => {
     try {
+      setIsAiSearchLoading(true)
+      setAiSearchResults([])
+      
       const response = await axios.get(`${getBackendUrl()}/api/global-search`, {
         params: {
           query: searchQuery,
@@ -659,7 +664,9 @@ export default function StorePage({
         const searchResults = response.data.data;
         const results = searchResults.results || [];
         
-        // AI 검색 결과 표시 로직...
+        // AI 검색 결과를 상태에 저장
+        setAiSearchResults(results)
+        setIsSearchMode(true) // 검색 모드 활성화
         console.log('MyPet 기반 검색 결과:', results);
       }
     } catch (error) {
@@ -667,6 +674,8 @@ export default function StorePage({
       // 실패 시 일반 검색으로 폴백
       setIsSearchMode(true)
       setSearchKeyword(searchQuery.trim())
+    } finally {
+      setIsAiSearchLoading(false)
     }
   }
 
@@ -730,31 +739,38 @@ export default function StorePage({
     try {
       const accessToken = localStorage.getItem("accessToken");
       
+      // 요청 데이터 준비 및 검증
+      const requestData = {
+        productId: naverProduct.productId || '',
+        title: naverProduct.title || '',
+        description: naverProduct.description || naverProduct.title || '',
+        price: naverProduct.price || 0,
+        imageUrl: naverProduct.imageUrl || '',
+        mallName: naverProduct.mallName || '',
+        productUrl: naverProduct.productUrl || '',
+        brand: naverProduct.brand || '',
+        maker: naverProduct.maker || '',
+        category1: naverProduct.category1 || '',
+        category2: naverProduct.category2 || '',
+        category3: naverProduct.category3 || '',
+        category4: naverProduct.category4 || '',
+        reviewCount: naverProduct.reviewCount || 0,
+        rating: naverProduct.rating || 0.0,
+        searchCount: naverProduct.searchCount || 0
+      };
+      
+      console.log("장바구니 추가 요청 데이터:", requestData);
+      
       // 네이버 상품 전용 API 사용
-      const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, {
-        productId: naverProduct.productId,
-        title: naverProduct.title,
-        description: naverProduct.description,
-        price: naverProduct.price,
-        imageUrl: naverProduct.imageUrl,
-        mallName: naverProduct.mallName,
-        productUrl: naverProduct.productUrl,
-        brand: naverProduct.brand,
-        maker: naverProduct.maker,
-        category1: naverProduct.category1,
-        category2: naverProduct.category2,
-        category3: naverProduct.category3,
-        category4: naverProduct.category4,
-        reviewCount: naverProduct.reviewCount,
-        rating: naverProduct.rating,
-        searchCount: naverProduct.searchCount
-      }, {
+      const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, requestData, {
         params: { quantity: 1 },
         headers: {
           "Access_Token": accessToken,
           "Content-Type": "application/json"
         }
       });
+      
+      console.log("장바구니 추가 응답:", response.data);
       
       if (response.status === 200 && response.data.success) {
         alert("네이버 상품이 장바구니에 추가되었습니다!");
@@ -765,6 +781,9 @@ export default function StorePage({
       }
     } catch (error: any) {
       console.error("네이버 상품 장바구니 추가 오류:", error);
+      console.error("오류 상세 정보:", error.response?.data);
+      console.error("오류 상태 코드:", error.response?.status);
+      console.error("오류 메시지:", error.response?.data?.error?.message);
       alert("네이버 상품 장바구니 추가에 실패했습니다.");
     }
   };
@@ -772,9 +791,11 @@ export default function StorePage({
   // 검색 모드에 따른 상품 데이터 결정
   const displayProducts = isSearchMode ? [] : products
   const displayNaverProducts = isSearchMode 
-    ? (embeddingResults && embeddingResults.length > 0 
-        ? embeddingResults 
-        : (searchResults?.pages.flatMap(page => page.content) || []))
+    ? (aiSearchResults.length > 0 
+        ? aiSearchResults 
+        : (embeddingResults && embeddingResults.length > 0 
+            ? embeddingResults 
+            : (searchResults?.pages.flatMap(page => page.content) || [])))
     : naverProducts
 
   const categoryItems = [
@@ -800,8 +821,8 @@ export default function StorePage({
     if (!isSearchMode && searchQuery.trim() !== "") {
       const lowerCaseQuery = searchQuery.toLowerCase();
       if (
-        !product.name.toLowerCase().includes(lowerCaseQuery) &&
-        !product.description.toLowerCase().includes(lowerCaseQuery)
+        !(product.name && typeof product.name === 'string' && product.name.toLowerCase().includes(lowerCaseQuery)) &&
+        !(product.description && typeof product.description === 'string' && product.description.toLowerCase().includes(lowerCaseQuery))
       ) {
         return false;
       }
@@ -814,12 +835,12 @@ export default function StorePage({
     // Category filter
     if (selectedCategory) {
       const matchesCategory = 
-        (product.category1 && product.category1.includes(selectedCategory)) ||
-        (product.category2 && product.category2.includes(selectedCategory)) ||
-        (product.category3 && product.category3.includes(selectedCategory)) ||
-        (product.category4 && product.category4.includes(selectedCategory)) ||
-        (product.title && product.title.includes(selectedCategory)) ||
-        (product.description && product.description.includes(selectedCategory));
+        (product.category1 && typeof product.category1 === 'string' && product.category1.includes(selectedCategory)) ||
+        (product.category2 && typeof product.category2 === 'string' && product.category2.includes(selectedCategory)) ||
+        (product.category3 && typeof product.category3 === 'string' && product.category3.includes(selectedCategory)) ||
+        (product.category4 && typeof product.category4 === 'string' && product.category4.includes(selectedCategory)) ||
+        (product.title && typeof product.title === 'string' && product.title.includes(selectedCategory)) ||
+        (product.description && typeof product.description === 'string' && product.description.includes(selectedCategory));
       
       if (!matchesCategory) {
         return false;
@@ -922,7 +943,7 @@ export default function StorePage({
         <div className="flex justify-center mb-8">
           <div className="relative w-full max-w-md">
             {/* MyPet 자동완성 드롭다운 */}
-            {showSuggestions && petSuggestions.length > 0 && (
+            {showSuggestions && (
               <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto z-10">
                 {petSearchLoading ? (
                   <div className="p-3 text-center text-gray-500">
@@ -951,7 +972,7 @@ export default function StorePage({
                   ))
                 ) : (
                   <div className="p-3 text-center text-gray-500">
-                    검색 결과가 없습니다.
+                    {petSearchKeyword === "" ? "펫 이름을 입력해주세요" : "검색 결과가 없습니다."}
                   </div>
                 )}
               </div>
@@ -1145,12 +1166,12 @@ export default function StorePage({
         </div>
 
         {/* 통합 상품 그리드 */}
-        {(loading || searchLoading || embeddingLoading) ? (
+        {(loading || searchLoading || embeddingLoading || isAiSearchLoading) ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
               <p className="text-gray-600">
-                {isSearchMode ? "검색 중..." : "상품을 불러오는 중..."}
+                {isSearchMode ? (isAiSearchLoading ? "AI 검색 중..." : "검색 중...") : "상품을 불러오는 중..."}
               </p>
             </div>
           </div>

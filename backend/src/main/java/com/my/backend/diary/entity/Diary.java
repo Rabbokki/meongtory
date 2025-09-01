@@ -35,6 +35,7 @@ public class Diary {
     private String text;
 
     @Column(name = "categories", columnDefinition = "text[]")
+    @Convert(converter = StringArrayConverter.class)
     private String[] categories;
 
     private String audioUrl;
