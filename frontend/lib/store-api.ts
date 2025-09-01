@@ -306,7 +306,6 @@ export const storeApi = {
         `${getBackendUrl()}/api/mypet/search?keyword=${keyword}`,
         { 
           headers: { 
-            Authorization: `Bearer ${token}`,
             'Access_Token': token
           } 
         }

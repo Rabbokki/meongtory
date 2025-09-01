@@ -108,7 +108,7 @@ class PetSearchTool:
         Returns:
             List[Dict]: 점수가 추가된 펫 리스트
         """
-        preferences_lower = preferences.lower()
+        preferences_lower = preferences.lower() if preferences else ""
         scored_pets = []
         
         for pet in pets:

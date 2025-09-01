@@ -118,7 +118,7 @@ class InsuranceRecommendationTool:
         Returns:
             List[Dict]: 점수가 추가된 보험 상품 리스트
         """
-        pet_breed = pet.get('breed', '').lower()
+        pet_breed = pet.get('breed', '').lower() if pet.get('breed') else ""
         pet_age = pet.get('age', 0)
         pet_weight = pet.get('weight', 0)
         

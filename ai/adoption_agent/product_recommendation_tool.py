@@ -206,7 +206,7 @@ class ProductRecommendationTool:
     
     def _score_products_for_pet(self, products: List[Dict], pet: Dict[str, Any]) -> List[Dict]:
         """강아지 정보를 기반으로 상품에 점수 부여"""
-        pet_breed = pet.get('breed', '').lower()
+        pet_breed = pet.get('breed', '').lower() if pet.get('breed') else ""
         pet_age = pet.get('age', 0)
         
         scored_products = []

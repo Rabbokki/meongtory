@@ -345,20 +345,20 @@ class EmbeddingUpdater:
         if not pet_info:
             return query
         
-        # 펫 기본 정보
-        pet_name = pet_info.get('name', 'N/A')
-        pet_breed = pet_info.get('breed', 'N/A')
-        pet_age = pet_info.get('age', 'N/A')
-        pet_gender = pet_info.get('gender', 'N/A')
-        pet_type = pet_info.get('type', 'N/A')
-        pet_weight = pet_info.get('weight', 'N/A')
-        pet_microchip = pet_info.get('microchipId', 'N/A')
+        # 펫 기본 정보 - None 값 처리 추가
+        pet_name = pet_info.get('name') or 'N/A'
+        pet_breed = pet_info.get('breed') or 'N/A'
+        pet_age = pet_info.get('age') or 'N/A'
+        pet_gender = pet_info.get('gender') or 'N/A'
+        pet_type = pet_info.get('type') or 'N/A'
+        pet_weight = pet_info.get('weight') or 'N/A'
+        pet_microchip = pet_info.get('microchipId') or 'N/A'
         
-        # 의료기록 정보
-        medical_history = pet_info.get('medicalHistory', '')
-        vaccinations = pet_info.get('vaccinations', '')
-        special_needs = pet_info.get('specialNeeds', '')
-        notes = pet_info.get('notes', '')
+        # 의료기록 정보 - None 값 처리 추가
+        medical_history = pet_info.get('medicalHistory') or ''
+        vaccinations = pet_info.get('vaccinations') or ''
+        special_needs = pet_info.get('specialNeeds') or ''
+        notes = pet_info.get('notes') or ''
         
         # 의료기록 정보 구성
         medical_info = ""
@@ -386,10 +386,11 @@ class EmbeddingUpdater:
         if not pet_info:
             return products
         
-        pet_name = pet_info.get('name', '').lower()
-        breed = pet_info.get('breed', '').lower()
+        # None 값 처리 추가
+        pet_name = (pet_info.get('name') or '').lower()
+        breed = (pet_info.get('breed') or '').lower()
         age = pet_info.get('age', 0)
-        gender = pet_info.get('gender', '').lower()
+        gender = (pet_info.get('gender') or '').lower()
         
         # 검색어에서 카테고리 키워드 추출
         query_lower = original_query.lower()
@@ -415,10 +416,11 @@ class EmbeddingUpdater:
         
         for product in products:
             score_boost = 0
-            title = product.get('title', '').lower()
-            description = product.get('description', '').lower()
-            category1 = product.get('category1', '').lower()
-            category2 = product.get('category2', '').lower()
+            # None 값 처리 추가
+            title = (product.get('title') or '').lower()
+            description = (product.get('description') or '').lower()
+            category1 = (product.get('category1') or '').lower()
+            category2 = (product.get('category2') or '').lower()
             
             product_text = f"{title} {description} {category1} {category2}"
             
@@ -643,19 +645,20 @@ class EmbeddingUpdater:
     
     def create_enhanced_query_for_search(self, query: str, pet_info: Dict[str, Any], category_keywords: List[str]) -> str:
         """검색용 강화 쿼리 생성"""
-        pet_name = pet_info.get('name', 'N/A')
-        pet_breed = pet_info.get('breed', 'N/A')
-        pet_age = pet_info.get('age', 'N/A')
-        pet_gender = pet_info.get('gender', 'N/A')
-        pet_type = pet_info.get('type', 'N/A')
-        pet_weight = pet_info.get('weight', 'N/A')
-        pet_microchip = pet_info.get('microchipId', 'N/A')
+        # None 값 처리 추가
+        pet_name = pet_info.get('name') or 'N/A'
+        pet_breed = pet_info.get('breed') or 'N/A'
+        pet_age = pet_info.get('age') or 'N/A'
+        pet_gender = pet_info.get('gender') or 'N/A'
+        pet_type = pet_info.get('type') or 'N/A'
+        pet_weight = pet_info.get('weight') or 'N/A'
+        pet_microchip = pet_info.get('microchipId') or 'N/A'
         
-        # 의료기록 정보
-        medical_history = pet_info.get('medicalHistory', '')
-        vaccinations = pet_info.get('vaccinations', '')
-        special_needs = pet_info.get('specialNeeds', '')
-        notes = pet_info.get('notes', '')
+        # 의료기록 정보 - None 값 처리 추가
+        medical_history = pet_info.get('medicalHistory') or ''
+        vaccinations = pet_info.get('vaccinations') or ''
+        special_needs = pet_info.get('specialNeeds') or ''
+        notes = pet_info.get('notes') or ''
         
         # 의료기록 정보 구성
         medical_info = ""
@@ -731,18 +734,19 @@ class EmbeddingUpdater:
     def filter_products_by_pet_and_category(self, products: List[Dict[str, Any]], pet_info: Dict[str, Any], category_keywords: List[str], original_query: str) -> List[Dict[str, Any]]:
         """펫 정보와 카테고리를 기반으로 상품 필터링"""
         try:
-            pet_name = pet_info.get('name', '').lower()
-            breed = pet_info.get('breed', '').lower()
+            # None 값 처리 추가
+            pet_name = (pet_info.get('name') or '').lower()
+            breed = (pet_info.get('breed') or '').lower()
             age = pet_info.get('age', 0)
-            gender = pet_info.get('gender', '').lower()
-            pet_type = pet_info.get('type', '').lower()
+            gender = (pet_info.get('gender') or '').lower()
+            pet_type = (pet_info.get('type') or '').lower()
             weight = pet_info.get('weight', 0)
             
-            # 의료기록 정보
-            medical_history = pet_info.get('medicalHistory', '').lower()
-            vaccinations = pet_info.get('vaccinations', '').lower()
-            special_needs = pet_info.get('specialNeeds', '').lower()
-            notes = pet_info.get('notes', '').lower()
+            # 의료기록 정보 - None 값 처리 추가
+            medical_history = (pet_info.get('medicalHistory') or '').lower()
+            vaccinations = (pet_info.get('vaccinations') or '').lower()
+            special_needs = (pet_info.get('specialNeeds') or '').lower()
+            notes = (pet_info.get('notes') or '').lower()
             
             # 카테고리별 필터링 키워드
             category_filters = {
@@ -766,8 +770,9 @@ class EmbeddingUpdater:
             
             filtered_products = []
             for product in products:
-                title = product['name'].lower()
-                description = product.get('description', '').lower()
+                # None 값 처리 추가
+                title = (product.get('name') or '').lower()
+                description = (product.get('description') or '').lower()
                 
                 score = 0
                 
