@@ -67,6 +67,9 @@ dependencies {
     // OpenAI API
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+    // PostgreSQL pgvector extension support
+    implementation 'org.postgresql:postgresql:42.7.3'
+    implementation 'io.hypersistence:hypersistence-utils-hibernate-62:3.7.2'
 }
 
 tasks.named('test') {

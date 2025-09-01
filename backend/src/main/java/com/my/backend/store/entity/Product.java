@@ -1,9 +1,11 @@
+
 package com.my.backend.store.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -40,7 +42,8 @@ public class Product {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Category category;
+    @Builder.Default
+    private Category category = Category.용품;
 
     private LocalDate registrationDate;
 
@@ -61,8 +64,6 @@ public class Product {
     @Column(name = "external_mall_name")
     private String externalMallName;
 
-    @Column(columnDefinition = "vector(1536)")
-    private String nameEmbedding;
 
     @OneToMany(mappedBy = "product")
     @JsonIgnore
@@ -70,12 +71,26 @@ public class Product {
     private List<Order> orders = new ArrayList<>();
 
     public void setCategory(String categoryStr) {
-        if (categoryStr != null) {
+        if (categoryStr != null && !categoryStr.trim().isEmpty()) {
             try {
-                this.category = Category.valueOf(categoryStr);
+                // 공백 제거 후 enum 변환
+                String trimmedCategory = categoryStr.trim();
+                System.out.println("카테고리 변환 시도: '" + trimmedCategory + "'");
+                this.category = Category.valueOf(trimmedCategory);
+                System.out.println("카테고리 변환 성공: " + this.category);
             } catch (IllegalArgumentException e) {
+                System.out.println("잘못된 카테고리 값: '" + categoryStr + "', 기본값 '용품'으로 설정");
+                System.out.println("사용 가능한 카테고리: " + java.util.Arrays.toString(Category.values()));
                 this.category = Category.용품;
             }
+        } else {
+            this.category = Category.용품;
         }
+    }
+
+    // JSON 역직렬화를 위한 추가 setter
+    @JsonSetter("category")
+    public void setCategoryFromJson(String categoryStr) {
+        setCategory(categoryStr);
     }
 }

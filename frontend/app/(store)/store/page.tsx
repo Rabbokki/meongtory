@@ -730,31 +730,38 @@ export default function StorePage({
     try {
       const accessToken = localStorage.getItem("accessToken");
       
+      // 요청 데이터 준비 및 검증
+      const requestData = {
+        productId: naverProduct.productId || '',
+        title: naverProduct.title || '',
+        description: naverProduct.description || naverProduct.title || '',
+        price: naverProduct.price || 0,
+        imageUrl: naverProduct.imageUrl || '',
+        mallName: naverProduct.mallName || '',
+        productUrl: naverProduct.productUrl || '',
+        brand: naverProduct.brand || '',
+        maker: naverProduct.maker || '',
+        category1: naverProduct.category1 || '',
+        category2: naverProduct.category2 || '',
+        category3: naverProduct.category3 || '',
+        category4: naverProduct.category4 || '',
+        reviewCount: naverProduct.reviewCount || 0,
+        rating: naverProduct.rating || 0.0,
+        searchCount: naverProduct.searchCount || 0
+      };
+      
+      console.log("장바구니 추가 요청 데이터:", requestData);
+      
       // 네이버 상품 전용 API 사용
-      const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, {
-        productId: naverProduct.productId,
-        title: naverProduct.title,
-        description: naverProduct.description,
-        price: naverProduct.price,
-        imageUrl: naverProduct.imageUrl,
-        mallName: naverProduct.mallName,
-        productUrl: naverProduct.productUrl,
-        brand: naverProduct.brand,
-        maker: naverProduct.maker,
-        category1: naverProduct.category1,
-        category2: naverProduct.category2,
-        category3: naverProduct.category3,
-        category4: naverProduct.category4,
-        reviewCount: naverProduct.reviewCount,
-        rating: naverProduct.rating,
-        searchCount: naverProduct.searchCount
-      }, {
+      const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, requestData, {
         params: { quantity: 1 },
         headers: {
           "Access_Token": accessToken,
           "Content-Type": "application/json"
         }
       });
+      
+      console.log("장바구니 추가 응답:", response.data);
       
       if (response.status === 200 && response.data.success) {
         alert("네이버 상품이 장바구니에 추가되었습니다!");
@@ -765,6 +772,9 @@ export default function StorePage({
       }
     } catch (error: any) {
       console.error("네이버 상품 장바구니 추가 오류:", error);
+      console.error("오류 상세 정보:", error.response?.data);
+      console.error("오류 상태 코드:", error.response?.status);
+      console.error("오류 메시지:", error.response?.data?.error?.message);
       alert("네이버 상품 장바구니 추가에 실패했습니다.");
     }
   };

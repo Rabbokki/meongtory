@@ -82,6 +82,8 @@ function StoreProductEditPageContent({ productId: propProductId, onBack, onSave 
           },
         });
 
+        console.log('상품 조회 응답:', response.data);
+
         // ResponseDto 형태로 응답이 오므로 response.data.data를 사용
         if (!response.data || !response.data.success) {
           throw new Error(response.data?.error?.message || "API 응답이 올바르지 않습니다.");
@@ -205,7 +207,7 @@ function StoreProductEditPageContent({ productId: propProductId, onBack, onSave 
         throw new Error('인증 토큰이 없습니다.');
       }
 
-      await axios.put(`${getBackendUrl()}/api/products/${actualProductId}`, updateData, {
+      const response = await axios.put(`${getBackendUrl()}/api/products/${actualProductId}`, updateData, {
         headers: {
           Authorization: accessToken,
           'Access_Token': accessToken,
@@ -213,6 +215,13 @@ function StoreProductEditPageContent({ productId: propProductId, onBack, onSave 
           'Content-Type': 'application/json',
         },
       });
+
+      console.log('상품 수정 응답:', response.data);
+
+      // ResponseDto 형태로 응답이 오므로 response.data.success를 확인
+      if (!response.data || !response.data.success) {
+        throw new Error(response.data?.error?.message || "상품 수정에 실패했습니다.");
+      }
 
       alert('상품이 성공적으로 수정되었습니다.');
       router.push('/admin?tab=products');

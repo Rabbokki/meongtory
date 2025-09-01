@@ -181,7 +181,12 @@ export default function StoreProductDetailPage({
     getProduct: async (productId: number): Promise<any> => {
       try {
         const response = await axios.get(`${getBackendUrl()}/api/products/${productId}`);
-        return response.data;
+        // ResponseDto 구조에서 실제 데이터 추출
+        if (response.data && response.data.success) {
+          return response.data.data;
+        } else {
+          throw new Error(response.data?.error?.message || '상품 조회에 실패했습니다.');
+        }
       } catch (error) {
         console.error('상품 조회 실패:', error);
         if (axios.isAxiosError(error)) {
@@ -201,7 +206,12 @@ export default function StoreProductDetailPage({
     getNaverProduct: async (productId: string): Promise<any> => {
       try {
         const response = await axios.get(`${getBackendUrl()}/api/naver-shopping/products/${productId}`);
-        return response.data;
+        // ResponseDto 구조에서 실제 데이터 추출
+        if (response.data && response.data.success) {
+          return response.data.data;
+        } else {
+          throw new Error(response.data?.error?.message || '네이버 상품 조회에 실패했습니다.');
+        }
       } catch (error) {
         console.error('네이버 상품 조회 실패:', error);
         if (axios.isAxiosError(error)) {
@@ -523,8 +533,7 @@ export default function StoreProductDetailPage({
         } else {
           // 문자열 ID인 경우 네이버 상품으로 조회
           try {
-            const naverResponse = await productApi.getNaverProduct(String(productId));
-            rawData = naverResponse.data;
+            rawData = await productApi.getNaverProduct(String(productId));
           } catch (naverError) {
             throw new Error('상품을 찾을 수 없습니다.');
           }
@@ -1050,15 +1059,15 @@ export default function StoreProductDetailPage({
 
                             // 네이버 상품을 백엔드 API로 장바구니에 추가
                             try {
-
-                              const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, {
-                                productId: propNaverProduct.productId,
-                                title: propNaverProduct.title,
-                                description: propNaverProduct.description || propNaverProduct.title,
-                                price: propNaverProduct.price,
-                                imageUrl: propNaverProduct.imageUrl,
-                                mallName: propNaverProduct.mallName,
-                                productUrl: propNaverProduct.productUrl,
+                              // 요청 데이터 준비 및 검증
+                              const requestData = {
+                                productId: propNaverProduct.productId || '',
+                                title: propNaverProduct.title || '',
+                                description: propNaverProduct.description || propNaverProduct.title || '',
+                                price: propNaverProduct.price || 0,
+                                imageUrl: propNaverProduct.imageUrl || '',
+                                mallName: propNaverProduct.mallName || '',
+                                productUrl: propNaverProduct.productUrl || '',
                                 brand: propNaverProduct.brand || '',
                                 maker: propNaverProduct.maker || '',
                                 category1: propNaverProduct.category1 || '',
@@ -1068,7 +1077,11 @@ export default function StoreProductDetailPage({
                                 reviewCount: propNaverProduct.reviewCount || 0,
                                 rating: propNaverProduct.rating || 0.0,
                                 searchCount: propNaverProduct.searchCount || 0
-                              }, {
+                              };
+                              
+                              console.log("장바구니 추가 요청 데이터:", requestData);
+
+                              const response = await axios.post(`${getBackendUrl()}/api/naver-shopping/cart/add`, requestData, {
                                 params: { quantity },
                                 headers: {
                                   'Access_Token': token,
@@ -1118,6 +1131,7 @@ export default function StoreProductDetailPage({
                                 data: apiError.response?.data,
                                 url: apiError.config?.url
                               });
+                              console.error('오류 메시지:', apiError.response?.data?.error?.message);
                               
                               // API 오류가 있어도 로컬 스토리지는 저장되었으므로 사용자에게 알림
                               alert('네이버 상품이 로컬 장바구니에 추가되었습니다. (백엔드 동기화 실패)');
