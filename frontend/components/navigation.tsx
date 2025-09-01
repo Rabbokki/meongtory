@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { User } from "lucide-react";
+import { User, Menu, X } from "lucide-react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import Image from "next/image";
@@ -225,6 +225,7 @@ function NavigationHeader({
   onLogout,
 }: NavigationHeaderProps) {
   const { isLoggedIn, isAdmin } = useAuth();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // 디버깅: isAdmin 상태 변화 추적
   useEffect(() => {
@@ -233,93 +234,72 @@ function NavigationHeader({
     console.log("isAdmin:", isAdmin);
   }, [isLoggedIn, isAdmin]);
 
+  // 모바일 메뉴 토글
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  // 네비게이션 클릭 핸들러
+  const handleNavigation = (page: string) => {
+    onNavigate(page);
+    setIsMobileMenuOpen(false); // 모바일 메뉴 닫기
+  };
+
+  // 네비게이션 메뉴 아이템들
+  const navigationItems = [
+    { key: "adoption", label: "입양", path: "adoption" },
+    { key: "insurance", label: "펫보험", path: "insurance" },
+    { key: "diary", label: "성장일기", path: "diary" },
+    { key: "community", label: "커뮤니티", path: "community" },
+    { key: "store", label: "스토어", path: "store" },
+    { key: "research", label: "강아지 연구소", path: "research" },
+  ];
+
+  // 로그인된 사용자용 메뉴 아이템들
+  const userMenuItems = [
+    ...(isLoggedIn ? [{ key: "my", label: "마이페이지", path: "my" }] : []),
+    ...(isAdmin ? [{ key: "admin", label: "관리자", path: "admin", isAdmin: true }] : []),
+  ];
+
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <button onClick={() => onNavigate("home")} className="flex items-center space-x-2">
+          {/* 로고 */}
+          <button onClick={() => handleNavigation("home")} className="flex items-center space-x-2">
             <Image src="/KakaoTalk_20250729_160046076.png" alt="멍토리 로고" width={100} height={40} className="h-auto" />
           </button>
-          <nav className="hidden md:flex items-center space-x-8">
-            <button
-              onClick={() => onNavigate("adoption")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "adoption" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              입양
-            </button>
-            <button
-              onClick={() => onNavigate("insurance")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "insurance" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              펫보험
-            </button>
-            <button
-              onClick={() => onNavigate("diary")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "diary" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              성장일기
-            </button>
-            <button
-              onClick={() => onNavigate("community")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "community" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              커뮤니티
-            </button>
-            <button
-              onClick={() => onNavigate("store")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "store" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              스토어
-            </button>
-            <button
-              onClick={() => onNavigate("research")}
-              className={`text-sm font-medium transition-colors ${
-                currentPage === "research" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
-              }`}
-            >
-              강아지 연구소
-            </button>
-            {isLoggedIn && (
+
+          {/* 데스크톱 네비게이션 */}
+          <nav className="hidden lg:flex items-center space-x-8">
+            {navigationItems.map((item) => (
               <button
-                onClick={() => onNavigate("my")}
+                key={item.key}
+                onClick={() => handleNavigation(item.path)}
                 className={`text-sm font-medium transition-colors ${
-                  currentPage === "my" ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
+                  currentPage === item.path ? "text-blue-600" : "text-gray-700 hover:text-blue-600"
                 }`}
               >
-                마이페이지
+                {item.label}
               </button>
-            )}
-            {isAdmin && (
+            ))}
+            {userMenuItems.map((item) => (
               <button
-                onClick={() => {
-                  console.log("관리자 탭 클릭");
-                  onNavigate("admin");
-                }}
+                key={item.key}
+                onClick={() => handleNavigation(item.path)}
                 className={`text-sm font-medium transition-colors ${
-                  currentPage === "admin" ? "text-red-600" : "text-red-700 hover:text-red-600"
+                  currentPage === item.path 
+                    ? (item.isAdmin ? "text-red-600" : "text-blue-600")
+                    : (item.isAdmin ? "text-red-700 hover:text-red-600" : "text-gray-700 hover:text-blue-600")
                 }`}
               >
-                관리자
+                {item.label}
               </button>
-            )}
-            {/* 디버깅용 - 개발 완료 후 제거 */}
-            {process.env.NODE_ENV === 'development' && (
-              <span className="text-xs text-gray-400">
-                isAdmin: {isAdmin ? 'true' : 'false'}
-              </span>
-            )}
+            ))}
           </nav>
-          <div className="flex items-center space-x-3">
+
+          {/* 데스크톱 로그인/로그아웃 버튼 */}
+          <div className="hidden lg:flex items-center space-x-3">
             {isLoggedIn ? (
               <Button onClick={onLogout} variant="outline" size="sm" className="text-sm bg-transparent">
                 로그아웃
@@ -331,7 +311,85 @@ function NavigationHeader({
               </Button>
             )}
           </div>
+
+          {/* 모바일 메뉴 버튼 */}
+          <button
+            onClick={toggleMobileMenu}
+            className="lg:hidden p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100 transition-colors"
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
+
+        {/* 모바일 메뉴 */}
+        {isMobileMenuOpen && (
+          <div className="lg:hidden border-t border-gray-200 bg-white">
+            <nav className="px-4 py-2 space-y-1">
+              {/* 메인 네비게이션 */}
+              {navigationItems.map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => handleNavigation(item.path)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    currentPage === item.path 
+                      ? "bg-blue-100 text-blue-600" 
+                      : "text-gray-700 hover:bg-gray-100 hover:text-blue-600"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+              
+              {/* 사용자 메뉴 */}
+              {userMenuItems.map((item) => (
+                <button
+                  key={item.key}
+                  onClick={() => handleNavigation(item.path)}
+                  className={`w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    currentPage === item.path 
+                      ? (item.isAdmin ? "bg-red-100 text-red-600" : "bg-blue-100 text-blue-600")
+                      : (item.isAdmin ? "text-red-700 hover:bg-red-50 hover:text-red-600" : "text-gray-700 hover:bg-gray-100 hover:text-blue-600")
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+
+              {/* 모바일 로그인/로그아웃 버튼 */}
+              <div className="border-t border-gray-200 pt-2 mt-2">
+                {isLoggedIn ? (
+                  <button
+                    onClick={() => {
+                      onLogout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-red-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+                  >
+                    로그아웃
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      onLogin();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-md text-sm font-medium text-blue-700 hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center"
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    로그인
+                  </button>
+                )}
+              </div>
+            </nav>
+          </div>
+        )}
+
+        {/* 디버깅용 - 개발 완료 후 제거 */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="lg:hidden text-xs text-gray-400 px-4 py-1">
+            isAdmin: {isAdmin ? 'true' : 'false'}
+          </div>
+        )}
       </div>
     </header>
   );
@@ -375,8 +433,7 @@ export default function Navigation() {
       setIsLoggedIn(true);
       setIsAdmin(role === "ADMIN");
       
-      console.log("=== OAuth2 상태 즉시 업데이트 완료 ===");
-      console.log("isAdmin 설정:", role === "ADMIN");
+
       
       // 강제 리렌더링을 위한 약간의 지연 후 상태 재설정
       setTimeout(() => {
@@ -499,21 +556,12 @@ export default function Navigation() {
     }
   ) => {
     const { id, email, name, role, accessToken, refreshToken } = loginData;
-    // 수정: 로그인 성공 후 토큰 상태 확인
-    console.log("=== 로그인 성공 핸들러 ===");
-    console.log("받은 loginData:", loginData);
-    console.log("Role 값:", role);
-    console.log("role === 'ADMIN':", role === "ADMIN");
-    console.log("Access Token:", accessToken);
-    console.log("Refresh Token:", refreshToken);
-    console.log("localStorage 확인:", localStorage.getItem("accessToken") ? "저장됨" : "저장안됨");
     
     setCurrentUser({ id, email, name });
     setIsLoggedIn(true);
     setIsAdmin(role === "ADMIN");
     
-    console.log("=== isAdmin 설정 후 ===");
-    console.log("setIsAdmin 호출됨:", role === "ADMIN");
+
 
     toast.success("로그인에 성공했습니다", { duration: 5000 });
     router.push("/");
@@ -556,7 +604,6 @@ export default function Navigation() {
         <PasswordRecoveryModal
           onClose={() => setShowPasswordRecovery(false)}
           onRecover={(email) => {
-            console.log("비밀번호 복구:", email);
             toast.success("비밀번호 복구 이메일이 전송되었습니다", { duration: 5000 });
             setShowPasswordRecovery(false);
           }}
