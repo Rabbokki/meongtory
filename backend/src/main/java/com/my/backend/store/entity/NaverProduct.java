@@ -3,6 +3,7 @@ package com.my.backend.store.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import io.hypersistence.utils.hibernate.type.array.ListArrayType;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -69,8 +70,9 @@ public class NaverProduct {
     @Column(nullable = true)
     private Integer searchCount;
 
-    @Column(columnDefinition = "vector(1536)")
-    private String titleEmbedding;
+    @Column(columnDefinition = "vector(1536)", nullable = true)
+    @org.hibernate.annotations.JdbcTypeCode(java.sql.Types.OTHER)
+    private Object titleEmbedding;
 
     @Column(nullable = false)
     private LocalDateTime createdAt;

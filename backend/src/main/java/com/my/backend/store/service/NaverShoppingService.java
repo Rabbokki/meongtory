@@ -246,6 +246,7 @@ public class NaverShoppingService {
                 product.setReviewCount(naverProductDto.getReviewCount() != null ? naverProductDto.getReviewCount() : 0);
                 product.setRating(naverProductDto.getRating() != null ? naverProductDto.getRating() : 0.0);
                 product.setSearchCount(naverProductDto.getSearchCount() != null ? naverProductDto.getSearchCount() : 0);
+                // titleEmbedding은 vector 타입이므로 업데이트하지 않음
                 
                 NaverProduct savedProduct = naverProductRepository.save(product);
                 log.info("네이버 상품 업데이트 완료: {}", savedProduct.getId());
@@ -274,6 +275,7 @@ public class NaverShoppingService {
                         .reviewCount(naverProductDto.getReviewCount() != null ? naverProductDto.getReviewCount() : 0)
                         .rating(naverProductDto.getRating() != null ? naverProductDto.getRating() : 0.0)
                         .searchCount(naverProductDto.getSearchCount() != null ? naverProductDto.getSearchCount() : 0)
+                        // titleEmbedding은 vector 타입이므로 설정하지 않음 (나중에 별도로 생성)
                         .build();
                 
                 NaverProduct savedProduct = naverProductRepository.save(newProduct);
