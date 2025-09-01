@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -240,15 +241,7 @@ public class DiaryService {
                 .map(DiaryResponseDto::from);
     }
 
-    public Page<DiaryResponseDto> getDiariesByCategoryWithPaging(String category, Long userId, String userRole, Pageable pageable) {
-        if ("ADMIN".equals(userRole)) {
-            return diaryRepository.findByCategoryWithPaging(category, pageable)
-                    .map(DiaryResponseDto::from);
-        } else {
-            return diaryRepository.findByCategoryAndUserWithPaging(category, userId, pageable)
-                    .map(DiaryResponseDto::from);
-        }
-    }
+
 
     // 날짜별 조회 메서드 추가
     public Page<DiaryResponseDto> getDiariesByDateWithPaging(String date, Long userId, String userRole, Pageable pageable) {
@@ -366,45 +359,35 @@ public class DiaryService {
         }
     }
 
-    // 카테고리 분류 메서드
+    // 카테고리 분류 메서드 (키워드 기반)
     private String[] classifyDiaryContent(String content) {
         try {
             if (content == null || content.trim().isEmpty()) {
                 return new String[0];
             }
 
-            // AI 서비스 URL 구성
-            String classifyUrl = aiServiceUrl + "/classify-category";
-            log.info("카테고리 분류 시작 - AI 서비스 URL: {}", classifyUrl);
+            String lowerContent = content.toLowerCase();
 
-            // 요청 데이터 구성
-            CategoryClassificationRequest request = new CategoryClassificationRequest();
-            request.setContent(content);
+            // 건강 관련 키워드 체크
+            String[] healthKeywords = {
+                "병원", "약", "검진", "진료", "치료", "수술", "주사", "투약", "복용", "처방",
+                "의사", "수의사", "진찰", "상담", "예방접종", "백신", "혈액검사", "엑스레이",
+                "초음파", "MRI", "CT", "내시경", "생검", "화학요법", "방사선치료",
+                "재활", "물리치료", "한방", "침", "뜸", "마사지", "운동", "다이어트",
+                "영양", "비타민", "영양제", "보조식품", "건강식품", "건강검진", "체크업"
+            };
 
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-
-            HttpEntity<CategoryClassificationRequest> requestEntity = new HttpEntity<>(request, headers);
-
-            log.info("AI 서비스로 카테고리 분류 요청 전송 중...");
-
-            // AI 서비스 호출
-            ResponseEntity<CategoryClassificationResponse> response = restTemplate.postForEntity(
-                classifyUrl,
-                requestEntity,
-                CategoryClassificationResponse.class
-            );
-
-            log.info("AI 서비스 응답 - 상태 코드: {}, 응답 본문: {}", response.getStatusCode(), response.getBody());
-
-            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-                String[] categories = response.getBody().getCategories();
-                log.info("카테고리 분류 성공 - 분류된 카테고리: {}", (Object) categories);
-                return categories != null ? categories : new String[0];
-            } else {
-                log.error("AI 서비스에서 카테고리 분류 실패 - 상태 코드: {}", response.getStatusCode());
-                return new String[0];
+            // 건강 관련 키워드가 있으면 건강 카테고리만 반환
+            for (String keyword : healthKeywords) {
+                if (lowerContent.contains(keyword)) {
+                    log.info("건강 카테고리 분류: 건강 관련 키워드 '{}' 발견", keyword);
+                    return new String[]{"건강"};
+                }
             }
+
+            // 건강 관련 키워드가 없으면 일상 카테고리 반환
+            log.info("일상 카테고리 분류: 건강 관련 키워드 없음");
+            return new String[]{"일상"};
 
         } catch (Exception e) {
             log.error("카테고리 분류 중 오류 발생: {}", e.getMessage(), e);
@@ -412,16 +395,44 @@ public class DiaryService {
         }
     }
 
-    // 카테고리별 일기 조회 메서드
-    public List<DiaryResponseDto> getDiariesByCategory(String category, Long userId, String userRole) {
-        if ("ADMIN".equals(userRole)) {
-            return diaryRepository.findByCategory(category).stream()
+    // 카테고리별 일기 조회 메서드 (페이징 지원)
+    public Page<DiaryResponseDto> getDiariesByCategory(String category, Long userId, String userRole, Pageable pageable) {
+        log.info("=== 카테고리별 일기 조회 ===");
+        log.info("Category: '{}'", category);
+        log.info("UserId: {}", userId);
+        log.info("UserRole: {}", userRole);
+        log.info("Pageable: page={}, size={}, sort={}", pageable.getPageNumber(), pageable.getPageSize(), pageable.getSort());
+
+        try {
+            int page = pageable.getPageNumber();
+            int size = pageable.getPageSize();
+            int offset = page * size;
+
+            List<Diary> diaries;
+            long totalElements;
+
+            if ("ADMIN".equals(userRole)) {
+                log.info("관리자 권한으로 전체 '{}' 카테고리 일기 조회", category);
+                diaries = diaryRepository.findByCategoryWithPaging(category, size, offset);
+                totalElements = diaryRepository.countByCategory(category);
+            } else {
+                log.info("일반 사용자 권한으로 '{}' 카테고리 일기 조회 (userId: {})", category, userId);
+                diaries = diaryRepository.findByCategoryAndUserWithPaging(category, userId, size, offset);
+                totalElements = diaryRepository.countByCategoryAndUser(category, userId);
+            }
+
+            List<DiaryResponseDto> content = diaries.stream()
                     .map(DiaryResponseDto::from)
                     .collect(Collectors.toList());
-        } else {
-            return diaryRepository.findByCategoryAndUser(category, userId).stream()
-                    .map(DiaryResponseDto::from)
-                    .collect(Collectors.toList());
+
+            int totalPages = (int) Math.ceil((double) totalElements / size);
+
+            log.info("조회 결과: {} 개의 일기 (총 {} 개, {} 페이지)", content.size(), totalElements, totalPages);
+
+            return new PageImpl<>(content, pageable, totalElements);
+        } catch (Exception e) {
+            log.error("카테고리 조회 중 오류 발생: {}", e.getMessage(), e);
+            throw e;
         }
     }
 
