@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowLeft, CreditCard, ShoppingBag } from "lucide-react";
 import axios from 'axios';
-import { loadTossPayments } from '@tosspayments/tosspayments-sdk';
+
 import { getBackendUrl } from '@/lib/api';
 
 const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY ;
@@ -261,55 +261,66 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
     // 사용자 정보 불러오기
     fetchUserInfo();
 
-    // SDK 로드 및 초기화 (공식 패키지 방식)
+    // SDK 로드 및 초기화 (CDN 방식으로 변경)
     (async () => {
       try {
         if (!CLIENT_KEY || CLIENT_KEY.trim().length === 0) {
-          console.error('환경변수 NEXT_PUBLIC_TOSS_CLIENT_KEY 가 설정되지 않았습니다. .env.local 에 테스트 클라이언트 키를 설정하고 dev 서버를 재시작하세요.');
+          console.error('환경변수 NEXT_PUBLIC_TOSS_CLIENT_KEY 가 설정되지 않았습니다.');
           return;
         }
-        const tp = await loadTossPayments(CLIENT_KEY);
-        let tpNormalized: any = tp as any;
-        // 방어: 혹시 함수 형태로 반환되는 경우 초기화 시도
-        if (typeof tpNormalized === 'function') {
-          try {
-            tpNormalized = tpNormalized(CLIENT_KEY);
-          } catch (e) {
-            console.warn('tossPayments function-like instance init failed:', e);
+
+        console.log('TossPayments SDK 로드 시작');
+        console.log('CLIENT_KEY length:', CLIENT_KEY?.length);
+        console.log('CLIENT_KEY starts with:', CLIENT_KEY?.substring(0, 10));
+        console.log('Current domain:', window.location.hostname);
+        console.log('Current protocol:', window.location.protocol);
+
+        // CDN 스크립트 로드
+        await new Promise<void>((resolve, reject) => {
+          const existing = document.querySelector('script[src="https://js.tosspayments.com/v2/standard"]');
+          if (existing) {
+            console.log('TossPayments script already exists');
+            resolve();
+            return;
           }
-        }
-        if (!tpNormalized || typeof tpNormalized.payment !== 'function') {
-          console.error('Invalid TossPayments instance. Shape:', tpNormalized);
-          // Fallback: CDN 스크립트 태그로 로드 시도
-          await new Promise<void>((resolve, reject) => {
-            const existing = document.querySelector('script[src="https://js.tosspayments.com/v2/standard"]');
-            if (existing) existing.remove();
-            const script = document.createElement('script');
-            script.src = 'https://js.tosspayments.com/v2/standard';
-            script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('TossPayments CDN script load failed'));
-            document.head.appendChild(script);
-          });
-          const globalTP: any = (window as any).TossPayments;
-          if (typeof globalTP === 'function') {
-            const tpFromCdn = globalTP(CLIENT_KEY);
-            if (tpFromCdn && typeof tpFromCdn.payment === 'function') {
-              console.log('TossPayments loaded via CDN fallback');
-              setTossPayments(tpFromCdn);
-              return;
-            } else {
-              console.error('CDN TossPayments invalid:', tpFromCdn);
-            }
+
+          const script = document.createElement('script');
+          script.src = 'https://js.tosspayments.com/v2/standard';
+          script.async = true;
+          script.onload = () => {
+            console.log('TossPayments CDN script loaded successfully');
+            resolve();
+          };
+          script.onerror = () => {
+            console.error('TossPayments CDN script load failed');
+            reject(new Error('TossPayments CDN script load failed'));
+          };
+          document.head.appendChild(script);
+        });
+
+        // 전역 TossPayments 객체 확인
+        const globalTP: any = (window as any).TossPayments;
+        console.log('Global TossPayments available:', typeof globalTP);
+
+        if (typeof globalTP === 'function') {
+          const tpInstance = globalTP(CLIENT_KEY);
+          console.log('TossPayments instance created:', tpInstance);
+          console.log('TossPayments instance keys:', Object.keys(tpInstance || {}));
+          
+          if (tpInstance && typeof tpInstance.payment === 'function') {
+            console.log('TossPayments payment method available');
+            setTossPayments(tpInstance);
           } else {
-            console.error('Global TossPayments not available after CDN load:', globalTP);
+            console.error('TossPayments payment method not available');
+            console.error('Available methods:', Object.keys(tpInstance || {}));
+            throw new Error('TossPayments payment method not available');
           }
         } else {
-          console.log("TossPayments loaded via SDK:", tpNormalized);
-          setTossPayments(tpNormalized);
+          console.error('Global TossPayments is not a function:', globalTP);
+          throw new Error('TossPayments not available');
         }
       } catch (error) {
-        console.error("TossPayments v2 SDK 로드 실패:", error);
+        console.error("TossPayments SDK 로드 실패:", error);
         onFail(error);
       }
     })();
@@ -317,19 +328,33 @@ export default function PaymentPage({ items, onBack, onSuccess, onFail }: Paymen
 
   // tossPayments와 userInfo가 준비되면 payment 인스턴스를 미리 생성
   useEffect(() => {
-    if (!tossPayments || !userInfo) return;
+    if (!tossPayments || !userInfo) {
+      console.log('Payment instance creation skipped:', { 
+        hasTossPayments: !!tossPayments, 
+        hasUserInfo: !!userInfo 
+      });
+      return;
+    }
+    
     try {
       const customerKey = `customer_${userInfo.id}`;
+      console.log('Creating payment instance with customerKey:', customerKey);
+      
       if (typeof tossPayments.payment === 'function') {
         const p = tossPayments.payment({ customerKey });
+        console.log('Payment instance created:', p);
+        console.log('Payment instance methods:', Object.keys(p || {}));
+        
         if (p && typeof p.requestPayment === 'function') {
           setPayment(p);
-          console.log('Payment instance prepared');
+          console.log('Payment instance prepared successfully');
         } else {
-          console.error('payment instance invalid:', p);
+          console.error('Payment instance invalid - requestPayment not available:', p);
+          console.error('Available methods:', Object.keys(p || {}));
         }
       } else {
-        console.error('tossPayments.payment is not a function. keys:', Object.keys(tossPayments || {}));
+        console.error('tossPayments.payment is not a function');
+        console.error('Available tossPayments methods:', Object.keys(tossPayments || {}));
       }
     } catch (e) {
       console.error('Failed to create payment instance:', e);
