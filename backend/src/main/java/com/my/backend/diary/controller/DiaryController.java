@@ -6,6 +6,10 @@ import com.my.backend.diary.dto.DiaryUpdateDto;
 import com.my.backend.diary.service.DiaryService;
 import com.my.backend.global.security.user.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,24 +38,50 @@ public class DiaryController {
     }
 
     @GetMapping
-    public ResponseEntity<List<DiaryResponseDto>> getDiaries(@RequestParam(required = false) String category) {
+    public ResponseEntity<Page<DiaryResponseDto>> getDiaries(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "7") int size,
+            @RequestParam(required = false) String category,
+            @RequestParam(defaultValue = "latest") String sort,
+            @RequestParam(required = false) String date) {
+        
         // 현재 로그인한 사용자 정보 가져오기
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         Long userId = userDetails.getAccount().getId();
         String userRole = userDetails.getAccount().getRole();
         
-        // 카테고리 파라미터가 있으면 카테고리별 조회, 없으면 전체 조회
-        if (category != null && !category.trim().isEmpty()) {
-            return ResponseEntity.ok(diaryService.getDiariesByCategory(category, userId, userRole));
+        // 정렬 기준 설정 (기본값: latest -> createdAt DESC)
+        Sort sortObj;
+        if ("latest".equals(sort)) {
+            sortObj = Sort.by(Sort.Direction.DESC, "createdAt");
+        } else if ("oldest".equals(sort)) {
+            sortObj = Sort.by(Sort.Direction.ASC, "createdAt");
+        } else {
+            // 기본값은 latest
+            sortObj = Sort.by(Sort.Direction.DESC, "createdAt");
+        }
+        
+        Pageable pageable = PageRequest.of(page, size, sortObj);
+        Page<DiaryResponseDto> result;
+        
+        // 날짜 파라미터가 있으면 날짜별 조회
+        if (date != null && !date.trim().isEmpty()) {
+            result = diaryService.getDiariesByDateWithPaging(date, userId, userRole, pageable);
+        }
+        // 카테고리 파라미터가 있으면 카테고리별 조회
+        else if (category != null && !category.trim().isEmpty()) {
+            result = diaryService.getDiariesByCategoryWithPaging(category, userId, userRole, pageable);
         } else {
             // 관리자인 경우 모든 일기 반환, 일반 사용자는 자신의 일기만 반환
             if ("ADMIN".equals(userRole)) {
-                return ResponseEntity.ok(diaryService.getAllDiaries());
+                result = diaryService.getAllDiariesWithPaging(pageable);
             } else {
-                return ResponseEntity.ok(diaryService.getUserDiaries(userId));
+                result = diaryService.getUserDiariesWithPaging(userId, pageable);
             }
         }
+        
+        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/user/{userId}")
