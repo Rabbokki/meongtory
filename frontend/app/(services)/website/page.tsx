@@ -1209,28 +1209,29 @@ export default function PetServiceWebsite() {
       default:
         return (
           <div className="min-h-screen bg-white">
-            <section className="bg-gradient-to-br from-yellow-50 to-orange-50 py-12 sm:py-16 md:py-20">
+            <section className="bg-gradient-to-br from-yellow-50 to-orange-50 py-16 sm:py-20 md:py-24">
               <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
-                  <div className="space-y-4 sm:space-y-6 text-center lg:text-left">
-                    <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight">
+                <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+                  <div className="space-y-6 text-center lg:text-left">
+                    <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight">
                       펫보험 추천으로
-                      <br className="hidden sm:block" />더 편한
                       <br className="hidden sm:block" />
-                      반려 라이프를 즐기세요
+                      더 편한 반려 라이프
                     </h1>
-                    <p className="text-lg sm:text-xl text-gray-600 max-w-lg lg:max-w-none mx-auto lg:mx-0">우리 아이의 시간을 더 행복하게, 반려동물의 삶을 더 편하게</p>
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center lg:justify-start">
+                    <p className="text-lg sm:text-xl text-gray-600 max-w-lg lg:max-w-none mx-auto lg:mx-0 leading-relaxed">
+                      우리 아이의 시간을 더 행복하게, 반려동물의 삶을 더 편하게
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                       <Button 
                         onClick={() => router.push("/insurance")}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-sm sm:text-base"
+                        className="bg-yellow-500 hover:bg-yellow-600 text-white px-8 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 text-base"
                       >
                         펫보험 추천받기
                       </Button>
                       <Button 
                         variant="outline"
                         onClick={() => router.push("/store")}
-                        className="border-2 border-yellow-500 text-yellow-600 hover:bg-yellow-500 hover:text-white px-6 sm:px-8 py-2.5 sm:py-3 rounded-lg font-semibold transition-all duration-300 text-sm sm:text-base"
+                        className="border-2 border-yellow-500 text-yellow-600 hover:bg-yellow-500 hover:text-white px-8 py-3 rounded-lg font-semibold transition-all duration-300 text-base"
                       >
                         펫용품 쇼핑
                       </Button>
@@ -1243,72 +1244,69 @@ export default function PetServiceWebsite() {
                         alt="Pet service interface mockup"
                         width={600}
                         height={400}
-                        className="w-full h-auto rounded-xl sm:rounded-2xl shadow-xl sm:shadow-2xl"
+                        className="w-full h-auto rounded-2xl shadow-2xl"
                       />
                     </div>
-                    <div className="absolute -bottom-6 sm:-bottom-10 -right-6 sm:-right-10 w-20 h-20 sm:w-32 sm:h-32 bg-yellow-200 rounded-full opacity-50 animate-pulse"></div>
-                    <div className="absolute -top-6 sm:-top-10 -left-6 sm:-left-10 w-16 h-16 sm:w-24 sm:h-24 bg-orange-200 rounded-full opacity-30 animate-bounce"></div>
                   </div>
                 </div>
               </div>
             </section>
-            <section className="py-12 sm:py-16 md:py-20 bg-gradient-to-br from-gray-50 to-white">
+            
+            <section className="py-16 sm:py-20 md:py-24 bg-white">
               <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-12 sm:mb-16">
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">우리 아이를 위한 모든 것</h2>
-                  <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto px-4">입양부터 쇼핑, 보험까지 반려동물과 함께하는 행복한 라이프스타일</p>
+                <div className="text-center mb-16">
+                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6">우리 아이를 위한 모든 것</h2>
+                  <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">입양부터 쇼핑, 보험까지 반려동물과 함께하는 행복한 라이프스타일</p>
                 </div>
-                <div className="grid md:grid-cols-2 gap-6 sm:gap-8 justify-center max-w-6xl mx-auto">
-                  <Card className="relative overflow-hidden bg-white shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border-0 rounded-xl sm:rounded-2xl">
-                    <div className="absolute top-3 sm:top-4 right-3 sm:right-4 bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-bold transform rotate-12 shadow-lg">
-                      NEW
-                    </div>
-                    <CardHeader className="text-center pb-4 sm:pb-6 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-t-xl sm:rounded-t-2xl">
-                      <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 border-b-4 border-yellow-400 inline-block pb-2 sm:pb-3">
+                <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
+                  <Card className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 border-0 rounded-xl overflow-hidden">
+                    <CardHeader className="text-center pb-6 bg-gradient-to-r from-yellow-50 to-orange-50">
+                      <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-900">
                         🏠 입양 & 상담
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6 sm:space-y-8 p-4 sm:p-6 md:p-8">
-                      <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                        <button onClick={() => router.push("/adoption")} className="group text-center space-y-3 sm:space-y-4 w-full p-3 sm:p-4 rounded-lg sm:rounded-xl hover:bg-yellow-50 transition-all duration-300">
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                            <Heart className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-600 fill-yellow-600" />
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-2 gap-6">
+                        <button onClick={() => router.push("/adoption")} className="group text-center space-y-4 p-4 rounded-lg hover:bg-yellow-50 transition-all duration-300">
+                          <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto group-hover:scale-105 transition-transform duration-300">
+                            <Heart className="w-8 h-8 text-yellow-600 fill-yellow-600" />
                           </div>
-                          <p className="text-sm sm:text-base font-semibold text-gray-800 group-hover:text-yellow-600 transition-colors">보호소 입양</p>
+                          <p className="text-sm font-semibold text-gray-800">보호소 입양</p>
                         </button>
-                        <button onClick={() => router.push("/agent")} className="group text-center space-y-3 sm:space-y-4 w-full p-3 sm:p-4 rounded-lg sm:rounded-xl hover:bg-yellow-50 transition-all duration-300">
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                            <MessageSquare className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-600" />
+                        <button onClick={() => router.push("/agent")} className="group text-center space-y-4 p-4 rounded-lg hover:bg-yellow-50 transition-all duration-300">
+                          <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto group-hover:scale-105 transition-transform duration-300">
+                            <MessageSquare className="w-8 h-8 text-yellow-600" />
                           </div>
-                          <p className="text-sm sm:text-base font-semibold text-gray-800 group-hover:text-yellow-600 transition-colors">AI 입양 상담</p>
+                          <p className="text-sm font-semibold text-gray-800">AI 입양 상담</p>
                         </button>
                         {isAdmin && isLoggedIn && (
                           <button
                             onClick={() => router.push("/adoption/register")}
-                            className="group text-center space-y-3 sm:space-y-4 w-full p-3 sm:p-4 rounded-lg sm:rounded-xl hover:bg-yellow-50 transition-all duration-300 col-span-2"
+                            className="group text-center space-y-4 p-4 rounded-lg hover:bg-yellow-50 transition-all duration-300 col-span-2"
                           >
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                              <Search className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-600" />
+                            <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto group-hover:scale-105 transition-transform duration-300">
+                              <Search className="w-8 h-8 text-yellow-600" />
                             </div>
-                            <p className="text-sm sm:text-base font-semibold text-gray-800 group-hover:text-yellow-600 transition-colors">동물 등록</p>
+                            <p className="text-sm font-semibold text-gray-800">동물 등록</p>
                           </button>
                         )}
                       </div>
                     </CardContent>
                   </Card>
-                  <Card className="bg-white shadow-xl hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 border-0 rounded-xl sm:rounded-2xl">
-                    <CardHeader className="text-center pb-4 sm:pb-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-t-xl sm:rounded-t-2xl">
-                      <CardTitle className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 border-b-4 border-green-400 inline-block pb-2 sm:pb-3">
+                  
+                  <Card className="bg-white shadow-lg hover:shadow-xl transition-all duration-300 border-0 rounded-xl overflow-hidden">
+                    <CardHeader className="text-center pb-6 bg-gradient-to-r from-green-50 to-emerald-50">
+                      <CardTitle className="text-2xl sm:text-3xl font-bold text-gray-900">
                         🛍️ 스토어 & 쇼핑
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-6 sm:space-y-8 p-4 sm:p-6 md:p-8">
-                      <div className="grid grid-cols-2 gap-4 sm:gap-6">
-                        <button onClick={() => router.push("/store")} className="group text-center space-y-3 sm:space-y-4 w-full p-3 sm:p-4 rounded-lg sm:rounded-xl hover:bg-green-50 transition-all duration-300">
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                            <Store className="w-8 h-8 sm:w-10 sm:h-10 text-green-600" />
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-2 gap-6">
+                        <button onClick={() => router.push("/store")} className="group text-center space-y-4 p-4 rounded-lg hover:bg-green-50 transition-all duration-300">
+                          <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mx-auto group-hover:scale-105 transition-transform duration-300">
+                            <Store className="w-8 h-8 text-green-600" />
                           </div>
-                          <p className="text-sm sm:text-base font-semibold text-gray-800 group-hover:text-green-600 transition-colors">펫용품 쇼핑</p>
+                          <p className="text-sm font-semibold text-gray-800">펫용품 쇼핑</p>
                         </button>
                         <button
                           onClick={() => {
@@ -1319,17 +1317,17 @@ export default function PetServiceWebsite() {
                               router.push("/store/cart");
                             }
                           }}
-                          className="group text-center space-y-3 sm:space-y-4 w-full p-3 sm:p-4 rounded-lg sm:rounded-xl hover:bg-green-50 transition-all duration-300 relative"
+                          className="group text-center space-y-4 p-4 rounded-lg hover:bg-green-50 transition-all duration-300 relative"
                         >
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-green-100 to-emerald-100 rounded-xl sm:rounded-2xl flex items-center justify-center mx-auto group-hover:scale-110 transition-transform duration-300 shadow-lg relative">
-                            <ShoppingCart className="w-8 h-8 sm:w-10 sm:h-10 text-green-600" />
+                          <div className="w-16 h-16 bg-green-100 rounded-xl flex items-center justify-center mx-auto group-hover:scale-105 transition-transform duration-300 relative">
+                            <ShoppingCart className="w-8 h-8 text-green-600" />
                             {isLoggedIn && cart.length > 0 && (
-                              <span className="absolute -top-1 sm:-top-2 -right-1 sm:-right-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center font-bold shadow-lg animate-pulse">
+                              <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
                                 {cart.length}
                               </span>
                             )}
                           </div>
-                          <p className="text-sm sm:text-base font-semibold text-gray-800 group-hover:text-green-600 transition-colors">장바구니</p>
+                          <p className="text-sm font-semibold text-gray-800">장바구니</p>
                         </button>
                       </div>
                     </CardContent>
@@ -1338,58 +1336,60 @@ export default function PetServiceWebsite() {
               </div>
             </section>
             
-            {/* 새로운 섹션: 서비스 하이라이트 */}
-            <section className="py-12 sm:py-16 md:py-20 bg-gradient-to-br from-yellow-50 to-orange-50">
+            {/* 서비스 하이라이트 섹션 */}
+            <section className="py-16 sm:py-20 md:py-24 bg-gray-50">
               <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="text-center mb-12 sm:mb-16">
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 sm:mb-4">특별한 서비스</h2>
-                  <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto px-4">AI 기술과 함께하는 스마트한 반려동물 케어</p>
+                <div className="text-center mb-16">
+                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-6">특별한 서비스</h2>
+                  <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto">AI 기술과 함께하는 스마트한 반려동물 케어</p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
-                  <div className="text-center group">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                      <MessageSquare className="w-10 h-10 sm:w-12 sm:h-12 text-blue-600" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                  <div className="text-center group bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div className="w-20 h-20 bg-blue-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform duration-300">
+                      <MessageSquare className="w-10 h-10 text-blue-600" />
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">AI 챗봇</h3>
-                    <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-2">24시간 언제든 반려동물 관련 질문에 답변해드립니다</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">AI 챗봇</h3>
+                    <p className="text-gray-600 leading-relaxed">24시간 언제든 반려동물 관련 질문에 답변해드립니다</p>
                   </div>
-                  <div className="text-center group">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                      <Heart className="w-10 h-10 sm:w-12 sm:h-12 text-purple-600" />
+                  
+                  <div className="text-center group bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300">
+                    <div className="w-20 h-20 bg-purple-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform duration-300">
+                      <Heart className="w-10 h-10 text-purple-600" />
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">펫보험 추천</h3>
-                    <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-2">AI가 분석한 맞춤형 펫보험 상품을 추천해드립니다</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">펫보험 추천</h3>
+                    <p className="text-gray-600 leading-relaxed">AI가 분석한 맞춤형 펫보험 상품을 추천해드립니다</p>
                   </div>
-                  <div className="text-center group sm:col-span-2 lg:col-span-1">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-green-100 to-emerald-100 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6 group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                      <Store className="w-10 h-10 sm:w-12 sm:h-12 text-green-600" />
+                  
+                  <div className="text-center group bg-white p-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 sm:col-span-2 lg:col-span-1">
+                    <div className="w-20 h-20 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-105 transition-transform duration-300">
+                      <Store className="w-10 h-10 text-green-600" />
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-3 sm:mb-4">스마트 쇼핑</h3>
-                    <p className="text-sm sm:text-base text-gray-600 leading-relaxed px-2">개인화된 펫용품 추천과 편리한 쇼핑 경험</p>
+                    <h3 className="text-xl font-bold text-gray-900 mb-4">스마트 쇼핑</h3>
+                    <p className="text-gray-600 leading-relaxed">개인화된 펫용품 추천과 편리한 쇼핑 경험</p>
                   </div>
                 </div>
               </div>
             </section>
             
-            {/* 새로운 섹션: 통계 및 성과 */}
-            <section className="py-12 sm:py-16 md:py-20 bg-white">
+            {/* 통계 섹션 */}
+            <section className="py-16 sm:py-20 md:py-24 bg-white">
               <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 max-w-6xl mx-auto">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 max-w-4xl mx-auto">
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-yellow-600 mb-1 sm:mb-2">500+</div>
-                    <p className="text-sm sm:text-base text-gray-600">입양 성공</p>
+                    <div className="text-3xl sm:text-4xl font-bold text-yellow-600 mb-2">500+</div>
+                    <p className="text-gray-600">입양 성공</p>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-green-600 mb-1 sm:mb-2">1,200+</div>
-                    <p className="text-sm sm:text-base text-gray-600">상품 판매</p>
+                    <div className="text-3xl sm:text-4xl font-bold text-green-600 mb-2">1,200+</div>
+                    <p className="text-gray-600">상품 판매</p>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600 mb-1 sm:mb-2">800+</div>
-                    <p className="text-sm sm:text-base text-gray-600">보험 가입</p>
+                    <div className="text-3xl sm:text-4xl font-bold text-blue-600 mb-2">800+</div>
+                    <p className="text-gray-600">보험 가입</p>
                   </div>
                   <div className="text-center">
-                    <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-600 mb-1 sm:mb-2">2,000+</div>
-                    <p className="text-sm sm:text-base text-gray-600">만족 고객</p>
+                    <div className="text-3xl sm:text-4xl font-bold text-purple-600 mb-2">2,000+</div>
+                    <p className="text-gray-600">만족 고객</p>
                   </div>
                 </div>
               </div>
