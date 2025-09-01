@@ -463,7 +463,7 @@ export default function Navigation() {
       };
       
       fetchUserDetails();
-      toast.success("OAuth2 로그인에 성공했습니다!", { duration: 5000 });
+      toast.success("로그인에 성공했습니다", { duration: 5000 });
       
       // URL 파라미터 정리
       window.history.replaceState({}, document.title, window.location.pathname);

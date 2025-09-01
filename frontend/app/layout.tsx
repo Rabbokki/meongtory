@@ -39,7 +39,7 @@ export default function RootLayout({
             {children}
             <Chatbot />
             <Toaster />
-            <HotToaster position="top-center" reverseOrder={false} />
+            <HotToaster position="top-left" reverseOrder={false} />
           </AuthProvider>
         </QueryProvider>
       </body>
