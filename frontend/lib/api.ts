@@ -9,8 +9,10 @@ export const getBackendUrl = () => {
 // 인증이 필요 없는 엔드포인트 목록
 const PUBLIC_ENDPOINTS = [
   '/accounts/register',
-  '/accounts/login', // 로그인 엔드포인트도 추가 (필요한 경우)
+  '/accounts/login', 
   '/accounts/refresh',
+  '/naver-shopping', 
+  '/products', 
 ];
 
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가

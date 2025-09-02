@@ -5,7 +5,16 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Package, User, Calendar, DollarSign, Eye, AlertCircle, XCircle, Loader2 } from "lucide-react"
-import { Order } from "@/types/store"
+import { OrderItem } from "@/types/store"
+
+interface Order {
+  orderId: number
+  userId: number
+  amount: number
+  paymentStatus: "PENDING" | "COMPLETED" | "CANCELLED"
+  orderedAt: string
+  orderItems: OrderItem[]
+}
 import axios from "axios"
 import { getBackendUrl } from "@/lib/api";
 import { formatToKST } from "@/lib/utils"
@@ -25,6 +34,11 @@ export default function OrdersTab({
   const [loadingMore, setLoadingMore] = useState(false)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadingRef = useRef<HTMLDivElement>(null)
+
+  // HTML 태그 제거 함수
+  const removeHtmlTags = (text: string) => {
+    return text.replace(/<[^>]*>/g, '');
+  };
 
   // 주문 데이터 페칭 (초기 로딩)
   const fetchOrders = async (isInitial = true) => {
@@ -273,7 +287,7 @@ export default function OrdersTab({
       <div className="text-center py-8">
         <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
         <p className="text-red-600">데이터를 불러오는 중 오류가 발생했습니다.</p>
-        <Button onClick={fetchOrders} className="mt-4">
+        <Button onClick={() => fetchOrders()} className="mt-4">
           다시 시도
         </Button>
       </div>
@@ -292,7 +306,7 @@ export default function OrdersTab({
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-3">
-                      <h3 className="font-semibold">주문 #{order.orderId || order.id || 'N/A'}</h3>
+                                             <h3 className="font-semibold">주문 #{order.orderId || 'N/A'}</h3>
                       <Badge 
                         className={
                           order.paymentStatus === "COMPLETED"
@@ -358,7 +372,7 @@ export default function OrdersTab({
                                 }}
                               />
                               <div className="flex-1">
-                                <p className="text-sm font-medium">{item.productName || "상품명 없음"}</p>
+                                <p className="text-sm font-medium">{item.productName ? removeHtmlTags(item.productName) : "상품명 없음"}</p>
                                 <p className="text-xs text-gray-500">
                                   상품 ID: {item.productId || "N/A"} | {(item.price || 0).toLocaleString()}원 × {item.quantity || 1}개
                                 </p>

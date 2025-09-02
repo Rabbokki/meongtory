@@ -18,9 +18,26 @@ import { useQueryClient } from "@tanstack/react-query"
 // axios 인터셉터 설정 - 요청 시 인증 토큰 자동 추가
 axios.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('accessToken');
-    if (token) {
-      config.headers.Authorization = `${token}`;
+    // 공개 엔드포인트 목록
+    const PUBLIC_ENDPOINTS = [
+      '/accounts/register',
+      '/accounts/login',
+      '/accounts/refresh',
+      '/naver-shopping',
+      '/products'
+    ];
+    
+    // PUBLIC_ENDPOINTS에 포함된 경로에는 토큰을 추가하지 않음
+    const isPublicEndpoint = PUBLIC_ENDPOINTS.some((endpoint) =>
+      config.url?.includes(endpoint)
+    );
+    
+    if (!isPublicEndpoint) {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        config.headers.Authorization = `${token}`;
+        config.headers['Access_Token'] = token;
+      }
     }
     return config;
   },
@@ -631,8 +648,20 @@ export default function StorePage({
       // 검색어가 없으면 검색 모드 해제
       setIsSearchMode(false)
       setSearchKeyword("")
+      setAiSearchResults([])
+      // React Query 캐시도 초기화
+      queryClient.removeQueries({ queryKey: ['naverProductSearch'] })
+      queryClient.removeQueries({ queryKey: ['embeddingSearch'] })
       return;
     }
+
+    // 새로운 검색 시작 시 이전 결과 초기화
+    setAiSearchResults([])
+    setSearchKeyword("")
+    
+    // React Query 캐시 초기화
+    queryClient.removeQueries({ queryKey: ['naverProductSearch'] })
+    queryClient.removeQueries({ queryKey: ['embeddingSearch'] })
 
     // @MyPet이 있는 경우 백엔드 통합 검색 API 호출 (기존 로직 유지)
     const petMatches = searchQuery.match(/@([ㄱ-ㅎ가-힣a-zA-Z0-9_]+)/g)
@@ -1107,6 +1136,11 @@ export default function StorePage({
                 setSelectedCategory(null);
                 setIsSearchMode(false);
                 setSearchKeyword("");
+                setSearchQuery(""); 
+                setAiSearchResults([]); 
+                // React Query 캐시도 초기화
+                queryClient.removeQueries({ queryKey: ['naverProductSearch'] })
+                queryClient.removeQueries({ queryKey: ['embeddingSearch'] })
               }}
             >
               <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-colors ${
@@ -1125,6 +1159,11 @@ export default function StorePage({
                   setSelectedCategory(category.key);
                   setIsSearchMode(false);
                   setSearchKeyword("");
+                  setSearchQuery(""); 
+                  setAiSearchResults([]); 
+                  // React Query 캐시도 초기화
+                  queryClient.removeQueries({ queryKey: ['naverProductSearch'] })
+                  queryClient.removeQueries({ queryKey: ['embeddingSearch'] })
                 }}
               >
                 <div className={`w-16 h-16 rounded-full flex items-center justify-center text-2xl transition-colors ${
@@ -1180,9 +1219,6 @@ export default function StorePage({
             {/* 우리 스토어 상품들 */}
             {sortedLocalProducts.map((product, index) => (
               <Card key={`local-${product.id}-${index}`} className="group cursor-pointer hover:shadow-lg transition-shadow relative">
-                <div className="absolute top-2 right-2 bg-green-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
-                  멍토리
-                </div>
                 <div className="relative">
                   <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden cursor-pointer" onClick={() => window.location.href = `/store/${product.id}`}>
                     <img
@@ -1193,10 +1229,12 @@ export default function StorePage({
                   </div>
                 </div>
                 <CardContent className="p-4 cursor-pointer" onClick={() => window.location.href = `/store/${product.id}`}>
-                  <div className="h-[3rem] mb-2 flex flex-col justify-start">
-                    <h3 className="font-medium text-sm text-gray-900 line-clamp-2 leading-tight">{product.name}</h3>
+                  <div className="h-[3rem] mb-1 flex flex-col justify-start">
+                    <h3 className="font-semibold text-sm text-gray-900 line-clamp-2 leading-tight">{product.name}</h3>
                     <div className="flex-1"></div>
                   </div>
+                  <p className="text-xs text-gray-500 mb-1">멍토리</p>
+                  <p className="text-xs text-blue-600 mb-2">{product.category || '용품'}</p>
                   <p className="text-lg font-bold text-yellow-600">{product.price.toLocaleString()}원</p>
                   {product.stock === 0 && (
                     <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
