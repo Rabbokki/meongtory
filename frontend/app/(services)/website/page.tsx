@@ -1626,7 +1626,7 @@ export default function PetServiceWebsite() {
                       variant="outline"
                       size="lg"
                       onClick={() => router.push("/store")}
-                      className="w-full border-white text-white hover:bg-white hover:text-slate-900"
+                      className="w-full border-white text-black hover:bg-white hover:text-slate-900"
                     >
                       쇼핑하기
                     </LegodtButton>

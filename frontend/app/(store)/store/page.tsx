@@ -1272,7 +1272,7 @@ export default function StorePage({
                     <img
                       src={naverProduct.imageUrl}
                       alt={naverProduct.title}
-                      className="w-full h-full object-contain p-2 sm:p-3 group-hover:scale-[1.02] transition-transform duration-200"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = '/placeholder.svg?height=300&width=300';
