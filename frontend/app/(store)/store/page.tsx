@@ -1211,7 +1211,7 @@ export default function StorePage({
             {sortedNaverProducts.map((naverProduct, index) => (
               <Card 
                 key={`naver-${naverProduct.id}-${index}`} 
-                className="group cursor-pointer hover:shadow-lg transition-shadow relative"
+                className="group cursor-pointer relative border border-gray-100 hover:border-yellow-300 hover:shadow-lg hover:shadow-yellow-100/60 transition-all duration-200 will-change-transform"
                 ref={index === sortedNaverProducts.length - 1 ? lastElementRef : undefined}
               >
                 <div className="relative" onClick={() => {
@@ -1230,11 +1230,11 @@ export default function StorePage({
                     window.location.href = `/store/naver/${encodedId}`;
                   }
                 }}>
-                  <div className="aspect-square bg-gray-100 rounded-t-lg overflow-hidden">
+                  <div className="aspect-square bg-white rounded-t-lg overflow-hidden ring-1 ring-gray-100">
                     <img
                       src={naverProduct.imageUrl}
                       alt={naverProduct.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      className="w-full h-full object-contain p-2 sm:p-3 group-hover:scale-[1.02] transition-transform duration-200"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
                         target.src = '/placeholder.svg?height=300&width=300';
@@ -1242,6 +1242,9 @@ export default function StorePage({
                     />
                   </div>
 
+                  <div className="absolute top-2 right-2 bg-emerald-500 text-white px-2 py-1 rounded text-[10px] font-bold z-10 shadow-sm">
+                    네이버
+                  </div>
                   {savingProducts.has(naverProduct.productId) && (
                     <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
                       저장중...
@@ -1296,15 +1299,21 @@ export default function StorePage({
                     }
                   }}>
                     <div className="h-[3rem] mb-1 flex flex-col justify-start">
-                      <h3 className="font-semibold text-sm text-gray-900 line-clamp-2">
+                      <h3 className="font-semibold text-sm text-gray-900/90 leading-tight line-clamp-2">
                         {removeHtmlTags(naverProduct.title)}
                       </h3>
                       <div className="flex-1"></div>
                     </div>
-                    <p className="text-xs text-gray-500 mb-1">{naverProduct.mallName}</p>
-                    <p className="text-xs text-blue-600 mb-2">{naverProduct.category1 || '용품'}</p>
-                    <div className="mb-2">
-                      <span className="text-lg font-bold text-yellow-600">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="inline-flex items-center rounded-full bg-gray-100 text-gray-600 px-2 py-0.5 text-[11px]">
+                        {naverProduct.mallName}
+                      </span>
+                      <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-600 px-2 py-0.5 text-[11px]">
+                        {naverProduct.category1 || '용품'}
+                      </span>
+                    </div>
+                    <div className="mb-1">
+                      <span className="text-lg font-extrabold text-yellow-600 tracking-tight">
                         {naverProduct.price ? naverProduct.price.toLocaleString() : '가격 정보 없음'}원
                       </span>
                     </div>
