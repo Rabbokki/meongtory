@@ -64,11 +64,7 @@ export function ProductRecommendationCard({
           <Badge className="absolute top-2 left-2 bg-orange-500 hover:bg-orange-600">
             AI 추천
           </Badge>
-          {product.source === 'NAVER' && (
-            <Badge className="absolute top-2 right-2 bg-green-500 hover:bg-green-600">
-              네이버
-            </Badge>
-          )}
+          {/* 네이버 뱃지 제거 */}
           {/* 임베딩 검색 유사도 점수 표시 (관리자만) */}
           {canViewSimilarity && product.similarity !== undefined && (
             <div className="absolute bottom-2 left-2 bg-purple-500 text-white px-2 py-1 rounded text-xs font-bold z-10">

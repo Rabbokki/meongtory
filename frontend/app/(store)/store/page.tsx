@@ -1280,9 +1280,7 @@ export default function StorePage({
                     />
                   </div>
 
-                  <div className="absolute top-2 right-2 bg-emerald-500 text-white px-2 py-1 rounded text-[10px] font-bold z-10 shadow-sm">
-                    네이버
-                  </div>
+                  {/* 네이버 배지 제거 */}
                   {savingProducts.has(naverProduct.productId) && (
                     <div className="absolute top-2 left-2 bg-yellow-500 text-white px-2 py-1 rounded text-xs font-bold z-10">
                       저장중...
@@ -1347,7 +1345,7 @@ export default function StorePage({
                         {naverProduct.mallName}
                       </span>
                       <span className="inline-flex items-center rounded-full bg-blue-50 text-blue-600 px-2 py-0.5 text-[11px]">
-                        {naverProduct.category1 || '용품'}
+                        {selectedCategory || naverProduct.category1 || '용품'}
                       </span>
                     </div>
                     <div className="mb-1">
