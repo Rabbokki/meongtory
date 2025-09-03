@@ -7,8 +7,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.annotations.Type;
-import io.hypersistence.utils.hibernate.type.array.StringArrayType;
 
 import java.time.LocalDateTime;
 
@@ -36,8 +34,8 @@ public class Diary {
     @Column(columnDefinition = "TEXT")
     private String text;
 
-    @Type(StringArrayType.class)
     @Column(name = "categories", columnDefinition = "text[]")
+    @Convert(converter = StringArrayConverter.class)
     private String[] categories;
 
     private String audioUrl;
