@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { LegodtButton } from "@/components/ui/legodt-button";
 import { LegodtCard, LegodtCardHeader, LegodtCardTitle, LegodtCardContent } from "@/components/ui/legodt-card";
-import { Heart, Search, Store, ShoppingCart, MessageSquare } from "lucide-react";
+import { Heart, Search, Store, ShoppingCart, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import AdoptionPage from "../../(pets)/adoption/page";
 import AdoptionDetailPage from "../../(pets)/adoption/[id]/page";
 import AnimalRegistrationPage from "../../(pets)/adoption/register/page";
@@ -139,6 +139,46 @@ export default function PetServiceWebsite() {
   // 스크롤 위치에 따른 활성 섹션 추적
   const [activeSection, setActiveSection] = useState('hero');
   
+  // 이미지 슬라이드 관련 상태
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  // 슬라이드 이미지 배열 (영어 파일명)
+  const slideImages = [
+    "/corgi-licking-hand.jpg",
+    "/dog-cat-illustration.png",
+    "/golden-retriever-hug.jpg",
+    "/italian-greyhound-fashion.jpg",
+    "/golden-retriever-empathy.jpg"
+  ];
+
+  // 자동 슬라이드 효과
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => 
+        prevIndex === slideImages.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 3000); // 3초마다 이미지 변경
+
+    return () => clearInterval(interval);
+  }, [slideImages.length]);
+
+  // 수동 슬라이드 제어
+  const goToNextImage = () => {
+    setCurrentImageIndex((prevIndex) => 
+      prevIndex === slideImages.length - 1 ? 0 : prevIndex + 1
+    );
+  };
+
+  const goToPreviousImage = () => {
+    setCurrentImageIndex((prevIndex) => 
+      prevIndex === 0 ? slideImages.length - 1 : prevIndex - 1
+    );
+  };
+
+  const goToImage = (index: number) => {
+    setCurrentImageIndex(index);
+  };
+
   // 스크롤 이벤트로 활성 섹션 감지
   useEffect(() => {
     const handleScroll = () => {
@@ -1360,14 +1400,51 @@ export default function PetServiceWebsite() {
                     </div>
                   </div>
                   <div className="relative order-first lg:order-last">
-                    <div className="relative z-10">
-                      <Image
-                        src="/jjj_포메라니안.jpg"
-                        alt="Pet service interface mockup"
-                        width={600}
-                        height={400}
-                        className="w-full h-auto rounded-2xl shadow-2xl"
-                      />
+                    {/* 이미지 슬라이드 컨테이너 */}
+                    <div className="relative z-10 overflow-hidden rounded-2xl shadow-2xl">
+                      <div className="relative w-full h-[400px] lg:h-[500px]">
+                        {/* 현재 이미지 */}
+                        <Image
+                          src={slideImages[currentImageIndex]}
+                          alt={`Pet service image ${currentImageIndex + 1}`}
+                          fill
+                          className="object-cover transition-opacity duration-500"
+                          priority
+                        />
+                        
+                        {/* 이전/다음 버튼 */}
+                        <button
+                          onClick={goToPreviousImage}
+                          className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-slate-800 p-2 rounded-full shadow-lg transition-all duration-200 hover:scale-110"
+                          aria-label="이전 이미지"
+                        >
+                          <ChevronLeft className="w-5 h-5" />
+                        </button>
+                        
+                        <button
+                          onClick={goToNextImage}
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white text-slate-800 p-2 rounded-full shadow-lg transition-all duration-200 hover:scale-110"
+                          aria-label="다음 이미지"
+                        >
+                          <ChevronRight className="w-5 h-5" />
+                        </button>
+                        
+                        {/* 인디케이터 */}
+                        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+                          {slideImages.map((_, index) => (
+                            <button
+                              key={index}
+                              onClick={() => goToImage(index)}
+                              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                index === currentImageIndex 
+                                  ? 'bg-yellow-500 scale-125' 
+                                  : 'bg-white/60 hover:bg-white/80'
+                              }`}
+                              aria-label={`이미지 ${index + 1}로 이동`}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1415,8 +1492,7 @@ export default function PetServiceWebsite() {
                     <LegodtCardContent className="p-6">
                       <p className="text-slate-600 text-center mb-4">AI 추천으로 우리 아이에게 딱 맞는 용품을 찾아보세요</p>
                       <div className="text-center">
-                        <span className="text-sm text-green-600 font-medium">1,200+ 상품 판매</span>
-                      </div>
+\                      </div>
                     </LegodtCardContent>
                   </LegodtCard>
 
@@ -1433,7 +1509,6 @@ export default function PetServiceWebsite() {
                     <LegodtCardContent className="p-6">
                       <p className="text-slate-600 text-center mb-4">AI가 분석한 맞춤형 펫보험으로 안심하세요</p>
                       <div className="text-center">
-                        <span className="text-sm text-blue-600 font-medium">800+ 보험 가입</span>
                       </div>
                     </LegodtCardContent>
                   </LegodtCard>
@@ -1451,7 +1526,6 @@ export default function PetServiceWebsite() {
                     <LegodtCardContent className="p-6">
                       <p className="text-slate-600 text-center mb-4">전문 AI가 최적의 반려동물을 추천해드립니다</p>
                       <div className="text-center">
-                        <span className="text-sm text-purple-600 font-medium">24/7 상담 가능</span>
                       </div>
                     </LegodtCardContent>
                   </LegodtCard>
@@ -1564,19 +1638,15 @@ export default function PetServiceWebsite() {
                     <h3 className="text-2xl font-bold text-slate-900 mb-8 text-center">우리의 성과</h3>
                     <div className="grid grid-cols-2 gap-6">
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-yellow-600 mb-2">500+</div>
                         <p className="text-slate-600 text-sm">성공적인 입양</p>
                       </div>
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-green-600 mb-2">1,200+</div>
                         <p className="text-slate-600 text-sm">상품 판매</p>
                       </div>
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-blue-600 mb-2">800+</div>
                         <p className="text-slate-600 text-sm">보험 가입</p>
                       </div>
                       <div className="text-center">
-                        <div className="text-3xl font-bold text-purple-600 mb-2">2,000+</div>
                         <p className="text-slate-600 text-sm">만족 고객</p>
                       </div>
                     </div>
