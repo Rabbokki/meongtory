@@ -1,5 +1,5 @@
 # 🐕 Meongtory - 반려견과의 일상을 더 스마트하게!
-![KakaoTalk_Photo_2025-06-27-18-59-02](https://github.com/user-attachments/assets/6199d4ca-86e7-4440-b0a1-b645990c7a38)
+![Meongtory 메인](./assets/main.png)
 #### Meongtory는 반려견과 함께하는 사람들을 위한 AI 기반 올인원 플랫폼입니다. 입양 스토리와 성장 일기, 커뮤니티, 스토어 기능을 제공하며, AI 챗봇과 이미지 분석을 통해 반려견의 건강, 기분, 행동을 더 깊이 이해할 수 있도록 돕습니다.
 ## 🎥 시연영상
 
