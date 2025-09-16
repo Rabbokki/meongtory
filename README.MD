@@ -3,7 +3,7 @@
 #### Meongtory는 반려견과 함께하는 사람들을 위한 AI 기반 올인원 플랫폼입니다. 입양 스토리와 성장 일기, 커뮤니티, 스토어 기능을 제공하며, AI 챗봇과 이미지 분석을 통해 반려견의 건강, 기분, 행동을 더 깊이 이해할 수 있도록 돕습니다.
 ## 🎥 시연영상
 
-https://youtu.be/lchUEy-PWBQ
+https://www.youtube.com/watch?v=IbkFuse7MNc
 
 <table>
   <tr>
