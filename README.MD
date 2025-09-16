@@ -97,7 +97,8 @@ https://youtu.be/lchUEy-PWBQ
 ## 😺 멤버
 |[🔰이환섭](http)|[주재정](https://github.com/Rabbokki)|[이효진](http)|[배지한](http)|[정혜선](http)|            
 |:---:|:---:|:---:|:---:|:---:|
-|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/18515cc2-4d52-4335-b7ae-989b4aa3b807">|<img width="170" alt="김병현" src="https://github.com/user-attachments/assets/54cb7bdd-8a7e-417b-9630-60ca5620b859">|<img width="150" alt="이승주" src="https://github.com/user-attachments/assets/5d909775-e3ab-4575-a8c7-0f527fff9452">|![Meongtory 배지한](./assets/heum.png)|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/87ad6957-f868-470a-bdc4-4eed93766d36">|
+|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/18515cc2-4d52-4335-b7ae-989b4aa3b807">|<img width="150" alt="김병현" src="https://github.com/user-attachments/assets/54cb7bdd-8a7e-417b-9630-60ca5620b859">|<img width="150" alt="이승주" src="https://github.com/user-attachments/assets/5d909775-e3ab-4575-a8c7-0f527fff9452">|<img width="150" alt="Meongtory 배지한" src="./assets/heum.png">|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/87ad6957-f868-470a-bdc4-4eed93766d36">|
+
 
 
 
