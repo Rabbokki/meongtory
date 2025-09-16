@@ -5,11 +5,13 @@
 
 https://youtu.be/lchUEy-PWBQ
 
-<img src="https://github.com/user-attachments/assets/597d3360-38a7-4c37-9d01-633e6b527759" width="400"/>
-<img src="https://github.com/user-attachments/assets/e9b60088-0b8e-4b57-b2f9-62c9b2041319" width="400"/>
-<img src="https://github.com/user-attachments/assets/9c26c8af-ae4e-442a-8e70-854ce7caa558" width="400"/>
-<img src="https://github.com/user-attachments/assets/2bc5db4c-04a2-4485-b666-58802398d24b" width="400"/>
-<img src="https://github.com/user-attachments/assets/3ba85a78-c9f6-4662-aa49-907e0c16e458" width="400"/>
+<img src="./assets/ai계약서.png" alt="AI 입양 계약서 생성" width="400"/>
+<img src="./assets/ai맞춤상품추천.png" alt="AI 맞춤 상품 추천" width="400"/>
+<img src="./assets/챗봇.png" alt="AI 챗봇" width="400"/>
+<img src="./assets/품종분석.png" alt="반려견 품종 분석" width="400"/>
+<img src="./assets/교배.png" alt="반려견 교배 추천" width="400"/>
+<img src="./assets/성장일기stt.png" alt="성장 일기 STT 기록" width="400"/>
+
 
 ## ✨ 기술스택
 #### FRONT-END
