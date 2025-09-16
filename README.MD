@@ -5,14 +5,19 @@
 
 https://youtu.be/lchUEy-PWBQ
 
-<div style="display: flex; flex-wrap: wrap; gap: 10px;">
-  <img src="./assets/ai계약서.png" alt="AI 입양 계약서 생성" width="200"/>
-  <img src="./assets/ai맞춤상품추천.png" alt="AI 맞춤 상품 추천" width="200"/>
-  <img src="./assets/챗봇.png" alt="AI 챗봇" width="200"/>
-  <img src="./assets/품종분석.png" alt="반려견 품종 분석" width="200"/>
-  <img src="./assets/교배.png" alt="반려견 교배 추천" width="200"/>
-  <img src="./assets/성장일기stt.png" alt="성장 일기 STT 기록" width="200"/>
-</div>
+<table>
+  <tr>
+    <td><img src="./assets/ai계약서.png" alt="AI 입양 계약서 생성" width="200"/></td>
+    <td><img src="./assets/ai맞춤상품추천.png" alt="AI 맞춤 상품 추천" width="200"/></td>
+    <td><img src="./assets/챗봇.png" alt="AI 챗봇" width="200"/></td>
+  </tr>
+  <tr>
+    <td><img src="./assets/품종분석.png" alt="반려견 품종 분석" width="200"/></td>
+    <td><img src="./assets/교배.png" alt="반려견 교배 추천" width="200"/></td>
+    <td><img src="./assets/성장일기stt.png" alt="성장 일기 STT 기록" width="200"/></td>
+  </tr>
+</table>
+
 
 ## ✨ 기술스택
 #### FRONT-END
@@ -92,7 +97,7 @@ https://youtu.be/lchUEy-PWBQ
 ## 😺 멤버
 |[🔰이환섭](http)|[주재정](https://github.com/Rabbokki)|[이효진](http)|[배지한](http)|[정혜선](http)|            
 |:---:|:---:|:---:|:---:|:---:|
-|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/18515cc2-4d52-4335-b7ae-989b4aa3b807">|<img width="170" alt="김병현" src="https://github.com/user-attachments/assets/54cb7bdd-8a7e-417b-9630-60ca5620b859">|<img width="150" alt="이승주" src="https://github.com/user-attachments/assets/5d909775-e3ab-4575-a8c7-0f527fff9452">|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/87ad6957-f868-470a-bdc4-4eed93766d36">|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/87ad6957-f868-470a-bdc4-4eed93766d36">|
+|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/18515cc2-4d52-4335-b7ae-989b4aa3b807">|<img width="170" alt="김병현" src="https://github.com/user-attachments/assets/54cb7bdd-8a7e-417b-9630-60ca5620b859">|<img width="150" alt="이승주" src="https://github.com/user-attachments/assets/5d909775-e3ab-4575-a8c7-0f527fff9452">|![Meongtory 배지한](./assets/heum.png)|<img width="150" alt="주재정" src="https://github.com/user-attachments/assets/87ad6957-f868-470a-bdc4-4eed93766d36">|
 
 
 
