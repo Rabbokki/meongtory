@@ -6,12 +6,12 @@
 https://youtu.be/lchUEy-PWBQ
 
 <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-  <img src="./assets/ai계약서.png" alt="AI 입양 계약서 생성" width="400"/>
-  <img src="./assets/ai맞춤상품추천.png" alt="AI 맞춤 상품 추천" width="400"/>
-  <img src="./assets/챗봇.png" alt="AI 챗봇" width="400"/>
-  <img src="./assets/품종분석.png" alt="반려견 품종 분석" width="400"/>
-  <img src="./assets/교배.png" alt="반려견 교배 추천" width="400"/>
-  <img src="./assets/성장일기stt.png" alt="성장 일기 STT 기록" width="400"/>
+  <img src="./assets/ai계약서.png" alt="AI 입양 계약서 생성" width="200"/>
+  <img src="./assets/ai맞춤상품추천.png" alt="AI 맞춤 상품 추천" width="200"/>
+  <img src="./assets/챗봇.png" alt="AI 챗봇" width="200"/>
+  <img src="./assets/품종분석.png" alt="반려견 품종 분석" width="200"/>
+  <img src="./assets/교배.png" alt="반려견 교배 추천" width="200"/>
+  <img src="./assets/성장일기stt.png" alt="성장 일기 STT 기록" width="200"/>
 </div>
 
 ## ✨ 기술스택
